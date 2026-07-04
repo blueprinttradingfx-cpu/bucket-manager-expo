@@ -36,7 +36,6 @@ jobs:
         run: |
           git config user.name "price-cache-bot"
           git config user.email "actions@github.com"
-          git pull --rebase
           git add public/data/prices.json
           git diff --staged --quiet && echo "No changes from backup run" && exit 0
           git commit -m "chore: filgit backup price backfill $(date -u +%Y-%m-%d)"

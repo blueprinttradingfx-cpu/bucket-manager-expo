@@ -27,45 +27,42 @@ import os
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(__file__) + "/..")
-from scrape_dragonfi import get_price_and_yield as get_from_dragonfi
+import scrape_dragonfi
 from scrape_dividends_ph import get_price_and_yield as get_from_dividends_ph
 
 TICKERS_PATH = os.path.join(os.path.dirname(__file__), "tickers.json")
-# Was ../public/data/prices.json when this script lived at repo root
-# (scripts/generate_price_cache.py). Now nested one level deeper
-# (price-scraper/scripts/generate_price_cache.py) to merge into the Expo
-# app's repo, so this needs one more ".." to land at repo-root public/data/
-# - keeping the output path predictable regardless of where the pipeline
-# itself lives.
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "public", "data", "prices.json")
-
-
-def fetch_one(ticker: str) -> tuple[dict | None, str | None]:
-    """Try dragonfi.ph first (fresher), fall back to dividends.ph per-ticker
-    if that fails. Returns (result_dict_or_None, error_string_or_None)."""
-    try:
-        data = get_from_dragonfi(ticker)
-        return {"price": data["price"], "yieldPct": data["yield_pct"], "source": "dragonfi"}, None
-    except Exception as dragonfi_error:
-        try:
-            data = get_from_dividends_ph(ticker)
-            return {"price": data["price"], "yieldPct": data["yield_pct"], "source": "dividends.ph"}, None
-        except Exception as fallback_error:
-            return None, f"dragonfi: {dragonfi_error} | dividends.ph fallback: {fallback_error}"
 
 
 def main():
     with open(TICKERS_PATH) as f:
         tickers = json.load(f)
 
+    # Batch call: ONE shared browser for the whole list, not one per ticker -
+    # this is the actual fix for the multi-minute runtime. Calling
+    # get_price_and_yield() per-ticker in a loop here would silently undo
+    # the fix in scrape_dragonfi.py, since that convenience wrapper still
+    # launches its own browser each time.
+    dragonfi_results = scrape_dragonfi.get_many(tickers)
+
     results = {}
     errors = {}
-    for ticker in tickers:
-        result, error = fetch_one(ticker)
-        if result is not None:
-            results[ticker] = result
-        else:
-            errors[ticker] = error
+    for ticker, dragonfi_result in zip(tickers, dragonfi_results):
+        if "error" not in dragonfi_result:
+            results[ticker] = {
+                "price": dragonfi_result["price"],
+                "yieldPct": dragonfi_result["yield_pct"],
+                "source": "dragonfi",
+            }
+            continue
+        # Per-ticker fallback to dividends.ph only for what dragonfi missed -
+        # small subset, so the lack of browser-reuse here doesn't matter
+        # (dividends.ph doesn't need Playwright at all).
+        try:
+            data = get_from_dividends_ph(ticker)
+            results[ticker] = {"price": data["price"], "yieldPct": data["yield_pct"], "source": "dividends.ph"}
+        except Exception as fallback_error:
+            errors[ticker] = f"dragonfi: {dragonfi_result['error']} | dividends.ph fallback: {fallback_error}"
 
     output = {
         "generatedAt": datetime.now(timezone.utc).isoformat(),

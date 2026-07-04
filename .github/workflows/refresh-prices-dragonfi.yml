@@ -35,7 +35,6 @@ jobs:
         run: |
           git config user.name "price-cache-bot"
           git config user.email "actions@github.com"
-          git pull --rebase
           git add public/data/prices.json
           git diff --staged --quiet && echo "No price changes" && exit 0
           git commit -m "chore: refresh price cache (dragonfi) $(date -u +%Y-%m-%d)"
