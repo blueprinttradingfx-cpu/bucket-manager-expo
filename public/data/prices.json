@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-07-04T00:31:10.092017+00:00",
+  "tickers": {
+    "MER": {
+      "price": 575.0,
+      "yieldPct": 4.87
+    },
+    "MREIT": {
+      "price": 14.0,
+      "yieldPct": 7.25
+    },
+    "CREIT": {
+      "price": 3.49,
+      "yieldPct": 8.62
+    },
+    "WLCON": {
+      "price": 5.64,
+      "yieldPct": 7.09
+    },
+    "RCR": {
+      "price": 7.3,
+      "yieldPct": 5.94
+    },
+    "FILRT": {
+      "price": 2.93,
+      "yieldPct": 8.16
+    },
+    "AREIT": {
+      "price": 37.4,
+      "yieldPct": 8.21
+    },
+    "LTG": {
+      "price": 14.72,
+      "yieldPct": 7.47
+    },
+    "RFM": {
+      "price": 5.68,
+      "yieldPct": 8.88
+    },
+    "GSMI": {
+      "price": 253.0,
+      "yieldPct": 8.1
+    },
+    "DMC": {
+      "price": 7.4,
+      "yieldPct": 10.54
+    },
+    "CPG": {
+      "price": 0.68,
+      "yieldPct": 7.74
+    },
+    "AP": {
+      "price": 40.0,
+      "yieldPct": 5.7
+    },
+    "CIC": {
+      "price": 12.7,
+      "yieldPct": 7.87
+    }
+  },
+  "errors": {}
+}
