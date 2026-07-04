@@ -1,21 +1,60 @@
 // screens/StockDetailScreen.tsx
 // Level 3 of the drill-down: one ticker, merged across every bucket that
-// holds it. Now includes live valuation (market value, unrealized gain,
-// current yield) when the price cache is reachable - degrades gracefully
-// to cost-basis-only otherwise, same pattern as DashboardScreen.
+// holds it. Restyled to match the Stitch design system (see
+// DashboardScreen for the full rationale). Includes live valuation
+// (market value, unrealized gain, current yield) when the price cache is
+// reachable - degrades gracefully to cost-basis-only otherwise. The
+// "Held In" list uses the same Positions table component as the other two
+// screens, just with rows keyed by bucket instead of ticker.
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
-import { AggregatedStock, ValuedAggregatedStock, applyPricesToAggregated } from '../core/bucketLogic';
+import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation } from '../core/bucketLogic';
 import { fetchPriceCache } from '../core/priceCache';
 import { DashboardStackParamList } from '../core/navigationTypes';
+import { useScreenViewLog } from '../core/useScreenViewLog';
+import { colors, spacing, radii, fonts } from '../core/theme';
+import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
 
 type Props = NativeStackScreenProps<DashboardStackParamList, 'StockDetail'>;
 
+type BucketPositionRow = ValuedStockPosition | BucketStockPosition;
+
+function isValuedPosition(p: BucketPositionRow): p is ValuedStockPosition {
+  return 'marketValue' in p;
+}
+
+function toPositionItem(item: BucketPositionRow): PositionItem {
+  const valued = isValuedPosition(item) ? item : null;
+  return {
+    key: item.bucket,
+    label: item.bucket,
+    badgeText: item.bucket.slice(0, 2).toUpperCase(),
+    badgeVariant: 'neutral',
+    qty: item.totalQty,
+    avgCost: item.avgCost,
+    costBasis: item.totalCostBasis,
+    dividends: item.totalDividends,
+    currentPrice: valued?.currentPrice ?? null,
+    marketValue: valued?.marketValue ?? null,
+    unrealizedGain: valued?.unrealizedGain ?? null,
+    unrealizedGainPct: valued?.unrealizedGainPct ?? null,
+    expandedContent: (
+      <>
+        <ExpandedRow label="Market Value" value={`₱${(valued?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+        <ExpandedRow label="Avg Cost" value={`₱${item.avgCost}`} />
+        <ExpandedRow label="Open Lots" value={String(item.openLots)} />
+        <ExpandedRow label="Dividends Earned" value={`₱${item.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} valueStyle={item.totalDividends > 0 ? { color: colors.positive } : undefined} />
+      </>
+    ),
+  };
+}
+
 export default function StockDetailScreen({ route, navigation }: Props) {
   const { ticker } = route.params;
+  useScreenViewLog('StockDetail', { ticker });
   const store = useStore();
   const [stock, setStock] = useState<AggregatedStock | ValuedAggregatedStock | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +78,7 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#38bdf8" />
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
@@ -52,9 +91,13 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   }
 
   const valued = 'marketValue' in stock ? (stock as ValuedAggregatedStock) : null;
+  const heldIn = stock.buckets.map(toPositionItem);
+  const valuation = valued
+    ? computePortfolioValuation(stock.buckets as ValuedStockPosition[], stock.totalDividends, stock.totalCostBasis)
+    : null;
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.ticker}>{stock.ticker}</Text>
       <Text style={styles.subtitle}>Across {stock.buckets.length} bucket{stock.buckets.length === 1 ? '' : 's'}</Text>
 
@@ -68,84 +111,66 @@ export default function StockDetailScreen({ route, navigation }: Props) {
           value={`₱${(valued?.marketValue ?? stock.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
           big
         />
-        <Stat label="Total Dividends" value={`₱${stock.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} big highlight />
+        <Stat label="Total Dividends" value={`₱${stock.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} big sign="positive" />
       </View>
-      {valued?.unrealizedGain != null && (
-        <Text style={[styles.gainLine, valued.unrealizedGain >= 0 ? styles.gainPositive : styles.gainNegative]}>
-          {valued.unrealizedGain >= 0 ? '+' : ''}₱{valued.unrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          {' '}({valued.unrealizedGainPct! >= 0 ? '+' : ''}{valued.unrealizedGainPct}%) unrealized · current price ₱{valued.currentPrice}
+      {valuation && (
+        <View style={styles.statsRow}>
+          <Stat
+            label="Unrealized Gain"
+            value={`${valuation.totalUnrealizedGain >= 0 ? '+' : ''}₱${valuation.totalUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+            sublabel={`${valuation.totalUnrealizedGainPct >= 0 ? '+' : ''}${valuation.totalUnrealizedGainPct}%`}
+            sign={valuation.totalUnrealizedGain >= 0 ? 'positive' : 'negative'}
+          />
+          <Stat
+            label="Total Return"
+            value={`${valuation.totalReturn >= 0 ? '+' : ''}₱${valuation.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+            sublabel={`${valuation.totalReturnPct >= 0 ? '+' : ''}${valuation.totalReturnPct}% (div + gain)`}
+            sign={valuation.totalReturn >= 0 ? 'positive' : 'negative'}
+          />
+        </View>
+      )}
+      {valued?.currentPrice != null && (
+        <Text style={styles.priceLine}>
+          current price ₱{valued.currentPrice}
           {valued.currentYieldPct != null ? ` · yield ${valued.currentYieldPct}%` : ''}
         </Text>
       )}
 
-      <Text style={styles.sectionHeader}>Held In</Text>
-      <FlatList
-        data={stock.buckets}
-        keyExtractor={(b) => b.bucket}
-        renderItem={({ item }) => {
-          const vItem = 'marketValue' in item ? (item as any) : null;
-          return (
-            <Pressable
-              style={styles.bucketRow}
-              onPress={() => navigation.navigate('StockInBucket', { bucket: item.bucket, ticker: stock.ticker })}
-            >
-              <View>
-                <Text style={styles.bucketName}>{item.bucket}</Text>
-                <Text style={styles.bucketMeta}>{item.totalQty} sh · {item.openLots} lot{item.openLots === 1 ? '' : 's'} · avg ₱{item.avgCost}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.bucketCost}>
-                  ₱{(vItem?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </Text>
-                {vItem?.unrealizedGainPct != null && (
-                  <Text style={[styles.bucketGain, vItem.unrealizedGain >= 0 ? styles.gainPositive : styles.gainNegative]}>
-                    {vItem.unrealizedGain >= 0 ? '+' : ''}{vItem.unrealizedGainPct}%
-                  </Text>
-                )}
-                {item.totalDividends > 0 && (
-                  <Text style={styles.bucketDiv}>+₱{item.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })} div</Text>
-                )}
-              </View>
-            </Pressable>
-          );
-        }}
+      <Text style={styles.positionsHeader}>Held In</Text>
+      <PositionsTable
+        items={heldIn}
+        onItemPress={(bucket) => navigation.navigate('StockInBucket', { bucket, ticker: stock.ticker })}
+        emptyText="Not currently held in any bucket."
       />
-    </View>
+    </ScrollView>
   );
 }
 
-function Stat({ label, value, big, highlight }: { label: string; value: string; big?: boolean; highlight?: boolean }) {
+function Stat({ label, value, big, sign, sublabel }: { label: string; value: string; big?: boolean; sign?: 'positive' | 'negative'; sublabel?: string }) {
   return (
     <View style={styles.stat}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, big && styles.statValueBig, highlight && styles.statValueHighlight]}>{value}</Text>
+      <Text style={[styles.statValue, big && styles.statValueBig, sign === 'positive' && styles.positive, sign === 'negative' && styles.negative]}>{value}</Text>
+      {sublabel && <Text style={[styles.statSublabel, sign === 'positive' && styles.positive, sign === 'negative' && styles.negative]}>{sublabel}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#0f172a' },
-  center: { flex: 1, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
-  ticker: { fontSize: 26, fontWeight: '800', color: '#f1f5f9' },
-  subtitle: { fontSize: 13, color: '#64748b', marginBottom: 16 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  stat: { flex: 1, backgroundColor: '#1e293b', borderRadius: 10, padding: 12 },
-  statLabel: { color: '#64748b', fontSize: 12 },
-  statValue: { color: '#f1f5f9', fontSize: 16, fontWeight: '700', marginTop: 4 },
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { padding: spacing.md, paddingBottom: 40 },
+  center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  ticker: { fontFamily: fonts.monoBold, fontSize: 26, color: colors.onBackground },
+  subtitle: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant, marginBottom: spacing.md },
+  statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
+  stat: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant, borderRadius: radii.xl, padding: spacing.md },
+  statLabel: { fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },
+  statValue: { fontFamily: fonts.monoBold, fontSize: 16, color: colors.onSurface },
   statValueBig: { fontSize: 20 },
-  statValueHighlight: { color: '#4ade80' },
-  gainLine: { fontSize: 12, fontWeight: '600', marginBottom: 12 },
-  gainPositive: { color: '#4ade80' },
-  gainNegative: { color: '#f87171' },
-  sectionHeader: { color: '#94a3b8', fontSize: 13, fontWeight: '700', marginTop: 12, marginBottom: 8, textTransform: 'uppercase' },
-  bucketRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#1e293b', borderRadius: 10, padding: 14, marginBottom: 8,
-  },
-  bucketName: { color: '#38bdf8', fontSize: 15, fontWeight: '700' },
-  bucketMeta: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  bucketCost: { color: '#f1f5f9', fontSize: 15, fontWeight: '600' },
-  bucketGain: { fontSize: 11, fontWeight: '700', marginTop: 2 },
-  bucketDiv: { color: '#4ade80', fontSize: 12, marginTop: 2 },
-  empty: { color: '#64748b', textAlign: 'center', marginTop: 24 },
+  statSublabel: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
+  positive: { color: colors.positive },
+  negative: { color: colors.negative },
+  priceLine: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginBottom: spacing.md },
+  positionsHeader: { fontFamily: fonts.body, fontSize: 20, color: colors.onBackground, marginTop: spacing.xs, marginBottom: spacing.md },
+  empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 },
 });

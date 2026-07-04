@@ -1,7 +1,9 @@
 // screens/BucketsScreen.tsx
 // Configure buckets: name + yield bracket. This is the "bucket settings are
 // configurable" requirement from scoping - no hardcoded count, add as many
-// as you actually have DragonFi accounts for.
+// as you actually have DragonFi accounts for. Restyled to match the Stitch
+// design system (see DashboardScreen for the full rationale) - each row
+// now shows its Yield Distribution color dot via bucketColorFor.
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, TextInput, FlatList, Pressable, StyleSheet, Alert } from 'react-native';
@@ -9,10 +11,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { BucketRow } from '../core/storeApi';
 import { BucketsStackParamList } from '../core/navigationTypes';
+import { useScreenViewLog } from '../core/useScreenViewLog';
+import { colors, spacing, radii, fonts, bucketColorFor } from '../core/theme';
 
 type Props = NativeStackScreenProps<BucketsStackParamList, 'BucketsHome'>;
 
 export default function BucketsScreen({ navigation }: Props) {
+  useScreenViewLog('Buckets');
   const store = useStore();
   const [buckets, setBuckets] = useState<BucketRow[]>([]);
   const [name, setName] = useState('');
@@ -50,9 +55,12 @@ export default function BucketsScreen({ navigation }: Props) {
       <FlatList
         data={buckets}
         keyExtractor={(b) => String(b.id)}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <Pressable style={styles.bucketRow} onPress={() => navigation.navigate('BucketDetail', { bucket: item.name })}>
-            <Text style={styles.bucketName}>{item.name}</Text>
+            <View style={styles.bucketNameRow}>
+              <View style={[styles.dot, { backgroundColor: bucketColorFor(item.name, index) }]} />
+              <Text style={styles.bucketName}>{item.name}</Text>
+            </View>
             <Text style={styles.bucketRange}>
               {item.yield_low}% – {item.yield_high}%
             </Text>
@@ -62,10 +70,10 @@ export default function BucketsScreen({ navigation }: Props) {
       />
 
       <View style={styles.form}>
-        <TextInput style={styles.input} placeholder="Bucket name (e.g. Bucket 5)" value={name} onChangeText={setName} />
+        <TextInput style={styles.input} placeholder="Bucket name (e.g. B5)" placeholderTextColor={colors.onSurfaceVariant} value={name} onChangeText={setName} />
         <View style={styles.row}>
-          <TextInput style={[styles.input, styles.half]} placeholder="Yield low %" value={low} onChangeText={setLow} keyboardType="decimal-pad" />
-          <TextInput style={[styles.input, styles.half]} placeholder="Yield high %" value={high} onChangeText={setHigh} keyboardType="decimal-pad" />
+          <TextInput style={[styles.input, styles.half]} placeholder="Yield low %" placeholderTextColor={colors.onSurfaceVariant} value={low} onChangeText={setLow} keyboardType="decimal-pad" />
+          <TextInput style={[styles.input, styles.half]} placeholder="Yield high %" placeholderTextColor={colors.onSurfaceVariant} value={high} onChangeText={setHigh} keyboardType="decimal-pad" />
         </View>
         <Pressable style={styles.button} onPress={addBucket}>
           <Text style={styles.buttonText}>Add Bucket</Text>
@@ -76,22 +84,25 @@ export default function BucketsScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#0f172a' },
-  header: { fontSize: 22, fontWeight: '700', color: '#f1f5f9', marginBottom: 12 },
+  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
+  header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: spacing.md },
   bucketRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#1e293b', borderRadius: 10, padding: 14, marginBottom: 8,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.base,
   },
-  bucketName: { color: '#f1f5f9', fontSize: 16, fontWeight: '600' },
-  bucketRange: { color: '#94a3b8', fontSize: 14 },
-  empty: { color: '#64748b', textAlign: 'center', marginTop: 24 },
-  form: { marginTop: 16, borderTopWidth: 1, borderTopColor: '#1e293b', paddingTop: 16 },
+  bucketNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  bucketName: { fontFamily: fonts.monoSemiBold, fontSize: 15, color: colors.onSurface },
+  bucketRange: { fontFamily: fonts.mono, fontSize: 13, color: colors.onSurfaceVariant },
+  empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 },
+  form: { marginTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.outlineVariant, paddingTop: spacing.md },
   input: {
-    backgroundColor: '#1e293b', color: '#f1f5f9', borderRadius: 8,
-    padding: 12, marginBottom: 8, fontSize: 15,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant, color: colors.onSurface,
+    borderRadius: radii.lg, padding: spacing.sm + 4, marginBottom: spacing.sm, fontFamily: fonts.body, fontSize: 15,
   },
-  row: { flexDirection: 'row', gap: 8 },
+  row: { flexDirection: 'row', gap: spacing.sm },
   half: { flex: 1 },
-  button: { backgroundColor: '#38bdf8', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 4 },
-  buttonText: { color: '#0f172a', fontWeight: '700', fontSize: 15 },
+  button: { backgroundColor: colors.primary, borderRadius: radii.lg, padding: spacing.md, alignItems: 'center', marginTop: 4 },
+  buttonText: { fontFamily: fonts.bodyBold, color: colors.onPrimary, fontSize: 15 },
 });

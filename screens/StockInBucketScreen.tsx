@@ -4,12 +4,16 @@
 // plus the actual dividend payment history for this ticker in this bucket.
 // Reached from both BucketDetailScreen (tap a stock) and StockDetailScreen
 // (tap a bucket within a stock's cross-bucket breakdown) - same screen,
-// registered in both stacks.
+// registered in both stacks. Restyled to match the Stitch design system
+// (see DashboardScreen for the full rationale).
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { useStore } from '../core/StoreProvider';
-import { BucketStockPosition } from '../core/bucketLogic';
+import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions } from '../core/bucketLogic';
+import { fetchPriceCache } from '../core/priceCache';
+import { useScreenViewLog } from '../core/useScreenViewLog';
+import { colors, spacing, radii, fonts } from '../core/theme';
 
 // Minimal structural prop type, not tied to either stack's specific
 // NativeStackScreenProps - this screen is registered in BOTH
@@ -22,9 +26,11 @@ interface Props {
 
 export default function StockInBucketScreen({ route }: Props) {
   const { bucket, ticker } = route.params;
+  useScreenViewLog('StockInBucket', { bucket, ticker });
   const store = useStore();
-  const [position, setPosition] = useState<BucketStockPosition | null>(null);
+  const [position, setPosition] = useState<ValuedStockPosition | BucketStockPosition | null>(null);
   const [dividends, setDividends] = useState<{ date: string; amount: number }[]>([]);
+  const [priceError, setPriceError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,8 +39,22 @@ export default function StockInBucketScreen({ route }: Props) {
         store.getBucketPositions(bucket),
         store.getDividendHistory(bucket, ticker),
       ]);
-      setPosition(positions.find((p) => p.ticker === ticker) ?? null);
+      const found = positions.find((p) => p.ticker === ticker) ?? null;
       setDividends(divHistory);
+
+      if (found) {
+        try {
+          const prices = await fetchPriceCache();
+          setPriceError(null);
+          setPosition(applyPricesToPositions([found], prices.tickers)[0]);
+        } catch (e: any) {
+          console.log('[StockInBucket] price cache unavailable:', e.message);
+          setPriceError(e.message);
+          setPosition(found);
+        }
+      } else {
+        setPosition(null);
+      }
       setLoading(false);
     })();
   }, [store, bucket, ticker]);
@@ -42,7 +62,7 @@ export default function StockInBucketScreen({ route }: Props) {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#38bdf8" />
+        <ActivityIndicator color={colors.primary} />
       </View>
     );
   }
@@ -55,6 +75,8 @@ export default function StockInBucketScreen({ route }: Props) {
     );
   }
 
+  const valued = 'marketValue' in position ? (position as ValuedStockPosition) : null;
+
   return (
     <View style={styles.container}>
       <Text style={styles.ticker}>{ticker}</Text>
@@ -66,9 +88,29 @@ export default function StockInBucketScreen({ route }: Props) {
         <Stat label="Lots" value={String(position.openLots)} />
       </View>
       <View style={styles.statsRow}>
-        <Stat label="Cost Basis" value={`₱${position.totalCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} big />
-        <Stat label="Dividends Earned" value={`₱${position.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} big highlight />
+        <Stat
+          label={valued?.marketValue != null ? 'Market Value' : 'Cost Basis'}
+          value={`₱${(valued?.marketValue ?? position.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+          big
+        />
+        <Stat label="Dividends Earned" value={`₱${position.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} big sign="positive" />
       </View>
+      {valued?.unrealizedGain != null && (
+        <View style={styles.statsRow}>
+          <Stat
+            label="Unrealized Gain"
+            value={`${valued.unrealizedGain >= 0 ? '+' : ''}₱${valued.unrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+            sublabel={`${valued.unrealizedGainPct! >= 0 ? '+' : ''}${valued.unrealizedGainPct}%`}
+            sign={valued.unrealizedGain >= 0 ? 'positive' : 'negative'}
+          />
+          <Stat
+            label="Current Price"
+            value={`₱${valued.currentPrice}`}
+            sublabel={valued.currentYieldPct != null ? `yield ${valued.currentYieldPct}%` : undefined}
+          />
+        </View>
+      )}
+      {priceError && <Text style={styles.priceWarning}>Live prices unavailable - showing cost basis only.</Text>}
 
       <Text style={styles.sectionHeader}>Dividend History</Text>
       <FlatList
@@ -86,32 +128,39 @@ export default function StockInBucketScreen({ route }: Props) {
   );
 }
 
-function Stat({ label, value, big, highlight }: { label: string; value: string; big?: boolean; highlight?: boolean }) {
+function Stat({ label, value, big, sublabel, sign }: {
+  label: string; value: string; big?: boolean; sublabel?: string; sign?: 'positive' | 'negative';
+}) {
   return (
     <View style={styles.stat}>
       <Text style={styles.statLabel}>{label}</Text>
-      <Text style={[styles.statValue, big && styles.statValueBig, highlight && styles.statValueHighlight]}>{value}</Text>
+      <Text style={[styles.statValue, big && styles.statValueBig, sign === 'positive' && styles.positive, sign === 'negative' && styles.negative]}>{value}</Text>
+      {sublabel && <Text style={[styles.statSublabel, sign === 'positive' && styles.positive, sign === 'negative' && styles.negative]}>{sublabel}</Text>}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#0f172a' },
-  center: { flex: 1, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' },
-  ticker: { fontSize: 26, fontWeight: '800', color: '#f1f5f9' },
-  bucketLabel: { fontSize: 14, color: '#38bdf8', fontWeight: '600', marginBottom: 16 },
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  stat: { flex: 1, backgroundColor: '#1e293b', borderRadius: 10, padding: 12 },
-  statLabel: { color: '#64748b', fontSize: 12 },
-  statValue: { color: '#f1f5f9', fontSize: 16, fontWeight: '700', marginTop: 4 },
+  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
+  center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  ticker: { fontFamily: fonts.monoBold, fontSize: 26, color: colors.onBackground },
+  bucketLabel: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.primary, marginBottom: spacing.md },
+  statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
+  stat: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant, borderRadius: radii.xl, padding: spacing.md },
+  statLabel: { fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },
+  statValue: { fontFamily: fonts.monoBold, fontSize: 16, color: colors.onSurface },
   statValueBig: { fontSize: 20 },
-  statValueHighlight: { color: '#4ade80' },
-  sectionHeader: { color: '#94a3b8', fontSize: 13, fontWeight: '700', marginTop: 12, marginBottom: 8, textTransform: 'uppercase' },
+  statSublabel: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
+  positive: { color: colors.positive },
+  negative: { color: colors.negative },
+  priceWarning: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.negative, marginBottom: spacing.sm },
+  sectionHeader: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.onSurfaceVariant, marginTop: spacing.sm, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.3 },
   divRow: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    backgroundColor: '#1e293b', borderRadius: 8, padding: 12, marginBottom: 6,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.base,
   },
-  divDate: { color: '#94a3b8' },
-  divAmount: { color: '#4ade80', fontWeight: '700' },
-  empty: { color: '#64748b', textAlign: 'center', marginTop: 24 },
+  divDate: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant },
+  divAmount: { fontFamily: fonts.monoSemiBold, fontSize: 14, color: colors.positive },
+  empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 },
 });

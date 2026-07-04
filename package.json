@@ -12,6 +12,8 @@
     "test:web-store": "ts-node --compiler-options \"{\\\"module\\\":\\\"commonjs\\\",\\\"esModuleInterop\\\":true,\\\"lib\\\":[\\\"ES2020\\\",\\\"DOM\\\"]}\" test/run.web.ts"
   },
   "dependencies": {
+    "@expo-google-fonts/inter": "^0.2.3",
+    "@expo-google-fonts/jetbrains-mono": "^0.2.3",
     "@expo/metro-runtime": "~4.0.1",
     "@expo/vector-icons": "~14.0.4",
     "@react-navigation/bottom-tabs": "^6.6.1",

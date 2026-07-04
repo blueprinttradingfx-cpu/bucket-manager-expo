@@ -4,9 +4,9 @@
     "slug": "bucket-portfolio-manager",
     "version": "0.1.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#0f172a"
+      "backgroundColor": "#FFFFFF"
     },
     "android": {
       "package": "com.yourname.bucketportfoliomanager"

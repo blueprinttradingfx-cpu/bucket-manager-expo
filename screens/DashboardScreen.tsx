@@ -1,29 +1,81 @@
 // screens/DashboardScreen.tsx
-// Level 1: the main aggregated dashboard. Portfolio totals + one row per
-// TICKER merged across buckets. Now also layers in live price/yield data
-// from the GitHub Actions price-cache pipeline where available - market
-// value, unrealized gain/loss, current yield. Gracefully degrades to
-// cost-basis-only if the price cache can't be reached (e.g. placeholder
-// URL not yet configured, or offline) - never blocks the core view on it.
+// Level 1: the main aggregated dashboard. Restyled to match the Stitch
+// design export (stitch_bucket_portfolio_design_system[_mobile].zip) -
+// light "Fintech Terminal" theme, Inter + JetBrains Mono, stat card row,
+// and a "Yield Distribution" bar using the real per-bucket colors from
+// core/theme's bucketColorFor (falls back to a neutral palette for bucket
+// names that don't follow the B1-B5 convention).
+//
+// Portfolio totals + one row per TICKER merged across buckets. Layers in
+// live price/yield data from the GitHub Actions price-cache pipeline
+// where available - market value, unrealized gain/loss, current yield.
+// Gracefully degrades to cost-basis-only if the price cache can't be
+// reached - never blocks the core view on it.
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, RefreshControl, ScrollView } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { AggregatedStock, PortfolioSummary, ValuedAggregatedStock, applyPricesToAggregated, computePortfolioValuation, PortfolioValuation } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
 import { DashboardStackParamList } from '../core/navigationTypes';
+import { useScreenViewLog } from '../core/useScreenViewLog';
+import { colors, spacing, radii, fonts, bucketColorFor } from '../core/theme';
+import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
 
 type Props = NativeStackScreenProps<DashboardStackParamList, 'DashboardHome'>;
 
+type StockRow = ValuedAggregatedStock | AggregatedStock;
+
+function isValued(s: StockRow): s is ValuedAggregatedStock {
+  return 'marketValue' in s;
+}
+
+function toPositionItem(item: StockRow): PositionItem {
+  const valued = isValued(item) ? item : null;
+  return {
+    key: item.ticker,
+    label: item.ticker,
+    badgeText: item.ticker.slice(0, 2),
+    badgeVariant: item.assetType,
+    assetType: item.assetType,
+    qty: item.totalQty,
+    avgCost: item.avgCost,
+    costBasis: item.totalCostBasis,
+    dividends: item.totalDividends,
+    currentPrice: valued?.currentPrice ?? null,
+    marketValue: valued?.marketValue ?? null,
+    unrealizedGain: valued?.unrealizedGain ?? null,
+    unrealizedGainPct: valued?.unrealizedGainPct ?? null,
+    expandedContent: (
+      <>
+        <ExpandedRow label="Market Value" value={`₱${(valued?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+        <ExpandedRow label="Avg Cost" value={`₱${item.avgCost}`} />
+        <ExpandedRow label="Dividends Earned" value={`₱${item.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} valueStyle={item.totalDividends > 0 ? { color: colors.positive } : undefined} />
+        <View style={styles.bucketChipsLabel}><Text style={styles.bucketChipsLabelText}>Buckets</Text></View>
+        <View style={styles.bucketChipsGrid}>
+          {item.buckets.map((b, i) => (
+            <View key={b.bucket} style={styles.bucketChip}>
+              <Text style={[styles.bucketChipLabel, { color: bucketColorFor(b.bucket, i) }]}>{b.bucket}</Text>
+              <Text style={styles.bucketChipValue}>{b.totalQty.toLocaleString()} sh · ₱{b.totalCostBasis.toLocaleString(undefined, { minimumFractionDigits: 0 })}</Text>
+            </View>
+          ))}
+        </View>
+      </>
+    ),
+  };
+}
+
 export default function DashboardScreen({ navigation }: Props) {
+  useScreenViewLog('Dashboard');
   const store = useStore();
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
-  const [stocks, setStocks] = useState<ValuedAggregatedStock[] | AggregatedStock[]>([]);
+  const [stocks, setStocks] = useState<StockRow[]>([]);
   const [valuation, setValuation] = useState<PortfolioValuation | null>(null);
   const [priceCache, setPriceCache] = useState<PriceCache | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'stock' | 'fund'>('all');
 
   const load = useCallback(async (forcePrices = false) => {
     const [s, a] = await Promise.all([store.getPortfolioSummary(), store.getAggregatedStocks()]);
@@ -38,8 +90,6 @@ export default function DashboardScreen({ navigation }: Props) {
       const flatPositions = valued.flatMap((v) => v.buckets);
       setValuation(computePortfolioValuation(flatPositions, s.totalDividends, s.totalCostBasis));
     } catch (e: any) {
-      // Expected until the price cache URL is configured to a real repo -
-      // don't block the dashboard on it, just show cost-basis-only.
       console.log('[Dashboard] price cache unavailable:', e.message);
       setPriceError(e.message);
       setStocks(a);
@@ -55,163 +105,146 @@ export default function DashboardScreen({ navigation }: Props) {
     setRefreshing(false);
   }
 
+  const stockCount = useMemo(() => stocks.filter((s) => s.assetType === 'stock').length, [stocks]);
+  const fundCount = useMemo(() => stocks.filter((s) => s.assetType === 'fund').length, [stocks]);
+  const visible = useMemo(
+    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map(toPositionItem),
+    [stocks, activeTab]
+  );
+
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+    >
       <Text style={styles.header}>Dashboard</Text>
 
       {summary && (
         <>
-          <Text style={styles.totalLabel}>{valuation ? 'Market Value' : 'Total Cost Basis'}</Text>
-          <Text style={styles.total}>
-            ₱{(valuation ? valuation.totalMarketValue : summary.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </Text>
-          {valuation && (
-            <Text style={[styles.gainLine, valuation.totalUnrealizedGain >= 0 ? styles.gainPositive : styles.gainNegative]}>
-              {valuation.totalUnrealizedGain >= 0 ? '+' : ''}₱{valuation.totalUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-              {' '}({valuation.totalUnrealizedGainPct >= 0 ? '+' : ''}{valuation.totalUnrealizedGainPct}%) unrealized
-              {valuation.unpricedTickers > 0 ? ` · ${valuation.unpricedTickers} unpriced` : ''}
+          <View style={styles.marketValueBlock}>
+            <Text style={styles.caption}>Market Value</Text>
+            <Text style={styles.marketValue}>
+              ₱{(valuation ? valuation.totalMarketValue : summary.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </Text>
-          )}
-
-          <View style={styles.statsRow}>
-            <MiniStat
-              label="Dividends Earned"
-              value={`₱${summary.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              sublabel={`${summary.realizedDividendYieldPct}% of cost`}
-              highlight
-            />
-            <MiniStat label="Stocks" value={String(summary.stockCount)} />
-            <MiniStat label="Buckets" value={String(summary.bucketCount)} />
+            {valuation && (
+              <Text style={[styles.deltaLine, valuation.totalUnrealizedGain >= 0 ? styles.positive : styles.negative]}>
+                {valuation.totalUnrealizedGain >= 0 ? '↑' : '↓'} ₱{Math.abs(valuation.totalUnrealizedGain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {' '}({valuation.totalUnrealizedGainPct >= 0 ? '+' : ''}{valuation.totalUnrealizedGainPct}%) unrealized
+              </Text>
+            )}
+            {priceCache && <Text style={styles.pricesAsOf}>Prices as of {new Date(priceCache.generatedAt).toLocaleString()}</Text>}
+            {priceError && <Text style={styles.priceWarning}>Live prices unavailable - showing cost basis only.</Text>}
           </View>
 
-          {valuation && (
-            <View style={styles.statsRow}>
-              <MiniStat
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll} contentContainerStyle={styles.statsRow}>
+            <StatCard label="Dividends Earned" value={`₱${summary.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} sublabel={`${summary.realizedDividendYieldPct}% of cost`} sign="positive" />
+            <StatCard label="Stocks" value={String(summary.stockCount)} sublabel="Active Positions" />
+            <StatCard label="Buckets" value={String(summary.bucketCount)} sublabel="Active Accounts" />
+            {valuation && (
+              <StatCard
                 label="Total Return"
-                value={`${valuation.totalReturn >= 0 ? '+' : ''}₱${valuation.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                value={`₱${valuation.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
                 sublabel={`${valuation.totalReturnPct >= 0 ? '+' : ''}${valuation.totalReturnPct}% (div + gain)`}
-                highlight={valuation.totalReturn >= 0}
+                sign={valuation.totalReturn >= 0 ? 'positive' : 'negative'}
               />
-            </View>
-          )}
-
-          {priceError && (
-            <Text style={styles.priceWarning}>
-              Live prices unavailable - showing cost basis only. {priceError.includes('YOUR_USERNAME') ? 'Configure DEFAULT_PRICE_CACHE_URL in core/priceCache.ts once your repo is on GitHub.' : ''}
-            </Text>
-          )}
-          {priceCache && (
-            <Text style={styles.priceFreshness}>Prices as of {new Date(priceCache.generatedAt).toLocaleString()}</Text>
-          )}
+            )}
+          </ScrollView>
 
           {summary.byBucket.length > 0 && (
-            <View style={styles.allocationBar}>
-              {summary.byBucket.map((b, i) => (
-                <View
-                  key={b.bucket}
-                  style={{
-                    flex: b.percentage,
-                    backgroundColor: BUCKET_COLORS[i % BUCKET_COLORS.length],
-                    height: '100%',
-                  }}
-                />
-              ))}
+            <View style={styles.yieldCard}>
+              <View style={styles.yieldCardHeader}>
+                <Text style={styles.yieldCardTitle}>Yield Distribution</Text>
+              </View>
+              <View style={styles.allocationBar}>
+                {summary.byBucket.map((b, i) => (
+                  <View key={b.bucket} style={{ flex: b.percentage, backgroundColor: bucketColorFor(b.bucket, i), height: '100%' }} />
+                ))}
+              </View>
+              <View style={styles.legendGrid}>
+                {summary.byBucket.map((b, i) => (
+                  <View key={b.bucket} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: bucketColorFor(b.bucket, i) }]} />
+                    <Text style={styles.legendText}>{b.bucket} {b.percentage}%</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           )}
-          <View style={styles.legendRow}>
-            {summary.byBucket.map((b, i) => (
-              <Text key={b.bucket} style={styles.legendItem}>
-                <Text style={{ color: BUCKET_COLORS[i % BUCKET_COLORS.length] }}>●</Text> {b.bucket} {b.percentage}%
-              </Text>
-            ))}
-          </View>
         </>
       )}
 
-      <Text style={styles.sectionHeader}>Holdings (all buckets combined)</Text>
-      <FlatList
-        data={stocks}
-        keyExtractor={(s) => s.ticker}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#94a3b8" />}
-        renderItem={({ item }) => {
-          const valued = 'marketValue' in item ? (item as ValuedAggregatedStock) : null;
-          return (
-            <Pressable style={styles.stockRow} onPress={() => navigation.navigate('StockDetail', { ticker: item.ticker })}>
-              <View>
-                <Text style={styles.ticker}>{item.ticker}</Text>
-                <Text style={styles.meta}>
-                  {item.totalQty} sh across {item.buckets.length} bucket{item.buckets.length === 1 ? '' : 's'} · avg ₱{item.avgCost}
-                </Text>
-                {valued?.currentYieldPct != null && (
-                  <Text style={styles.yieldMeta}>current yield {valued.currentYieldPct}%</Text>
-                )}
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.cost}>
-                  ₱{(valued?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </Text>
-                {valued?.unrealizedGain != null && (
-                  <Text style={[styles.gainSmall, valued.unrealizedGain >= 0 ? styles.gainPositive : styles.gainNegative]}>
-                    {valued.unrealizedGain >= 0 ? '+' : ''}{valued.unrealizedGainPct}%
-                  </Text>
-                )}
-                {item.totalDividends > 0 && (
-                  <Text style={styles.div}>+₱{item.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })} div</Text>
-                )}
-              </View>
-            </Pressable>
-          );
-        }}
-        ListEmptyComponent={<Text style={styles.empty}>No holdings yet. Import a statement to get started.</Text>}
+      <Text style={styles.positionsHeader}>Positions</Text>
+
+      <PositionsTable
+        items={visible}
+        onItemPress={(ticker) => navigation.navigate('StockDetail', { ticker })}
+        tabs={[
+          { key: 'all', label: 'All', count: stocks.length },
+          { key: 'stock', label: 'Stocks', count: stockCount },
+          { key: 'fund', label: 'Funds', count: fundCount },
+        ]}
+        activeTab={activeTab}
+        onTabChange={(k) => setActiveTab(k as 'all' | 'stock' | 'fund')}
+        emptyText={stocks.length === 0 ? 'No holdings yet. Import a statement to get started.' : `No ${activeTab === 'fund' ? 'funds' : 'stocks'} in this view.`}
       />
-    </View>
+    </ScrollView>
   );
 }
 
-function MiniStat({ label, value, sublabel, highlight }: { label: string; value: string; sublabel?: string; highlight?: boolean }) {
+function StatCard({ label, value, sublabel, sign }: { label: string; value: string; sublabel?: string; sign?: 'positive' | 'negative' }) {
   return (
-    <View style={styles.miniStat}>
-      <Text style={styles.miniStatLabel}>{label}</Text>
-      <Text style={[styles.miniStatValue, highlight && styles.miniStatHighlight]}>{value}</Text>
-      {sublabel && <Text style={styles.miniStatSublabel}>{sublabel}</Text>}
+    <View style={styles.statCard}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, sign === 'positive' && styles.positive, sign === 'negative' && styles.negative]}>{value}</Text>
+      {sublabel && <Text style={[styles.statSublabel, sign === 'positive' && styles.positive, sign === 'negative' && styles.negative]}>{sublabel}</Text>}
     </View>
   );
 }
-
-const BUCKET_COLORS = ['#38bdf8', '#a78bfa', '#4ade80', '#fb923c', '#f472b6', '#facc15'];
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#0f172a' },
-  header: { fontSize: 22, fontWeight: '700', color: '#f1f5f9' },
-  totalLabel: { color: '#94a3b8', fontSize: 13, marginTop: 12 },
-  total: { color: '#f1f5f9', fontSize: 30, fontWeight: '800' },
-  gainLine: { fontSize: 13, fontWeight: '600', marginTop: 2, marginBottom: 10 },
-  gainPositive: { color: '#4ade80' },
-  gainNegative: { color: '#f87171' },
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  miniStat: { flex: 1, backgroundColor: '#1e293b', borderRadius: 10, padding: 10 },
-  miniStatLabel: { color: '#64748b', fontSize: 11 },
-  miniStatValue: { color: '#f1f5f9', fontSize: 15, fontWeight: '700', marginTop: 2 },
-  miniStatHighlight: { color: '#4ade80' },
-  miniStatSublabel: { color: '#4ade80', fontSize: 10, marginTop: 1 },
-  priceWarning: { color: '#fb923c', fontSize: 11, marginBottom: 8 },
-  priceFreshness: { color: '#64748b', fontSize: 11, marginBottom: 8 },
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { padding: spacing.md, paddingBottom: 40 },
+  header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: spacing.sm },
+  caption: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3 },
+  marketValueBlock: { marginBottom: spacing.lg },
+  marketValue: { fontFamily: fonts.bodySemiBold, fontSize: 32, color: colors.onSurface, marginTop: 4, letterSpacing: -0.3 },
+  deltaLine: { fontFamily: fonts.mono, fontSize: 14, marginTop: 4 },
+  pricesAsOf: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: spacing.sm },
+  priceWarning: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.negative, marginTop: 4 },
+  positive: { color: colors.positive },
+  negative: { color: colors.negative },
+  statsScroll: { marginBottom: spacing.lg, marginHorizontal: -spacing.md },
+  statsRow: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.md },
+  statCard: {
+    minWidth: 150, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.xl, padding: spacing.md,
+  },
+  statLabel: { fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },
+  statValue: { fontFamily: fonts.monoBold, fontSize: 22, color: colors.onSurface },
+  statSublabel: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
+  yieldCard: {
+    backgroundColor: colors.surfaceContainerHigh, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,
+  },
+  yieldCardHeader: { marginBottom: spacing.sm },
+  yieldCardTitle: { fontFamily: fonts.monoBold, fontSize: 13, color: colors.onSurface, textTransform: 'uppercase', letterSpacing: 0.5 },
   allocationBar: {
-    flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden',
-    backgroundColor: '#1e293b', marginTop: 4,
+    flexDirection: 'row', height: 12, borderRadius: radii.full, overflow: 'hidden',
+    backgroundColor: colors.surfaceContainerHighest, marginBottom: spacing.md,
   },
-  legendRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, marginBottom: 4, gap: 12 },
-  legendItem: { color: '#94a3b8', fontSize: 12 },
-  sectionHeader: { color: '#94a3b8', fontSize: 13, fontWeight: '700', marginTop: 16, marginBottom: 8, textTransform: 'uppercase' },
-  stockRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#1e293b', borderRadius: 10, padding: 14, marginBottom: 8,
+  legendGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: '45%' },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant },
+  positionsHeader: { fontFamily: fonts.body, fontSize: 20, color: colors.onBackground, marginBottom: spacing.md },
+  bucketChipsLabel: { marginTop: spacing.sm, marginBottom: 6 },
+  bucketChipsLabelText: { fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3 },
+  bucketChipsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  bucketChip: {
+    minWidth: '45%', flexGrow: 1, backgroundColor: colors.surfaceContainerHighest, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.default, padding: spacing.xs,
   },
-  ticker: { color: '#f1f5f9', fontSize: 16, fontWeight: '700' },
-  meta: { color: '#64748b', fontSize: 12, marginTop: 2 },
-  yieldMeta: { color: '#38bdf8', fontSize: 11, marginTop: 2 },
-  cost: { color: '#f1f5f9', fontSize: 15, fontWeight: '600' },
-  gainSmall: { fontSize: 12, fontWeight: '700', marginTop: 2 },
-  div: { color: '#4ade80', fontSize: 12, marginTop: 2 },
-  empty: { color: '#64748b', textAlign: 'center', marginTop: 40 },
+  bucketChipLabel: { fontFamily: fonts.bodyBold, fontSize: 10, textTransform: 'uppercase', marginBottom: 2 },
+  bucketChipValue: { fontFamily: fonts.mono, fontSize: 12, color: colors.onSurface },
 });

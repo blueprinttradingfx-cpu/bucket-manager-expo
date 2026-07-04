@@ -7,10 +7,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useStore } from '../core/StoreProvider';
 import { pickStatementFile, parseStatementFile } from '../core/xlsxImport';
+import { useScreenViewLog } from '../core/useScreenViewLog';
+import { colors, spacing, radii, fonts } from '../core/theme';
 
 interface BucketRow { id: number; name: string }
 
 export default function ImportScreen() {
+  useScreenViewLog('Import');
   const store = useStore();
   const [buckets, setBuckets] = useState<BucketRow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -87,7 +90,7 @@ export default function ImportScreen() {
       />
 
       <Pressable style={styles.button} onPress={handleImport} disabled={busy}>
-        {busy ? <ActivityIndicator color="#0f172a" /> : <Text style={styles.buttonText}>Select File to Import</Text>}
+        {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.buttonText}>Select File to Import</Text>}
       </Pressable>
 
       {lastResult && <Text style={styles.result}>{lastResult}</Text>}
@@ -96,18 +99,18 @@ export default function ImportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#0f172a' },
-  header: { fontSize: 22, fontWeight: '700', color: '#f1f5f9', marginBottom: 16 },
-  label: { color: '#94a3b8', fontSize: 13, marginBottom: 6 },
-  chipRow: { marginBottom: 20, flexGrow: 0 },
+  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
+  header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: spacing.md },
+  label: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },
+  chipRow: { marginBottom: spacing.lg, flexGrow: 0 },
   chip: {
-    backgroundColor: '#1e293b', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 16, marginRight: 8,
+    backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.full, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, marginRight: spacing.sm,
   },
-  chipSelected: { backgroundColor: '#38bdf8' },
-  chipText: { color: '#94a3b8', fontWeight: '600' },
-  chipTextSelected: { color: '#0f172a' },
-  button: { backgroundColor: '#38bdf8', borderRadius: 8, padding: 16, alignItems: 'center' },
-  buttonText: { color: '#0f172a', fontWeight: '700', fontSize: 15 },
-  result: { color: '#4ade80', marginTop: 16, fontSize: 14, textAlign: 'center' },
-  empty: { color: '#64748b', textAlign: 'center', marginTop: 24 },
+  chipSelected: { backgroundColor: colors.primary },
+  chipText: { fontFamily: fonts.bodySemiBold, color: colors.onSurfaceVariant },
+  chipTextSelected: { color: colors.onPrimary },
+  button: { backgroundColor: colors.primary, borderRadius: radii.lg, padding: spacing.md, alignItems: 'center' },
+  buttonText: { fontFamily: fonts.bodyBold, color: colors.onPrimary, fontSize: 15 },
+  result: { fontFamily: fonts.bodyMedium, color: colors.positive, marginTop: spacing.md, fontSize: 14, textAlign: 'center' },
+  empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 },
 });

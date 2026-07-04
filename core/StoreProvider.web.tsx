@@ -7,6 +7,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 import { WebBucketStore } from './db.web';
 import { BucketStoreAPI } from './storeApi';
+import { colors } from './theme';
 
 const StoreContext = createContext<BucketStoreAPI | null>(null);
 
@@ -21,8 +22,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // IndexedDB open is async, unlike SQLite's near-instant native open -
     // brief loading state on web only, first mount.
     return (
-      <View style={{ flex: 1, backgroundColor: '#0f172a', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#94a3b8' }}>Loading…</Text>
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: colors.onSurfaceVariant }}>Loading…</Text>
       </View>
     );
   }

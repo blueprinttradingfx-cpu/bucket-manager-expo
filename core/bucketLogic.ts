@@ -33,6 +33,28 @@ export interface Holding {
 
 export interface DividendEntry { ticker: string; date: string; amount: number; }
 
+/** Coarse instrument classification, used to split the dashboard into
+ *  Stocks | Funds tabs. Derived from the xlsx "Description" column rather
+ *  than a hardcoded ticker list, since new feeder funds can show up in any
+ *  future statement import. REITs (e.g. AREIT, CREIT) trade on the PSE like
+ *  ordinary equities, so they're classified as stocks, not funds. */
+export type AssetType = 'stock' | 'fund';
+
+export function classifyAssetType(description: string | null | undefined): AssetType {
+  return description && /fund/i.test(description) ? 'fund' : 'stock';
+}
+
+/** Builds a ticker -> description lookup from a batch of transactions, used
+ *  to classify asset type. Picks the first non-null description seen per
+ *  ticker (in practice this is stable per-ticker across rows). */
+function buildDescriptionsByTicker(txns: StoredTxn[]): Record<string, string | null> {
+  const out: Record<string, string | null> = {};
+  for (const t of txns) {
+    if (t.Stock && out[t.Stock] == null && t.Description) out[t.Stock] = t.Description;
+  }
+  return out;
+}
+
 /** Pulls CASH DIVIDEND rows out of a bucket's transaction history. */
 export function computeDividends(txns: StoredTxn[]): DividendEntry[] {
   return txns
@@ -55,6 +77,7 @@ export interface BucketStockPosition {
   avgCost: number;
   totalCostBasis: number;
   totalDividends: number;
+  assetType: AssetType;
 }
 
 /** Combines FIFO holdings + dividend totals for a single bucket's full transaction history. */
@@ -63,6 +86,7 @@ export function computeBucketPositions(
 ): { positions: BucketStockPosition[]; orphanSells: StoredTxn[] } {
   const { holdings, orphanSells } = computeHoldings(allTxns);
   const dividendsByTicker = sumDividendsByTicker(computeDividends(allTxns));
+  const descriptionsByTicker = buildDescriptionsByTicker(allTxns);
 
   // Holdings drive the base list (currently-held positions). A ticker with
   // dividend history but zero current holdings (fully sold) won't appear
@@ -76,6 +100,7 @@ export function computeBucketPositions(
     avgCost: h.avgCost,
     totalCostBasis: h.totalCostBasis,
     totalDividends: dividendsByTicker[h.ticker] ?? 0,
+    assetType: classifyAssetType(descriptionsByTicker[h.ticker]),
   }));
   return { positions, orphanSells };
 }
@@ -87,6 +112,7 @@ export interface AggregatedStock {
   avgCost: number;
   totalCostBasis: number;
   totalDividends: number;
+  assetType: AssetType;
   buckets: BucketStockPosition[];
 }
 
@@ -107,6 +133,7 @@ export function aggregateAcrossBuckets(allPositions: BucketStockPosition[]): Agg
       totalCostBasis,
       totalDividends,
       avgCost: totalQty > 0 ? round(totalCostBasis / totalQty, 4) : 0,
+      assetType: buckets[0].assetType,
       buckets: [...buckets].sort((a, b) => b.totalCostBasis - a.totalCostBasis),
     });
   }

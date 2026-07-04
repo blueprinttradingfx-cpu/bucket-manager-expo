@@ -108,18 +108,19 @@ export class NativeBucketStore implements BucketStoreAPI {
   }
 
   /** Fetches ALL relevant transaction types (not just BUY/SELL) for one bucket -
-   *  needed since dividends live in the same table but aren't lots. */
+   *  needed since dividends live in the same table but aren't lots. Also pulls
+   *  description, used to classify stocks vs. funds. */
   private async getBucketTxns(bucketName: string): Promise<StoredTxn[]> {
     const bucketId = await this.getOrCreateBucket(bucketName);
     const rows = await this.db.getAllAsync<any>(
-      `SELECT date as Date, type as Type, stock as Stock, quantity as Quantity,
-              price as Price, fees as [Comm & Other Fees], amount as Amount
+      `SELECT date as Date, type as Type, stock as Stock, description as Description,
+              quantity as Quantity, price as Price, fees as [Comm & Other Fees], amount as Amount
        FROM transactions WHERE bucket_id = ? AND type IN ('BUY','SELL','CASH DIVIDEND')
        ORDER BY date`,
       bucketId
     );
     return rows.map((r: any) => ({
-      ...r, Description: null, Currency: null, rowHash: '', isoDate: r.Date,
+      ...r, Currency: null, rowHash: '', isoDate: r.Date,
     }));
   }
 
