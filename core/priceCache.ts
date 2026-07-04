@@ -10,7 +10,7 @@
 
 export interface PriceEntry {
   price: number;
-  yieldPct: number;
+  yieldPct: number | null; // null for companies that don't pay dividends - a valid state, not missing data
 }
 
 export interface PriceCache {

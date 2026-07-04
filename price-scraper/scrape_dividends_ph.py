@@ -19,7 +19,12 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (personal portfolio tool; contact: you@exa
 
 def get_price_and_yield(ticker: str, timeout: int = 10) -> dict:
     """Fetch current price and dividend yield for a PSE ticker from dividends.ph.
-    Returns {'ticker', 'price', 'yield_pct'} or raises ValueError if not found.
+    Returns {'ticker', 'price', 'yield_pct'} - yield_pct is None for companies
+    that don't pay dividends (confirmed real case: their page shows literal
+    "Dividend Yield | N/A", not a percentage - this is a valid state, not a
+    scrape failure, and roughly 100+ of the PSE's 286 listed companies are
+    in this category). Raises ValueError only if PRICE can't be found, since
+    that would indicate a genuinely broken/missing page.
     """
     url = BASE_URL.format(ticker=ticker.upper())
     resp = requests.get(url, headers=HEADERS, timeout=timeout)
@@ -30,15 +35,16 @@ def get_price_and_yield(ticker: str, timeout: int = 10) -> dict:
     # Price appears as e.g. "\u20b1585.00" right after the ticker heading.
     price_match = re.search(r"\u20b1\s*([\d,]+\.\d{2})", text)
     # Dividend Yield appears as a labeled fundamentals row, e.g. "Dividend Yield 4.79%"
+    # - or "Dividend Yield N/A" for non-payers, which simply won't match this pattern.
     yield_match = re.search(r"Dividend Yield\s*([\d.]+)\s*%", text)
 
-    if not price_match or not yield_match:
-        raise ValueError(f"Could not parse price/yield for {ticker} - page structure may have changed")
+    if not price_match:
+        raise ValueError(f"Could not parse price for {ticker} - page structure may have changed")
 
     return {
         "ticker": ticker.upper(),
         "price": float(price_match.group(1).replace(",", "")),
-        "yield_pct": float(yield_match.group(1)),
+        "yield_pct": float(yield_match.group(1)) if yield_match else None,
     }
 
 

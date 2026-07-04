@@ -237,7 +237,7 @@ function round(n: number, d: number): number {
 // supplies it; this layer stays pure and testable, same as everything else) ----
 
 export interface PriceLookup {
-  [ticker: string]: { price: number; yieldPct: number };
+  [ticker: string]: { price: number; yieldPct: number | null };
 }
 
 export interface ValuedStockPosition extends BucketStockPosition {
