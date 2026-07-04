@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-04T00:49:17.387223+00:00",
+  "generatedAt": "2026-07-04T00:52:03.600809+00:00",
   "tickers": {
     "MER": {
       "price": 575.0,
@@ -56,6 +56,1094 @@
     "CIC": {
       "price": 12.7,
       "yieldPct": 7.87
+    },
+    "AAA": {
+      "price": 1.63,
+      "yieldPct": null
+    },
+    "AB": {
+      "price": 1.6,
+      "yieldPct": null
+    },
+    "ABA": {
+      "price": 0.31,
+      "yieldPct": 6.45
+    },
+    "ABG": {
+      "price": 32.4,
+      "yieldPct": null
+    },
+    "ABS": {
+      "price": 3.26,
+      "yieldPct": null
+    },
+    "ABSP": {
+      "price": 2.82,
+      "yieldPct": null
+    },
+    "AC": {
+      "price": 480.8,
+      "yieldPct": 1.92
+    },
+    "ACE": {
+      "price": 1.25,
+      "yieldPct": null
+    },
+    "ACEN": {
+      "price": 3.1,
+      "yieldPct": 3.23
+    },
+    "ACR": {
+      "price": 0.62,
+      "yieldPct": 3.23
+    },
+    "AEV": {
+      "price": 32.85,
+      "yieldPct": 4.66
+    },
+    "AGI": {
+      "price": 8.0,
+      "yieldPct": 1.25
+    },
+    "ALCO": {
+      "price": 0.44,
+      "yieldPct": 2.73
+    },
+    "ALHI": {
+      "price": 4.2,
+      "yieldPct": 0.95
+    },
+    "ALI": {
+      "price": 15.44,
+      "yieldPct": 4.17
+    },
+    "ALLDY": {
+      "price": 0.04,
+      "yieldPct": null
+    },
+    "ALLHC": {
+      "price": 1.05,
+      "yieldPct": null
+    },
+    "ALTER": {
+      "price": 0.78,
+      "yieldPct": 1.28
+    },
+    "ANI": {
+      "price": 0.48,
+      "yieldPct": null
+    },
+    "ANS": {
+      "price": 17.0,
+      "yieldPct": 4.41
+    },
+    "APC": {
+      "price": 0.11,
+      "yieldPct": null
+    },
+    "APL": {
+      "price": 0.01,
+      "yieldPct": null
+    },
+    "APO": {
+      "price": 0.89,
+      "yieldPct": null
+    },
+    "APVI": {
+      "price": 10.0,
+      "yieldPct": 13.0
+    },
+    "APX": {
+      "price": 12.9,
+      "yieldPct": 4.77
+    },
+    "AR": {
+      "price": 0.0,
+      "yieldPct": null
+    },
+    "ARA": {
+      "price": 0.26,
+      "yieldPct": null
+    },
+    "ASLAG": {
+      "price": 0.99,
+      "yieldPct": 5.05
+    },
+    "AT": {
+      "price": 7.32,
+      "yieldPct": null
+    },
+    "ATI": {
+      "price": 29.0,
+      "yieldPct": null
+    },
+    "ATN": {
+      "price": 0.42,
+      "yieldPct": null
+    },
+    "AUB": {
+      "price": 52.4,
+      "yieldPct": 3.82
+    },
+    "AXLM": {
+      "price": 2.75,
+      "yieldPct": 2.32
+    },
+    "BALAI": {
+      "price": 0.32,
+      "yieldPct": 1.59
+    },
+    "BC": {
+      "price": 6.0,
+      "yieldPct": 2.5
+    },
+    "BCOR": {
+      "price": 9.5,
+      "yieldPct": null
+    },
+    "BDO": {
+      "price": 123.5,
+      "yieldPct": 2.67
+    },
+    "BEL": {
+      "price": 1.22,
+      "yieldPct": 4.92
+    },
+    "BH": {
+      "price": 680.0,
+      "yieldPct": null
+    },
+    "BHI": {
+      "price": 0.04,
+      "yieldPct": null
+    },
+    "BKR": {
+      "price": 0.53,
+      "yieldPct": 2.96
+    },
+    "BLOOM": {
+      "price": 1.84,
+      "yieldPct": null
+    },
+    "BMM": {
+      "price": 52.0,
+      "yieldPct": null
+    },
+    "BNCOM": {
+      "price": 10.58,
+      "yieldPct": 4.25
+    },
+    "BPI": {
+      "price": 101.0,
+      "yieldPct": 2.26
+    },
+    "BRN": {
+      "price": 0.72,
+      "yieldPct": 3.47
+    },
+    "BSC": {
+      "price": 0.11,
+      "yieldPct": null
+    },
+    "C": {
+      "price": 0.74,
+      "yieldPct": null
+    },
+    "CA": {
+      "price": 53.2,
+      "yieldPct": 3.34
+    },
+    "CAT": {
+      "price": 9.96,
+      "yieldPct": 4.21
+    },
+    "CBC": {
+      "price": 56.3,
+      "yieldPct": 4.97
+    },
+    "CDC": {
+      "price": 0.61,
+      "yieldPct": null
+    },
+    "CEB": {
+      "price": 29.3,
+      "yieldPct": null
+    },
+    "CEI": {
+      "price": 0.08,
+      "yieldPct": null
+    },
+    "CEU": {
+      "price": 15.32,
+      "yieldPct": 9.14
+    },
+    "CHP": {
+      "price": 0.71,
+      "yieldPct": null
+    },
+    "CLI": {
+      "price": 2.19,
+      "yieldPct": 8.22
+    },
+    "CNPF": {
+      "price": 30.8,
+      "yieldPct": null
+    },
+    "CNVRG": {
+      "price": 9.9,
+      "yieldPct": 9.9
+    },
+    "COAL": {
+      "price": 0.03,
+      "yieldPct": null
+    },
+    "COL": {
+      "price": 1.34,
+      "yieldPct": 4.34
+    },
+    "COSCO": {
+      "price": 8.19,
+      "yieldPct": 6.47
+    },
+    "CPM": {
+      "price": 2.27,
+      "yieldPct": null
+    },
+    "CREC": {
+      "price": 4.5,
+      "yieldPct": null
+    },
+    "CROWN": {
+      "price": 1.76,
+      "yieldPct": 5.68
+    },
+    "CSB": {
+      "price": 14.5,
+      "yieldPct": null
+    },
+    "CTS": {
+      "price": 0.37,
+      "yieldPct": 0.39
+    },
+    "CYBR": {
+      "price": 0.33,
+      "yieldPct": null
+    },
+    "DD": {
+      "price": 11.28,
+      "yieldPct": null
+    },
+    "DDMPR": {
+      "price": 1.05,
+      "yieldPct": 9.05
+    },
+    "DELM": {
+      "price": 4.15,
+      "yieldPct": null
+    },
+    "DFNN": {
+      "price": 0.75,
+      "yieldPct": null
+    },
+    "DHI": {
+      "price": 7.7,
+      "yieldPct": null
+    },
+    "DITO": {
+      "price": 0.74,
+      "yieldPct": null
+    },
+    "DIZ": {
+      "price": 3.0,
+      "yieldPct": null
+    },
+    "DMW": {
+      "price": 5.0,
+      "yieldPct": 2.0
+    },
+    "DNA": {
+      "price": 2.86,
+      "yieldPct": null
+    },
+    "DNL": {
+      "price": 3.54,
+      "yieldPct": 6.07
+    },
+    "DWC": {
+      "price": 0.92,
+      "yieldPct": null
+    },
+    "ECP": {
+      "price": 2.39,
+      "yieldPct": null
+    },
+    "ECVC": {
+      "price": 0.27,
+      "yieldPct": null
+    },
+    "EEI": {
+      "price": 1.94,
+      "yieldPct": null
+    },
+    "EG": {
+      "price": 0.01,
+      "yieldPct": null
+    },
+    "ELI": {
+      "price": 0.1,
+      "yieldPct": null
+    },
+    "EMI": {
+      "price": 15.38,
+      "yieldPct": null
+    },
+    "ENEX": {
+      "price": 3.05,
+      "yieldPct": null
+    },
+    "EURO": {
+      "price": 1.1,
+      "yieldPct": 6.36
+    },
+    "EVER": {
+      "price": 0.03,
+      "yieldPct": null
+    },
+    "EW": {
+      "price": 12.1,
+      "yieldPct": 6.78
+    },
+    "FAF": {
+      "price": 0.52,
+      "yieldPct": null
+    },
+    "FB": {
+      "price": 49.9,
+      "yieldPct": 5.11
+    },
+    "FCG": {
+      "price": 0.53,
+      "yieldPct": 3.47
+    },
+    "FDC": {
+      "price": 4.27,
+      "yieldPct": 3.29
+    },
+    "FERRO": {
+      "price": 2.43,
+      "yieldPct": null
+    },
+    "FEU": {
+      "price": 810.0,
+      "yieldPct": 3.7
+    },
+    "FFI": {
+      "price": 7.63,
+      "yieldPct": null
+    },
+    "FGEN": {
+      "price": 15.84,
+      "yieldPct": 2.53
+    },
+    "FJP": {
+      "price": 2.3,
+      "yieldPct": 13.04
+    },
+    "FLI": {
+      "price": 0.7,
+      "yieldPct": 7.14
+    },
+    "FMETF": {
+      "price": 103.2,
+      "yieldPct": null
+    },
+    "FNI": {
+      "price": 1.79,
+      "yieldPct": null
+    },
+    "FOOD": {
+      "price": 0.34,
+      "yieldPct": null
+    },
+    "FPH": {
+      "price": 79.5,
+      "yieldPct": 1.38
+    },
+    "FPI": {
+      "price": 0.33,
+      "yieldPct": null
+    },
+    "FRUIT": {
+      "price": 0.64,
+      "yieldPct": 1.56
+    },
+    "FYN": {
+      "price": 2.9,
+      "yieldPct": null
+    },
+    "GEO": {
+      "price": 0.08,
+      "yieldPct": null
+    },
+    "GERI": {
+      "price": 0.65,
+      "yieldPct": 1.68
+    },
+    "GLO": {
+      "price": 1885.0,
+      "yieldPct": 5.31
+    },
+    "GMA7": {
+      "price": 4.66,
+      "yieldPct": 8.58
+    },
+    "GMAP": {
+      "price": 4.34,
+      "yieldPct": null
+    },
+    "GPH": {
+      "price": 5.01,
+      "yieldPct": null
+    },
+    "GREEN": {
+      "price": 0.14,
+      "yieldPct": null
+    },
+    "GTCAP": {
+      "price": 491.0,
+      "yieldPct": 2.05
+    },
+    "HI": {
+      "price": 4.61,
+      "yieldPct": 3.9
+    },
+    "HOME": {
+      "price": 0.24,
+      "yieldPct": null
+    },
+    "HOUSE": {
+      "price": 10.42,
+      "yieldPct": null
+    },
+    "HTI": {
+      "price": 1.33,
+      "yieldPct": 2.26
+    },
+    "HVN": {
+      "price": 448.0,
+      "yieldPct": null
+    },
+    "I": {
+      "price": 0.2,
+      "yieldPct": null
+    },
+    "ICT": {
+      "price": 913.0,
+      "yieldPct": 1.96
+    },
+    "IDC": {
+      "price": 0.63,
+      "yieldPct": null
+    },
+    "IMI": {
+      "price": 4.55,
+      "yieldPct": null
+    },
+    "IMP": {
+      "price": 0.88,
+      "yieldPct": null
+    },
+    "INFRA": {
+      "price": 0.32,
+      "yieldPct": null
+    },
+    "ION": {
+      "price": 1.39,
+      "yieldPct": 7.19
+    },
+    "IPM": {
+      "price": 1.87,
+      "yieldPct": null
+    },
+    "IPO": {
+      "price": 7.15,
+      "yieldPct": 3.23
+    },
+    "IS": {
+      "price": 0.12,
+      "yieldPct": null
+    },
+    "JAS": {
+      "price": 1.96,
+      "yieldPct": null
+    },
+    "JFC": {
+      "price": 145.8,
+      "yieldPct": 2.36
+    },
+    "JGS": {
+      "price": 25.9,
+      "yieldPct": 1.74
+    },
+    "JOH": {
+      "price": 3.98,
+      "yieldPct": null
+    },
+    "KEEPR": {
+      "price": 1.86,
+      "yieldPct": 6.45
+    },
+    "KEP": {
+      "price": 2.69,
+      "yieldPct": null
+    },
+    "KPH": {
+      "price": 25.85,
+      "yieldPct": null
+    },
+    "KPPI": {
+      "price": 1.38,
+      "yieldPct": null
+    },
+    "LAND": {
+      "price": 0.49,
+      "yieldPct": null
+    },
+    "LBC": {
+      "price": 6.8,
+      "yieldPct": null
+    },
+    "LC": {
+      "price": 0.18,
+      "yieldPct": null
+    },
+    "LFM": {
+      "price": 28.0,
+      "yieldPct": 12.14
+    },
+    "LMG": {
+      "price": 0.25,
+      "yieldPct": null
+    },
+    "LODE": {
+      "price": 0.33,
+      "yieldPct": null
+    },
+    "LOTO": {
+      "price": 1.84,
+      "yieldPct": null
+    },
+    "LPC": {
+      "price": 0.03,
+      "yieldPct": null
+    },
+    "LPZ": {
+      "price": 4.0,
+      "yieldPct": 2.5
+    },
+    "LSC": {
+      "price": 0.63,
+      "yieldPct": null
+    },
+    "MA": {
+      "price": 0.01,
+      "yieldPct": null
+    },
+    "MAC": {
+      "price": 3.83,
+      "yieldPct": null
+    },
+    "MACAY": {
+      "price": 6.11,
+      "yieldPct": null
+    },
+    "MAH": {
+      "price": 0.37,
+      "yieldPct": null
+    },
+    "MARC": {
+      "price": 0.61,
+      "yieldPct": 21.75
+    },
+    "MAXS": {
+      "price": 2.12,
+      "yieldPct": 5.78
+    },
+    "MB": {
+      "price": 0.21,
+      "yieldPct": null
+    },
+    "MBC": {
+      "price": 5.93,
+      "yieldPct": 2.53
+    },
+    "MBT": {
+      "price": 66.3,
+      "yieldPct": 7.54
+    },
+    "MED": {
+      "price": 0.09,
+      "yieldPct": null
+    },
+    "MEDIC": {
+      "price": 0.22,
+      "yieldPct": 4.29
+    },
+    "MEG": {
+      "price": 2.1,
+      "yieldPct": 4.47
+    },
+    "MFC": {
+      "price": 2370.0,
+      "yieldPct": 3.37
+    },
+    "MFIN": {
+      "price": 2.36,
+      "yieldPct": 0.34
+    },
+    "MG": {
+      "price": 0.06,
+      "yieldPct": null
+    },
+    "MGH": {
+      "price": 1.0,
+      "yieldPct": null
+    },
+    "MHC": {
+      "price": 0.11,
+      "yieldPct": null
+    },
+    "MJC": {
+      "price": 1.27,
+      "yieldPct": null
+    },
+    "MJIC": {
+      "price": 1.0,
+      "yieldPct": null
+    },
+    "MM": {
+      "price": 0.44,
+      "yieldPct": null
+    },
+    "MONDE": {
+      "price": 7.06,
+      "yieldPct": 5.67
+    },
+    "MRC": {
+      "price": 0.74,
+      "yieldPct": null
+    },
+    "MRSGI": {
+      "price": 1.08,
+      "yieldPct": 5.56
+    },
+    "MVC": {
+      "price": 5.1,
+      "yieldPct": 1.96
+    },
+    "MWC": {
+      "price": 34.2,
+      "yieldPct": 5.92
+    },
+    "MWIDE": {
+      "price": 4.09,
+      "yieldPct": null
+    },
+    "NI": {
+      "price": 0.41,
+      "yieldPct": null
+    },
+    "NIKL": {
+      "price": 3.75,
+      "yieldPct": 5.6
+    },
+    "NOW": {
+      "price": 0.53,
+      "yieldPct": null
+    },
+    "NRCP": {
+      "price": 0.94,
+      "yieldPct": null
+    },
+    "NXGEN": {
+      "price": 7.0,
+      "yieldPct": null
+    },
+    "OGP": {
+      "price": 32.8,
+      "yieldPct": 0.19
+    },
+    "OM": {
+      "price": 0.1,
+      "yieldPct": null
+    },
+    "OPM": {
+      "price": 0.01,
+      "yieldPct": 3.85
+    },
+    "ORE": {
+      "price": 0.44,
+      "yieldPct": null
+    },
+    "OV": {
+      "price": 0.01,
+      "yieldPct": null
+    },
+    "PA": {
+      "price": 0.73,
+      "yieldPct": null
+    },
+    "PAL": {
+      "price": 2.64,
+      "yieldPct": null
+    },
+    "PAX": {
+      "price": 2.05,
+      "yieldPct": null
+    },
+    "PBB": {
+      "price": 7.05,
+      "yieldPct": 6.38
+    },
+    "PBC": {
+      "price": 14.8,
+      "yieldPct": 6.76
+    },
+    "PCOR": {
+      "price": 2.29,
+      "yieldPct": 6.55
+    },
+    "PERC": {
+      "price": 3.6,
+      "yieldPct": 1.39
+    },
+    "PGOLD": {
+      "price": 41.35,
+      "yieldPct": 6.51
+    },
+    "PHA": {
+      "price": 0.17,
+      "yieldPct": null
+    },
+    "PHC": {
+      "price": 1.6,
+      "yieldPct": 6.25
+    },
+    "PHES": {
+      "price": 0.44,
+      "yieldPct": null
+    },
+    "PHN": {
+      "price": 15.08,
+      "yieldPct": 3.98
+    },
+    "PHR": {
+      "price": 0.19,
+      "yieldPct": null
+    },
+    "PIZZA": {
+      "price": 5.94,
+      "yieldPct": null
+    },
+    "PLUS": {
+      "price": 11.74,
+      "yieldPct": 7.07
+    },
+    "PMPC": {
+      "price": 8.6,
+      "yieldPct": null
+    },
+    "PNB": {
+      "price": 57.9,
+      "yieldPct": 8.08
+    },
+    "PNC": {
+      "price": 5.0,
+      "yieldPct": null
+    },
+    "PNX": {
+      "price": 4.17,
+      "yieldPct": null
+    },
+    "PORT": {
+      "price": 7.3,
+      "yieldPct": null
+    },
+    "PPC": {
+      "price": 15.02,
+      "yieldPct": 3.93
+    },
+    "PRC": {
+      "price": 5.0,
+      "yieldPct": 1.6
+    },
+    "PREIT": {
+      "price": 1.14,
+      "yieldPct": 8.29
+    },
+    "PRIM": {
+      "price": 0.71,
+      "yieldPct": null
+    },
+    "PRMX": {
+      "price": 1.0,
+      "yieldPct": null
+    },
+    "PSB": {
+      "price": 53.05,
+      "yieldPct": 5.66
+    },
+    "PSE": {
+      "price": 202.8,
+      "yieldPct": 5.42
+    },
+    "PTC": {
+      "price": 90.0,
+      "yieldPct": null
+    },
+    "PTT": {
+      "price": 0.33,
+      "yieldPct": null
+    },
+    "PX": {
+      "price": 7.2,
+      "yieldPct": 0.56
+    },
+    "PXP": {
+      "price": 2.47,
+      "yieldPct": null
+    },
+    "RCB": {
+      "price": 23.5,
+      "yieldPct": 3.45
+    },
+    "RCI": {
+      "price": 2.66,
+      "yieldPct": null
+    },
+    "REDC": {
+      "price": 9.0,
+      "yieldPct": 0.89
+    },
+    "REG": {
+      "price": 3.19,
+      "yieldPct": 1.25
+    },
+    "RLC": {
+      "price": 16.64,
+      "yieldPct": 6.01
+    },
+    "RLT": {
+      "price": 0.1,
+      "yieldPct": null
+    },
+    "ROCK": {
+      "price": 2.25,
+      "yieldPct": 5.39
+    },
+    "ROX": {
+      "price": 1.45,
+      "yieldPct": null
+    },
+    "RRHI": {
+      "price": 47.0,
+      "yieldPct": 4.26
+    },
+    "SBS": {
+      "price": 3.15,
+      "yieldPct": null
+    },
+    "SCC": {
+      "price": 22.1,
+      "yieldPct": 5.66
+    },
+    "SECB": {
+      "price": 65.95,
+      "yieldPct": 4.55
+    },
+    "SEVN": {
+      "price": 32.85,
+      "yieldPct": 3.04
+    },
+    "SFI": {
+      "price": 0.05,
+      "yieldPct": null
+    },
+    "SGI": {
+      "price": 1.37,
+      "yieldPct": 7.3
+    },
+    "SGP": {
+      "price": 27.85,
+      "yieldPct": 3.74
+    },
+    "SHLPH": {
+      "price": 8.58,
+      "yieldPct": 3.5
+    },
+    "SHNG": {
+      "price": 3.2,
+      "yieldPct": 6.6
+    },
+    "SLF": {
+      "price": 4750.0,
+      "yieldPct": 3.35
+    },
+    "SLI": {
+      "price": 1.96,
+      "yieldPct": 2.04
+    },
+    "SM": {
+      "price": 595.0,
+      "yieldPct": 2.86
+    },
+    "SMC": {
+      "price": 67.25,
+      "yieldPct": 2.08
+    },
+    "SMPH": {
+      "price": 18.46,
+      "yieldPct": 2.28
+    },
+    "SOC": {
+      "price": 0.21,
+      "yieldPct": null
+    },
+    "SPC": {
+      "price": 10.78,
+      "yieldPct": 11.13
+    },
+    "SPM": {
+      "price": 2.38,
+      "yieldPct": null
+    },
+    "SPNEC": {
+      "price": 1.41,
+      "yieldPct": null
+    },
+    "SRDC": {
+      "price": 9.42,
+      "yieldPct": null
+    },
+    "SSI": {
+      "price": 2.21,
+      "yieldPct": 3.64
+    },
+    "SSP": {
+      "price": 1.57,
+      "yieldPct": null
+    },
+    "STI": {
+      "price": 1.22,
+      "yieldPct": 4.51
+    },
+    "STN": {
+      "price": 1.85,
+      "yieldPct": null
+    },
+    "STR": {
+      "price": 1.02,
+      "yieldPct": 4.25
+    },
+    "SUN": {
+      "price": 0.43,
+      "yieldPct": null
+    },
+    "T": {
+      "price": 0.3,
+      "yieldPct": null
+    },
+    "TBGI": {
+      "price": 0.12,
+      "yieldPct": null
+    },
+    "TECH": {
+      "price": 0.69,
+      "yieldPct": null
+    },
+    "TEL": {
+      "price": 1171.0,
+      "yieldPct": 8.03
+    },
+    "TFC": {
+      "price": 70.0,
+      "yieldPct": 3.57
+    },
+    "TFHI": {
+      "price": 55.0,
+      "yieldPct": null
+    },
+    "TUGS": {
+      "price": 0.81,
+      "yieldPct": null
+    },
+    "UBP": {
+      "price": 24.3,
+      "yieldPct": 4.12
+    },
+    "UNH": {
+      "price": 117.9,
+      "yieldPct": null
+    },
+    "UPM": {
+      "price": 0.01,
+      "yieldPct": null
+    },
+    "UPSON": {
+      "price": 0.7,
+      "yieldPct": null
+    },
+    "URC": {
+      "price": 63.5,
+      "yieldPct": 6.77
+    },
+    "V": {
+      "price": 0.82,
+      "yieldPct": 9.76
+    },
+    "VITA": {
+      "price": 0.5,
+      "yieldPct": 9.92
+    },
+    "VLL": {
+      "price": 0.96,
+      "yieldPct": 12.25
+    },
+    "VMC": {
+      "price": 1.9,
+      "yieldPct": 2.63
+    },
+    "VREIT": {
+      "price": 1.31,
+      "yieldPct": 11.22
+    },
+    "VVT": {
+      "price": 20.0,
+      "yieldPct": 3.04
+    },
+    "WEB": {
+      "price": 13.96,
+      "yieldPct": null
+    },
+    "WIN": {
+      "price": 0.3,
+      "yieldPct": null
+    },
+    "WPI": {
+      "price": 0.49,
+      "yieldPct": null
+    },
+    "X": {
+      "price": 0.23,
+      "yieldPct": null
+    },
+    "XG": {
+      "price": 2.7,
+      "yieldPct": null
+    },
+    "ZHI": {
+      "price": 0.06,
+      "yieldPct": null
     }
   },
   "errors": {
