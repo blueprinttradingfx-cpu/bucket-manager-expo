@@ -1,1424 +1,1436 @@
 {
-  "generatedAt": "2026-07-04T00:52:03.600809+00:00",
+  "generatedAt": "2026-07-04T23:36:10.553174+00:00",
   "tickers": {
     "MER": {
       "price": 575.0,
-      "yieldPct": 4.87
+      "yieldPct": 4.87,
+      "source": "dividends.ph"
     },
     "MREIT": {
-      "price": 14.0,
-      "yieldPct": 7.25
+      "price": 0.02,
+      "yieldPct": 7.25,
+      "source": "dragonfi"
     },
     "CREIT": {
-      "price": 3.49,
-      "yieldPct": 8.62
+      "price": 0.01,
+      "yieldPct": 5.82,
+      "source": "dragonfi"
     },
     "WLCON": {
       "price": 5.64,
-      "yieldPct": 7.09
+      "yieldPct": 7.09,
+      "source": "dividends.ph"
     },
     "RCR": {
       "price": 7.3,
-      "yieldPct": 5.94
+      "yieldPct": 5.94,
+      "source": "dividends.ph"
     },
     "FILRT": {
       "price": 2.93,
-      "yieldPct": 8.16
+      "yieldPct": 8.16,
+      "source": "dividends.ph"
     },
     "AREIT": {
-      "price": 37.4,
-      "yieldPct": 8.21
+      "price": 0.9,
+      "yieldPct": 6.55,
+      "source": "dragonfi"
     },
     "LTG": {
       "price": 14.72,
-      "yieldPct": 7.47
+      "yieldPct": 7.47,
+      "source": "dividends.ph"
     },
     "RFM": {
       "price": 5.68,
-      "yieldPct": 8.88
+      "yieldPct": 8.88,
+      "source": "dividends.ph"
     },
     "GSMI": {
       "price": 253.0,
-      "yieldPct": 8.1
+      "yieldPct": 3.95,
+      "source": "dragonfi"
     },
     "DMC": {
-      "price": 7.4,
-      "yieldPct": 10.54
+      "price": 0.1,
+      "yieldPct": 4.05,
+      "source": "dragonfi"
     },
     "CPG": {
-      "price": 0.68,
-      "yieldPct": 7.74
+      "price": 0.01,
+      "yieldPct": 6.19,
+      "source": "dragonfi"
     },
     "AP": {
       "price": 40.0,
-      "yieldPct": 5.7
+      "yieldPct": 3.38,
+      "source": "dragonfi"
     },
     "CIC": {
       "price": 12.7,
-      "yieldPct": 7.87
+      "yieldPct": 7.87,
+      "source": "dividends.ph"
     },
     "AAA": {
-      "price": 1.63,
-      "yieldPct": null
+      "price": 1.61,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "AB": {
-      "price": 1.6,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.18,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ABA": {
       "price": 0.31,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ABG": {
-      "price": 32.4,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.4,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ABS": {
-      "price": 3.26,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.52,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ABSP": {
-      "price": 2.82,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.42,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "AC": {
-      "price": 480.8,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 30.8,
+      "yieldPct": 2.0,
+      "source": "dragonfi"
     },
     "ACE": {
       "price": 1.25,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ACEN": {
-      "price": 3.1,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.04,
+      "yieldPct": 1.61,
+      "source": "dragonfi"
     },
     "ACR": {
       "price": 0.62,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.23,
+      "source": "dragonfi"
     },
     "AEV": {
-      "price": 32.85,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.15,
+      "yieldPct": 3.35,
+      "source": "dragonfi"
     },
     "AGI": {
-      "price": 8.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.08,
+      "yieldPct": 1.25,
+      "source": "dragonfi"
     },
     "ALCO": {
       "price": 0.44,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 2.73,
+      "source": "dragonfi"
     },
     "ALHI": {
       "price": 4.2,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.95,
+      "source": "dragonfi"
     },
     "ALI": {
-      "price": 15.44,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.4,
+      "yieldPct": 3.97,
+      "source": "dragonfi"
     },
     "ALLDY": {
-      "price": 0.035,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ALLHC": {
-      "price": 1.05,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ALTER": {
-      "price": 0.78,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.01,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ANI": {
-      "price": 0.475,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.47,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ANS": {
-      "price": 17.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 2.94,
+      "source": "dragonfi"
     },
     "APC": {
-      "price": 0.112,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.11,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "APL": {
-      "price": 0.0066,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.0,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "APO": {
       "price": 0.89,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "APVI": {
       "price": 10.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 13.0,
+      "source": "dragonfi"
     },
     "APX": {
-      "price": 12.9,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.74,
+      "yieldPct": 1.91,
+      "source": "dragonfi"
     },
     "AR": {
       "price": 0.0,
-      "yieldPct": null
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ARA": {
       "price": 0.26,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ASLAG": {
-      "price": 0.99,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.05,
+      "yieldPct": 1.34,
+      "source": "dragonfi"
     },
     "AT": {
-      "price": 7.32,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.33,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ATI": {
       "price": 29.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ATN": {
-      "price": 0.415,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.41,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "AUB": {
-      "price": 52.4,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.4,
+      "yieldPct": 4.77,
+      "source": "dragonfi"
     },
     "AXLM": {
-      "price": 2.75,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 2.32,
+      "source": "dragonfi"
     },
     "BALAI": {
-      "price": 0.315,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.31,
+      "yieldPct": 1.59,
+      "source": "dragonfi"
     },
     "BC": {
       "price": 6.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 2.5,
+      "source": "dividends.ph"
     },
     "BCOR": {
       "price": 9.5,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "BDO": {
       "price": 123.5,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 2.67,
+      "source": "dividends.ph"
     },
     "BEL": {
       "price": 1.22,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.92,
+      "source": "dividends.ph"
     },
     "BH": {
       "price": 680.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "BHI": {
-      "price": 0.038,
+      "price": 0.04,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "BKR": {
       "price": 0.53,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 2.96,
+      "source": "dividends.ph"
     },
     "BLOOM": {
       "price": 1.84,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "BMM": {
       "price": 52.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "BNCOM": {
       "price": 10.58,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.25,
+      "source": "dividends.ph"
     },
     "BPI": {
       "price": 101.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 2.26,
+      "source": "dividends.ph"
     },
     "BRN": {
       "price": 0.72,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.47,
+      "source": "dividends.ph"
     },
     "BSC": {
-      "price": 0.107,
+      "price": 0.11,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "C": {
       "price": 0.74,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "CA": {
       "price": 53.2,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.34,
+      "source": "dividends.ph"
     },
     "CAT": {
       "price": 9.96,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.21,
+      "source": "dividends.ph"
     },
     "CBC": {
       "price": 56.3,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.97,
+      "source": "dividends.ph"
     },
     "CDC": {
       "price": 0.61,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "CEB": {
       "price": 29.3,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "CEI": {
-      "price": 0.082,
+      "price": 0.08,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "CEU": {
       "price": 15.32,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 9.14,
+      "source": "dividends.ph"
     },
     "CHP": {
       "price": 0.71,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "CLI": {
       "price": 2.19,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 8.22,
+      "source": "dividends.ph"
     },
     "CNPF": {
       "price": 30.8,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "CNVRG": {
       "price": 9.9,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.95,
+      "source": "dragonfi"
     },
     "COAL": {
-      "price": 0.03,
-      "yieldPct": null
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "COL": {
-      "price": 1.34,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.04,
+      "yieldPct": 1.45,
+      "source": "dragonfi"
     },
     "COSCO": {
-      "price": 8.19,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.09,
+      "yieldPct": 3.24,
+      "source": "dragonfi"
     },
     "CPM": {
       "price": 2.27,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "CREC": {
       "price": 4.5,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "CROWN": {
       "price": 1.76,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.68,
+      "source": "dragonfi"
     },
     "CSB": {
       "price": 14.5,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "CTS": {
       "price": 0.37,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.02,
+      "source": "dragonfi"
     },
     "CYBR": {
       "price": 0.33,
-      "yieldPct": null
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "DD": {
-      "price": 11.28,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "DDMPR": {
-      "price": 1.05,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.01,
+      "yieldPct": 9.16,
+      "source": "dragonfi"
     },
     "DELM": {
-      "price": 4.15,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.13,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "DFNN": {
-      "price": 0.75,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "DHI": {
-      "price": 7.7,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.11,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "DITO": {
-      "price": 0.74,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "DIZ": {
-      "price": 3.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.1,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "DMW": {
-      "price": 5.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.01,
+      "yieldPct": 2.0,
+      "source": "dragonfi"
     },
     "DNA": {
       "price": 2.86,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "DNL": {
-      "price": 3.54,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 5.14,
+      "source": "dragonfi"
     },
     "DWC": {
       "price": 0.92,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ECP": {
-      "price": 2.39,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.1,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ECVC": {
       "price": 0.27,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "EEI": {
-      "price": 1.94,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.01,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "EG": {
-      "price": 0.01,
-      "yieldPct": null
+      "price": 0.0,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ELI": {
-      "price": 0.097,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.09,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "EMI": {
-      "price": 15.38,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.32,
+      "yieldPct": 0.88,
+      "source": "dragonfi"
     },
     "ENEX": {
       "price": 3.05,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "EURO": {
       "price": 1.1,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 6.36,
+      "source": "dragonfi"
     },
     "EVER": {
-      "price": 0.2,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "EW": {
-      "price": 12.1,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.04,
+      "yieldPct": 6.78,
+      "source": "dragonfi"
     },
     "FAF": {
       "price": 0.52,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "FB": {
       "price": 49.9,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.11,
+      "source": "dividends.ph"
     },
     "FCG": {
       "price": 0.53,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.47,
+      "source": "dividends.ph"
     },
     "FDC": {
       "price": 4.27,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.29,
+      "source": "dividends.ph"
     },
     "FERRO": {
       "price": 2.43,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "FEU": {
       "price": 810.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.7,
+      "source": "dividends.ph"
     },
     "FFI": {
       "price": 7.63,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "FGEN": {
       "price": 15.84,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 2.53,
+      "source": "dividends.ph"
     },
     "FJP": {
       "price": 2.3,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 13.04,
+      "source": "dividends.ph"
     },
     "FLI": {
       "price": 0.7,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 7.14,
+      "source": "dividends.ph"
     },
     "FMETF": {
       "price": 103.2,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "FNI": {
       "price": 1.79,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "FOOD": {
-      "price": 0.335,
+      "price": 0.34,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "FPH": {
       "price": 79.5,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 1.38,
+      "source": "dividends.ph"
     },
     "FPI": {
-      "price": 0.325,
+      "price": 0.33,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "FRUIT": {
       "price": 0.64,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 1.56,
+      "source": "dividends.ph"
     },
     "FYN": {
       "price": 2.9,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "GEO": {
-      "price": 0.077,
+      "price": 0.08,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "GERI": {
       "price": 0.65,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 1.68,
+      "source": "dividends.ph"
     },
     "GLO": {
       "price": 1885.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.31,
+      "source": "dividends.ph"
     },
     "GMA7": {
       "price": 4.66,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 8.58,
+      "source": "dividends.ph"
     },
     "GMAP": {
       "price": 4.34,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "GPH": {
       "price": 5.01,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "GREEN": {
-      "price": 0.144,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.14,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "GTCAP": {
-      "price": 491.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 11.0,
+      "yieldPct": 1.22,
+      "source": "dragonfi"
     },
     "HI": {
       "price": 4.61,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.9,
+      "source": "dragonfi"
     },
     "HOME": {
       "price": 0.24,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "HOUSE": {
       "price": 10.42,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "HTI": {
-      "price": 1.33,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 2.26,
+      "source": "dragonfi"
     },
     "HVN": {
-      "price": 934.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 486.0,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "I": {
-      "price": 0.2,
-      "yieldPct": null
+      "price": 0.19,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ICT": {
       "price": 913.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 1.96,
+      "source": "dragonfi"
     },
     "IDC": {
-      "price": 0.63,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.05,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "IMI": {
-      "price": 4.55,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.07,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "IMP": {
       "price": 0.88,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "INFRA": {
       "price": 0.32,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "ION": {
-      "price": 1.39,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 7.19,
+      "source": "dragonfi"
     },
     "IPM": {
       "price": 1.87,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "IPO": {
       "price": 7.15,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.23,
+      "source": "dragonfi"
     },
     "IS": {
       "price": 0.12,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "JAS": {
       "price": 1.96,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "JFC": {
-      "price": 145.8,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 3.0,
+      "yieldPct": 2.36,
+      "source": "dragonfi"
     },
     "JGS": {
-      "price": 25.9,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.3,
+      "yieldPct": 1.74,
+      "source": "dragonfi"
     },
     "JOH": {
       "price": 3.98,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "KEEPR": {
-      "price": 1.86,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.05,
+      "yieldPct": 6.45,
+      "source": "dragonfi"
     },
     "KEP": {
       "price": 2.69,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "KPH": {
       "price": 25.85,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "KPPI": {
       "price": 1.38,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "LAND": {
-      "price": 0.49,
-      "yieldPct": null
+      "price": 0.48,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "LBC": {
-      "price": 6.8,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.3,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "LC": {
-      "price": 0.178,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.17,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "LFM": {
-      "price": 28.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.1,
+      "yieldPct": 2.14,
+      "source": "dragonfi"
     },
     "LMG": {
       "price": 0.25,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "LODE": {
       "price": 0.33,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "LOTO": {
-      "price": 1.84,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.04,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "LPC": {
-      "price": 0.025,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "LPZ": {
       "price": 4.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.0,
+      "source": "dragonfi"
     },
     "LSC": {
       "price": 0.63,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MA": {
-      "price": 0.0072,
+      "price": 0.01,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MAC": {
       "price": 3.83,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MACAY": {
       "price": 6.11,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MAH": {
       "price": 0.37,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MARC": {
       "price": 0.61,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 21.75,
+      "source": "dividends.ph"
     },
     "MAXS": {
       "price": 2.12,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.78,
+      "source": "dividends.ph"
     },
     "MB": {
-      "price": 0.206,
+      "price": 0.21,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MBC": {
       "price": 5.93,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 2.53,
+      "source": "dividends.ph"
     },
     "MBT": {
       "price": 66.3,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 7.54,
+      "source": "dividends.ph"
     },
     "MED": {
-      "price": 0.093,
+      "price": 0.09,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MEDIC": {
       "price": 0.22,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.29,
+      "source": "dividends.ph"
     },
     "MEG": {
       "price": 2.1,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.47,
+      "source": "dividends.ph"
     },
     "MFC": {
       "price": 2370.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.37,
+      "source": "dividends.ph"
     },
     "MFIN": {
       "price": 2.36,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.34,
+      "source": "dividends.ph"
     },
     "MG": {
-      "price": 0.062,
+      "price": 0.06,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MGH": {
       "price": 1.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "MHC": {
-      "price": 0.106,
+      "price": 0.11,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MJC": {
       "price": 1.27,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "MJIC": {
       "price": 1.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "MM": {
-      "price": 0.435,
+      "price": 0.44,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "MONDE": {
-      "price": 7.06,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.04,
+      "yieldPct": 5.67,
+      "source": "dragonfi"
     },
     "MRC": {
-      "price": 0.74,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.01,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "MRSGI": {
       "price": 1.08,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.56,
+      "source": "dragonfi"
     },
     "MVC": {
-      "price": 5.1,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.15,
+      "yieldPct": 1.96,
+      "source": "dragonfi"
     },
     "MWC": {
-      "price": 34.2,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.95,
+      "yieldPct": 5.18,
+      "source": "dragonfi"
     },
     "MWIDE": {
-      "price": 4.09,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.09,
+      "yieldPct": 3.55,
+      "source": "dragonfi"
     },
     "NI": {
       "price": 0.41,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "NIKL": {
-      "price": 3.75,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.14,
+      "yieldPct": 3.73,
+      "source": "dragonfi"
     },
     "NOW": {
       "price": 0.53,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "NRCP": {
-      "price": 0.94,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 14.57,
+      "source": "dragonfi"
     },
     "NXGEN": {
       "price": 7.0,
-      "yieldPct": null
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "OGP": {
-      "price": 32.8,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 1.3,
+      "yieldPct": 11.19,
+      "source": "dragonfi"
     },
     "OM": {
-      "price": 0.098,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.09,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "OPM": {
-      "price": 0.013,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.01,
+      "yieldPct": 3.85,
+      "source": "dragonfi"
     },
     "ORE": {
-      "price": 0.435,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "OV": {
-      "price": 0.0083,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.0,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PA": {
       "price": 0.73,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PAL": {
-      "price": 2.64,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PAX": {
       "price": 2.05,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PBB": {
       "price": 7.05,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 6.38,
+      "source": "dragonfi"
     },
     "PBC": {
-      "price": 14.8,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.2,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PCOR": {
-      "price": 2.29,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 6.55,
+      "source": "dragonfi"
     },
     "PERC": {
-      "price": 3.6,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.05,
+      "yieldPct": 1.39,
+      "source": "dragonfi"
     },
     "PGOLD": {
-      "price": 41.35,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.65,
+      "yieldPct": 2.85,
+      "source": "dragonfi"
     },
     "PHA": {
       "price": 0.17,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PHC": {
-      "price": 1.6,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PHES": {
-      "price": 0.435,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.43,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PHN": {
-      "price": 15.08,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 1.08,
+      "yieldPct": 3.98,
+      "source": "dragonfi"
     },
     "PHR": {
-      "price": 0.187,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.18,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PIZZA": {
-      "price": 5.94,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.13,
+      "yieldPct": 3.37,
+      "source": "dragonfi"
     },
     "PLUS": {
-      "price": 11.74,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.5,
+      "yieldPct": 7.07,
+      "source": "dragonfi"
     },
     "PMPC": {
-      "price": 8.6,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.1,
+      "yieldPct": 7.9,
+      "source": "dragonfi"
     },
     "PNB": {
-      "price": 57.9,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.45,
+      "yieldPct": 5.7,
+      "source": "dragonfi"
     },
     "PNC": {
-      "price": 5.0,
-      "yieldPct": null
+      "price": 4.9,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "PNX": {
       "price": 4.17,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "PORT": {
       "price": 7.3,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "PPC": {
       "price": 15.02,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.93,
+      "source": "dividends.ph"
     },
     "PRC": {
       "price": 5.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 1.6,
+      "source": "dividends.ph"
     },
     "PREIT": {
       "price": 1.14,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 8.29,
+      "source": "dividends.ph"
     },
     "PRIM": {
       "price": 0.71,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "PRMX": {
       "price": 1.0,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "PSB": {
       "price": 53.05,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.66,
+      "source": "dividends.ph"
     },
     "PSE": {
       "price": 202.8,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.42,
+      "source": "dividends.ph"
     },
     "PTC": {
       "price": 90.0,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "PTT": {
       "price": 0.33,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "dividends.ph"
     },
     "PX": {
       "price": 7.2,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.56,
+      "source": "dividends.ph"
     },
     "PXP": {
       "price": 2.47,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "RCB": {
       "price": 23.5,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.45,
+      "source": "dividends.ph"
     },
     "RCI": {
       "price": 2.66,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "REDC": {
       "price": 9.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.89,
+      "source": "dividends.ph"
     },
     "REG": {
       "price": 3.19,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 1.25,
+      "source": "dividends.ph"
     },
     "RLC": {
       "price": 16.64,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 6.01,
+      "source": "dividends.ph"
     },
     "RLT": {
-      "price": 0.095,
+      "price": 0.1,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "ROCK": {
       "price": 2.25,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 5.39,
+      "source": "dividends.ph"
     },
     "ROX": {
       "price": 1.45,
-      "yieldPct": null
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "RRHI": {
-      "price": 47.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.3,
+      "yieldPct": 4.26,
+      "source": "dragonfi"
     },
     "SBS": {
       "price": 3.15,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.11,
+      "source": "dragonfi"
     },
     "SCC": {
       "price": 22.1,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "SECB": {
-      "price": 65.95,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.6,
+      "yieldPct": 4.55,
+      "source": "dragonfi"
     },
     "SEVN": {
-      "price": 32.85,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.35,
+      "yieldPct": 3.04,
+      "source": "dragonfi"
     },
     "SFI": {
-      "price": 0.049,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.04,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "SGI": {
-      "price": 1.37,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 7.3,
+      "source": "dragonfi"
     },
     "SGP": {
-      "price": 27.85,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.1,
+      "yieldPct": 3.74,
+      "source": "dragonfi"
     },
     "SHLPH": {
-      "price": 8.58,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.42,
+      "yieldPct": 3.5,
+      "source": "dragonfi"
     },
     "SHNG": {
       "price": 3.2,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 6.6,
+      "source": "dragonfi"
     },
     "SLF": {
       "price": 4750.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.29,
+      "source": "dragonfi"
     },
     "SLI": {
-      "price": 1.96,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "SM": {
-      "price": 595.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 14.0,
+      "yieldPct": 2.86,
+      "source": "dragonfi"
     },
     "SMC": {
-      "price": 67.25,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.35,
+      "yieldPct": 2.08,
+      "source": "dragonfi"
     },
     "SMPH": {
-      "price": 18.46,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.26,
+      "yieldPct": 2.28,
+      "source": "dragonfi"
     },
     "SOC": {
-      "price": 0.209,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.2,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "SPC": {
       "price": 10.78,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 11.13,
+      "source": "dragonfi"
     },
     "SPM": {
       "price": 2.38,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "SPNEC": {
-      "price": 1.41,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.03,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "SRDC": {
-      "price": 9.42,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "SSI": {
-      "price": 2.21,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.04,
+      "yieldPct": 3.64,
+      "source": "dragonfi"
     },
     "SSP": {
       "price": 1.57,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "STI": {
-      "price": 1.22,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.02,
+      "yieldPct": 4.51,
+      "source": "dragonfi"
     },
     "STN": {
       "price": 1.85,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "STR": {
       "price": 1.02,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.25,
+      "source": "dragonfi"
     },
     "SUN": {
       "price": 0.43,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "T": {
       "price": 0.3,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "TBGI": {
-      "price": 0.117,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.11,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "TECH": {
-      "price": 0.69,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.01,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "TEL": {
-      "price": 1171.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 40.0,
+      "yieldPct": 8.03,
+      "source": "dragonfi"
     },
     "TFC": {
       "price": 70.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.57,
+      "source": "dragonfi"
     },
     "TFHI": {
-      "price": 55.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.9,
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "TUGS": {
       "price": 0.81,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 0.0,
+      "source": "dragonfi"
     },
     "UBP": {
       "price": 24.3,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 4.12,
+      "source": "dividends.ph"
     },
     "UNH": {
       "price": 117.9,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "UPM": {
-      "price": 0.0078,
+      "price": 0.01,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "UPSON": {
       "price": 0.7,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "URC": {
       "price": 63.5,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 6.77,
+      "source": "dividends.ph"
     },
     "V": {
       "price": 0.82,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 9.76,
+      "source": "dividends.ph"
     },
     "VITA": {
-      "price": 0.495,
-      "yieldPct": null,
-      "source": "filgit"
+      "price": 0.5,
+      "yieldPct": 9.92,
+      "source": "dividends.ph"
     },
     "VLL": {
       "price": 0.96,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 12.25,
+      "source": "dividends.ph"
     },
     "VMC": {
       "price": 1.9,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 2.63,
+      "source": "dividends.ph"
     },
     "VREIT": {
       "price": 1.31,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 11.22,
+      "source": "dividends.ph"
     },
     "VVT": {
       "price": 20.0,
-      "yieldPct": null,
-      "source": "filgit"
+      "yieldPct": 3.04,
+      "source": "dividends.ph"
     },
     "WEB": {
       "price": 13.96,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "WIN": {
       "price": 0.3,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "WPI": {
-      "price": 0.485,
+      "price": 0.49,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "X": {
       "price": 0.23,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "XG": {
       "price": 2.7,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     },
     "ZHI": {
-      "price": 0.058,
+      "price": 0.06,
       "yieldPct": null,
-      "source": "filgit"
+      "source": "dividends.ph"
     }
   },
-  "errors": {
-    "AAA": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "AR": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "BH": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "BMM": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "COAL": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "CYBR": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "EG": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "FYN": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "I": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "LAND": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "MGH": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "MJC": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "MJIC": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "NXGEN": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "PNC": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "PNX": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "PORT": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "PTT": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
-    "ROX": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing"
-  },
-  "backupCheckedAt": "2026-07-04T23:05:30.827787+00:00"
+  "errors": {}
 }
