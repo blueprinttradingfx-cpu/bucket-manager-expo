@@ -63,99 +63,123 @@
     },
     "AB": {
       "price": 1.6,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ABA": {
       "price": 0.31,
-      "yieldPct": 6.45
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ABG": {
       "price": 32.4,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ABS": {
       "price": 3.26,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ABSP": {
       "price": 2.82,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "AC": {
       "price": 480.8,
-      "yieldPct": 1.92
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ACE": {
       "price": 1.25,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ACEN": {
       "price": 3.1,
-      "yieldPct": 3.23
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ACR": {
       "price": 0.62,
-      "yieldPct": 3.23
+      "yieldPct": null,
+      "source": "filgit"
     },
     "AEV": {
       "price": 32.85,
-      "yieldPct": 4.66
+      "yieldPct": null,
+      "source": "filgit"
     },
     "AGI": {
       "price": 8.0,
-      "yieldPct": 1.25
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ALCO": {
       "price": 0.44,
-      "yieldPct": 2.73
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ALHI": {
       "price": 4.2,
-      "yieldPct": 0.95
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ALI": {
       "price": 15.44,
-      "yieldPct": 4.17
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ALLDY": {
-      "price": 0.04,
-      "yieldPct": null
+      "price": 0.035,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ALLHC": {
       "price": 1.05,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ALTER": {
       "price": 0.78,
-      "yieldPct": 1.28
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ANI": {
-      "price": 0.48,
-      "yieldPct": null
+      "price": 0.475,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ANS": {
       "price": 17.0,
-      "yieldPct": 4.41
+      "yieldPct": null,
+      "source": "filgit"
     },
     "APC": {
-      "price": 0.11,
-      "yieldPct": null
+      "price": 0.112,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "APL": {
-      "price": 0.01,
-      "yieldPct": null
+      "price": 0.0066,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "APO": {
       "price": 0.89,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "APVI": {
       "price": 10.0,
-      "yieldPct": 13.0
+      "yieldPct": null,
+      "source": "filgit"
     },
     "APX": {
       "price": 12.9,
-      "yieldPct": 4.77
+      "yieldPct": null,
+      "source": "filgit"
     },
     "AR": {
       "price": 0.0,
@@ -163,67 +187,82 @@
     },
     "ARA": {
       "price": 0.26,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ASLAG": {
       "price": 0.99,
-      "yieldPct": 5.05
+      "yieldPct": null,
+      "source": "filgit"
     },
     "AT": {
       "price": 7.32,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ATI": {
       "price": 29.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ATN": {
-      "price": 0.42,
-      "yieldPct": null
+      "price": 0.415,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "AUB": {
       "price": 52.4,
-      "yieldPct": 3.82
+      "yieldPct": null,
+      "source": "filgit"
     },
     "AXLM": {
       "price": 2.75,
-      "yieldPct": 2.32
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BALAI": {
-      "price": 0.32,
-      "yieldPct": 1.59
+      "price": 0.315,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BC": {
       "price": 6.0,
-      "yieldPct": 2.5
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BCOR": {
       "price": 9.5,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BDO": {
       "price": 123.5,
-      "yieldPct": 2.67
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BEL": {
       "price": 1.22,
-      "yieldPct": 4.92
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BH": {
       "price": 680.0,
       "yieldPct": null
     },
     "BHI": {
-      "price": 0.04,
-      "yieldPct": null
+      "price": 0.038,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BKR": {
       "price": 0.53,
-      "yieldPct": 2.96
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BLOOM": {
       "price": 1.84,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BMM": {
       "price": 52.0,
@@ -231,67 +270,83 @@
     },
     "BNCOM": {
       "price": 10.58,
-      "yieldPct": 4.25
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BPI": {
       "price": 101.0,
-      "yieldPct": 2.26
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BRN": {
       "price": 0.72,
-      "yieldPct": 3.47
+      "yieldPct": null,
+      "source": "filgit"
     },
     "BSC": {
-      "price": 0.11,
-      "yieldPct": null
+      "price": 0.107,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "C": {
       "price": 0.74,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CA": {
       "price": 53.2,
-      "yieldPct": 3.34
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CAT": {
       "price": 9.96,
-      "yieldPct": 4.21
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CBC": {
       "price": 56.3,
-      "yieldPct": 4.97
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CDC": {
       "price": 0.61,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CEB": {
       "price": 29.3,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CEI": {
-      "price": 0.08,
-      "yieldPct": null
+      "price": 0.082,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CEU": {
       "price": 15.32,
-      "yieldPct": 9.14
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CHP": {
       "price": 0.71,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CLI": {
       "price": 2.19,
-      "yieldPct": 8.22
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CNPF": {
       "price": 30.8,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CNVRG": {
       "price": 9.9,
-      "yieldPct": 9.9
+      "yieldPct": null,
+      "source": "filgit"
     },
     "COAL": {
       "price": 0.03,
@@ -299,31 +354,38 @@
     },
     "COL": {
       "price": 1.34,
-      "yieldPct": 4.34
+      "yieldPct": null,
+      "source": "filgit"
     },
     "COSCO": {
       "price": 8.19,
-      "yieldPct": 6.47
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CPM": {
       "price": 2.27,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CREC": {
       "price": 4.5,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CROWN": {
       "price": 1.76,
-      "yieldPct": 5.68
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CSB": {
       "price": 14.5,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CTS": {
       "price": 0.37,
-      "yieldPct": 0.39
+      "yieldPct": null,
+      "source": "filgit"
     },
     "CYBR": {
       "price": 0.33,
@@ -331,207 +393,256 @@
     },
     "DD": {
       "price": 11.28,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DDMPR": {
       "price": 1.05,
-      "yieldPct": 9.05
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DELM": {
       "price": 4.15,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DFNN": {
       "price": 0.75,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DHI": {
       "price": 7.7,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DITO": {
       "price": 0.74,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DIZ": {
       "price": 3.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DMW": {
       "price": 5.0,
-      "yieldPct": 2.0
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DNA": {
       "price": 2.86,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DNL": {
       "price": 3.54,
-      "yieldPct": 6.07
+      "yieldPct": null,
+      "source": "filgit"
     },
     "DWC": {
       "price": 0.92,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ECP": {
       "price": 2.39,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ECVC": {
       "price": 0.27,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "EEI": {
       "price": 1.94,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "EG": {
       "price": 0.01,
       "yieldPct": null
     },
     "ELI": {
-      "price": 0.1,
-      "yieldPct": null
+      "price": 0.097,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "EMI": {
       "price": 15.38,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ENEX": {
       "price": 3.05,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "EURO": {
       "price": 1.1,
-      "yieldPct": 6.36
+      "yieldPct": null,
+      "source": "filgit"
     },
     "EVER": {
-      "price": 0.03,
-      "yieldPct": null
+      "price": 0.2,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "EW": {
       "price": 12.1,
-      "yieldPct": 6.78
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FAF": {
       "price": 0.52,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FB": {
       "price": 49.9,
-      "yieldPct": 5.11
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FCG": {
       "price": 0.53,
-      "yieldPct": 3.47
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FDC": {
       "price": 4.27,
-      "yieldPct": 3.29
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FERRO": {
       "price": 2.43,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FEU": {
       "price": 810.0,
-      "yieldPct": 3.7
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FFI": {
       "price": 7.63,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FGEN": {
       "price": 15.84,
-      "yieldPct": 2.53
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FJP": {
       "price": 2.3,
-      "yieldPct": 13.04
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FLI": {
       "price": 0.7,
-      "yieldPct": 7.14
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FMETF": {
       "price": 103.2,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FNI": {
       "price": 1.79,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FOOD": {
-      "price": 0.34,
-      "yieldPct": null
+      "price": 0.335,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FPH": {
       "price": 79.5,
-      "yieldPct": 1.38
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FPI": {
-      "price": 0.33,
-      "yieldPct": null
+      "price": 0.325,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FRUIT": {
       "price": 0.64,
-      "yieldPct": 1.56
+      "yieldPct": null,
+      "source": "filgit"
     },
     "FYN": {
       "price": 2.9,
       "yieldPct": null
     },
     "GEO": {
-      "price": 0.08,
-      "yieldPct": null
+      "price": 0.077,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "GERI": {
       "price": 0.65,
-      "yieldPct": 1.68
+      "yieldPct": null,
+      "source": "filgit"
     },
     "GLO": {
       "price": 1885.0,
-      "yieldPct": 5.31
+      "yieldPct": null,
+      "source": "filgit"
     },
     "GMA7": {
       "price": 4.66,
-      "yieldPct": 8.58
+      "yieldPct": null,
+      "source": "filgit"
     },
     "GMAP": {
       "price": 4.34,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "GPH": {
       "price": 5.01,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "GREEN": {
-      "price": 0.14,
-      "yieldPct": null
+      "price": 0.144,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "GTCAP": {
       "price": 491.0,
-      "yieldPct": 2.05
+      "yieldPct": null,
+      "source": "filgit"
     },
     "HI": {
       "price": 4.61,
-      "yieldPct": 3.9
+      "yieldPct": null,
+      "source": "filgit"
     },
     "HOME": {
       "price": 0.24,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "HOUSE": {
       "price": 10.42,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "HTI": {
       "price": 1.33,
-      "yieldPct": 2.26
+      "yieldPct": null,
+      "source": "filgit"
     },
     "HVN": {
-      "price": 448.0,
-      "yieldPct": null
+      "price": 934.0,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "I": {
       "price": 0.2,
@@ -539,71 +650,88 @@
     },
     "ICT": {
       "price": 913.0,
-      "yieldPct": 1.96
+      "yieldPct": null,
+      "source": "filgit"
     },
     "IDC": {
       "price": 0.63,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "IMI": {
       "price": 4.55,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "IMP": {
       "price": 0.88,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "INFRA": {
       "price": 0.32,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ION": {
       "price": 1.39,
-      "yieldPct": 7.19
+      "yieldPct": null,
+      "source": "filgit"
     },
     "IPM": {
       "price": 1.87,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "IPO": {
       "price": 7.15,
-      "yieldPct": 3.23
+      "yieldPct": null,
+      "source": "filgit"
     },
     "IS": {
       "price": 0.12,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "JAS": {
       "price": 1.96,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "JFC": {
       "price": 145.8,
-      "yieldPct": 2.36
+      "yieldPct": null,
+      "source": "filgit"
     },
     "JGS": {
       "price": 25.9,
-      "yieldPct": 1.74
+      "yieldPct": null,
+      "source": "filgit"
     },
     "JOH": {
       "price": 3.98,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "KEEPR": {
       "price": 1.86,
-      "yieldPct": 6.45
+      "yieldPct": null,
+      "source": "filgit"
     },
     "KEP": {
       "price": 2.69,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "KPH": {
       "price": 25.85,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "KPPI": {
       "price": 1.38,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LAND": {
       "price": 0.49,
@@ -611,107 +739,132 @@
     },
     "LBC": {
       "price": 6.8,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LC": {
-      "price": 0.18,
-      "yieldPct": null
+      "price": 0.178,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LFM": {
       "price": 28.0,
-      "yieldPct": 12.14
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LMG": {
       "price": 0.25,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LODE": {
       "price": 0.33,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LOTO": {
       "price": 1.84,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LPC": {
-      "price": 0.03,
-      "yieldPct": null
+      "price": 0.025,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LPZ": {
       "price": 4.0,
-      "yieldPct": 2.5
+      "yieldPct": null,
+      "source": "filgit"
     },
     "LSC": {
       "price": 0.63,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MA": {
-      "price": 0.01,
-      "yieldPct": null
+      "price": 0.0072,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MAC": {
       "price": 3.83,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MACAY": {
       "price": 6.11,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MAH": {
       "price": 0.37,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MARC": {
       "price": 0.61,
-      "yieldPct": 21.75
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MAXS": {
       "price": 2.12,
-      "yieldPct": 5.78
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MB": {
-      "price": 0.21,
-      "yieldPct": null
+      "price": 0.206,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MBC": {
       "price": 5.93,
-      "yieldPct": 2.53
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MBT": {
       "price": 66.3,
-      "yieldPct": 7.54
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MED": {
-      "price": 0.09,
-      "yieldPct": null
+      "price": 0.093,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MEDIC": {
       "price": 0.22,
-      "yieldPct": 4.29
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MEG": {
       "price": 2.1,
-      "yieldPct": 4.47
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MFC": {
       "price": 2370.0,
-      "yieldPct": 3.37
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MFIN": {
       "price": 2.36,
-      "yieldPct": 0.34
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MG": {
-      "price": 0.06,
-      "yieldPct": null
+      "price": 0.062,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MGH": {
       "price": 1.0,
       "yieldPct": null
     },
     "MHC": {
-      "price": 0.11,
-      "yieldPct": null
+      "price": 0.106,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MJC": {
       "price": 1.27,
@@ -722,48 +875,59 @@
       "yieldPct": null
     },
     "MM": {
-      "price": 0.44,
-      "yieldPct": null
+      "price": 0.435,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MONDE": {
       "price": 7.06,
-      "yieldPct": 5.67
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MRC": {
       "price": 0.74,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MRSGI": {
       "price": 1.08,
-      "yieldPct": 5.56
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MVC": {
       "price": 5.1,
-      "yieldPct": 1.96
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MWC": {
       "price": 34.2,
-      "yieldPct": 5.92
+      "yieldPct": null,
+      "source": "filgit"
     },
     "MWIDE": {
       "price": 4.09,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "NI": {
       "price": 0.41,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "NIKL": {
       "price": 3.75,
-      "yieldPct": 5.6
+      "yieldPct": null,
+      "source": "filgit"
     },
     "NOW": {
       "price": 0.53,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "NRCP": {
       "price": 0.94,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "NXGEN": {
       "price": 7.0,
@@ -771,91 +935,113 @@
     },
     "OGP": {
       "price": 32.8,
-      "yieldPct": 0.19
+      "yieldPct": null,
+      "source": "filgit"
     },
     "OM": {
-      "price": 0.1,
-      "yieldPct": null
+      "price": 0.098,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "OPM": {
-      "price": 0.01,
-      "yieldPct": 3.85
+      "price": 0.013,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ORE": {
-      "price": 0.44,
-      "yieldPct": null
+      "price": 0.435,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "OV": {
-      "price": 0.01,
-      "yieldPct": null
+      "price": 0.0083,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PA": {
       "price": 0.73,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PAL": {
       "price": 2.64,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PAX": {
       "price": 2.05,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PBB": {
       "price": 7.05,
-      "yieldPct": 6.38
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PBC": {
       "price": 14.8,
-      "yieldPct": 6.76
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PCOR": {
       "price": 2.29,
-      "yieldPct": 6.55
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PERC": {
       "price": 3.6,
-      "yieldPct": 1.39
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PGOLD": {
       "price": 41.35,
-      "yieldPct": 6.51
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PHA": {
       "price": 0.17,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PHC": {
       "price": 1.6,
-      "yieldPct": 6.25
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PHES": {
-      "price": 0.44,
-      "yieldPct": null
+      "price": 0.435,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PHN": {
       "price": 15.08,
-      "yieldPct": 3.98
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PHR": {
-      "price": 0.19,
-      "yieldPct": null
+      "price": 0.187,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PIZZA": {
       "price": 5.94,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PLUS": {
       "price": 11.74,
-      "yieldPct": 7.07
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PMPC": {
       "price": 8.6,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PNB": {
       "price": 57.9,
-      "yieldPct": 8.08
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PNC": {
       "price": 5.0,
@@ -871,35 +1057,43 @@
     },
     "PPC": {
       "price": 15.02,
-      "yieldPct": 3.93
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PRC": {
       "price": 5.0,
-      "yieldPct": 1.6
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PREIT": {
       "price": 1.14,
-      "yieldPct": 8.29
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PRIM": {
       "price": 0.71,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PRMX": {
       "price": 1.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PSB": {
       "price": 53.05,
-      "yieldPct": 5.66
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PSE": {
       "price": 202.8,
-      "yieldPct": 5.42
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PTC": {
       "price": 90.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PTT": {
       "price": 0.33,
@@ -907,39 +1101,48 @@
     },
     "PX": {
       "price": 7.2,
-      "yieldPct": 0.56
+      "yieldPct": null,
+      "source": "filgit"
     },
     "PXP": {
       "price": 2.47,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "RCB": {
       "price": 23.5,
-      "yieldPct": 3.45
+      "yieldPct": null,
+      "source": "filgit"
     },
     "RCI": {
       "price": 2.66,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "REDC": {
       "price": 9.0,
-      "yieldPct": 0.89
+      "yieldPct": null,
+      "source": "filgit"
     },
     "REG": {
       "price": 3.19,
-      "yieldPct": 1.25
+      "yieldPct": null,
+      "source": "filgit"
     },
     "RLC": {
       "price": 16.64,
-      "yieldPct": 6.01
+      "yieldPct": null,
+      "source": "filgit"
     },
     "RLT": {
-      "price": 0.1,
-      "yieldPct": null
+      "price": 0.095,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ROCK": {
       "price": 2.25,
-      "yieldPct": 5.39
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ROX": {
       "price": 1.45,
@@ -947,478 +1150,275 @@
     },
     "RRHI": {
       "price": 47.0,
-      "yieldPct": 4.26
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SBS": {
       "price": 3.15,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SCC": {
       "price": 22.1,
-      "yieldPct": 5.66
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SECB": {
       "price": 65.95,
-      "yieldPct": 4.55
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SEVN": {
       "price": 32.85,
-      "yieldPct": 3.04
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SFI": {
-      "price": 0.05,
-      "yieldPct": null
+      "price": 0.049,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SGI": {
       "price": 1.37,
-      "yieldPct": 7.3
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SGP": {
       "price": 27.85,
-      "yieldPct": 3.74
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SHLPH": {
       "price": 8.58,
-      "yieldPct": 3.5
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SHNG": {
       "price": 3.2,
-      "yieldPct": 6.6
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SLF": {
       "price": 4750.0,
-      "yieldPct": 3.35
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SLI": {
       "price": 1.96,
-      "yieldPct": 2.04
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SM": {
       "price": 595.0,
-      "yieldPct": 2.86
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SMC": {
       "price": 67.25,
-      "yieldPct": 2.08
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SMPH": {
       "price": 18.46,
-      "yieldPct": 2.28
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SOC": {
-      "price": 0.21,
-      "yieldPct": null
+      "price": 0.209,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SPC": {
       "price": 10.78,
-      "yieldPct": 11.13
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SPM": {
       "price": 2.38,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SPNEC": {
       "price": 1.41,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SRDC": {
       "price": 9.42,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SSI": {
       "price": 2.21,
-      "yieldPct": 3.64
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SSP": {
       "price": 1.57,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "STI": {
       "price": 1.22,
-      "yieldPct": 4.51
+      "yieldPct": null,
+      "source": "filgit"
     },
     "STN": {
       "price": 1.85,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "STR": {
       "price": 1.02,
-      "yieldPct": 4.25
+      "yieldPct": null,
+      "source": "filgit"
     },
     "SUN": {
       "price": 0.43,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "T": {
       "price": 0.3,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "TBGI": {
-      "price": 0.12,
-      "yieldPct": null
+      "price": 0.117,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "TECH": {
       "price": 0.69,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "TEL": {
       "price": 1171.0,
-      "yieldPct": 8.03
+      "yieldPct": null,
+      "source": "filgit"
     },
     "TFC": {
       "price": 70.0,
-      "yieldPct": 3.57
+      "yieldPct": null,
+      "source": "filgit"
     },
     "TFHI": {
       "price": 55.0,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "TUGS": {
       "price": 0.81,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "UBP": {
       "price": 24.3,
-      "yieldPct": 4.12
+      "yieldPct": null,
+      "source": "filgit"
     },
     "UNH": {
       "price": 117.9,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "UPM": {
-      "price": 0.01,
-      "yieldPct": null
+      "price": 0.0078,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "UPSON": {
       "price": 0.7,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "URC": {
       "price": 63.5,
-      "yieldPct": 6.77
+      "yieldPct": null,
+      "source": "filgit"
     },
     "V": {
       "price": 0.82,
-      "yieldPct": 9.76
+      "yieldPct": null,
+      "source": "filgit"
     },
     "VITA": {
-      "price": 0.5,
-      "yieldPct": 9.92
+      "price": 0.495,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "VLL": {
       "price": 0.96,
-      "yieldPct": 12.25
+      "yieldPct": null,
+      "source": "filgit"
     },
     "VMC": {
       "price": 1.9,
-      "yieldPct": 2.63
+      "yieldPct": null,
+      "source": "filgit"
     },
     "VREIT": {
       "price": 1.31,
-      "yieldPct": 11.22
+      "yieldPct": null,
+      "source": "filgit"
     },
     "VVT": {
       "price": 20.0,
-      "yieldPct": 3.04
+      "yieldPct": null,
+      "source": "filgit"
     },
     "WEB": {
       "price": 13.96,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "WIN": {
       "price": 0.3,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "WPI": {
-      "price": 0.49,
-      "yieldPct": null
+      "price": 0.485,
+      "yieldPct": null,
+      "source": "filgit"
     },
     "X": {
       "price": 0.23,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "XG": {
       "price": 2.7,
-      "yieldPct": null
+      "yieldPct": null,
+      "source": "filgit"
     },
     "ZHI": {
-      "price": 0.06,
-      "yieldPct": null
+      "price": 0.058,
+      "yieldPct": null,
+      "source": "filgit"
     }
   },
   "errors": {
-    "AAA": " | filgit backup: ticker not found in pse-stocks listing",
-    "AB": " | filgit backup: ticker not found in pse-stocks listing",
-    "ABA": " | filgit backup: ticker not found in pse-stocks listing",
-    "ABG": " | filgit backup: ticker not found in pse-stocks listing",
-    "ABS": " | filgit backup: ticker not found in pse-stocks listing",
-    "ABSP": " | filgit backup: ticker not found in pse-stocks listing",
-    "AC": " | filgit backup: ticker not found in pse-stocks listing",
-    "ACE": " | filgit backup: ticker not found in pse-stocks listing",
-    "ACEN": " | filgit backup: ticker not found in pse-stocks listing",
-    "ACR": " | filgit backup: ticker not found in pse-stocks listing",
-    "AEV": " | filgit backup: ticker not found in pse-stocks listing",
-    "AGI": " | filgit backup: ticker not found in pse-stocks listing",
-    "ALCO": " | filgit backup: ticker not found in pse-stocks listing",
-    "ALHI": " | filgit backup: ticker not found in pse-stocks listing",
-    "ALI": " | filgit backup: ticker not found in pse-stocks listing",
-    "ALLDY": " | filgit backup: ticker not found in pse-stocks listing",
-    "ALLHC": " | filgit backup: ticker not found in pse-stocks listing",
-    "ALTER": " | filgit backup: ticker not found in pse-stocks listing",
-    "ANI": " | filgit backup: ticker not found in pse-stocks listing",
-    "ANS": " | filgit backup: ticker not found in pse-stocks listing",
-    "APC": " | filgit backup: ticker not found in pse-stocks listing",
-    "APL": " | filgit backup: ticker not found in pse-stocks listing",
-    "APO": " | filgit backup: ticker not found in pse-stocks listing",
-    "APVI": " | filgit backup: ticker not found in pse-stocks listing",
-    "APX": " | filgit backup: ticker not found in pse-stocks listing",
-    "AR": " | filgit backup: ticker not found in pse-stocks listing",
-    "ARA": " | filgit backup: ticker not found in pse-stocks listing",
-    "ASLAG": " | filgit backup: ticker not found in pse-stocks listing",
-    "AT": " | filgit backup: ticker not found in pse-stocks listing",
-    "ATI": " | filgit backup: ticker not found in pse-stocks listing",
-    "ATN": " | filgit backup: ticker not found in pse-stocks listing",
-    "AUB": " | filgit backup: ticker not found in pse-stocks listing",
-    "AXLM": " | filgit backup: ticker not found in pse-stocks listing",
-    "BALAI": " | filgit backup: ticker not found in pse-stocks listing",
-    "BC": " | filgit backup: ticker not found in pse-stocks listing",
-    "BCOR": " | filgit backup: ticker not found in pse-stocks listing",
-    "BDO": " | filgit backup: ticker not found in pse-stocks listing",
-    "BEL": " | filgit backup: ticker not found in pse-stocks listing",
-    "BH": " | filgit backup: ticker not found in pse-stocks listing",
-    "BHI": " | filgit backup: ticker not found in pse-stocks listing",
-    "BKR": " | filgit backup: ticker not found in pse-stocks listing",
-    "BLOOM": " | filgit backup: ticker not found in pse-stocks listing",
-    "BMM": " | filgit backup: ticker not found in pse-stocks listing",
-    "BNCOM": " | filgit backup: ticker not found in pse-stocks listing",
-    "BPI": " | filgit backup: ticker not found in pse-stocks listing",
-    "BRN": " | filgit backup: ticker not found in pse-stocks listing",
-    "BSC": " | filgit backup: ticker not found in pse-stocks listing",
-    "C": " | filgit backup: ticker not found in pse-stocks listing",
-    "CA": " | filgit backup: ticker not found in pse-stocks listing",
-    "CAT": " | filgit backup: ticker not found in pse-stocks listing",
-    "CBC": " | filgit backup: ticker not found in pse-stocks listing",
-    "CDC": " | filgit backup: ticker not found in pse-stocks listing",
-    "CEB": " | filgit backup: ticker not found in pse-stocks listing",
-    "CEI": " | filgit backup: ticker not found in pse-stocks listing",
-    "CEU": " | filgit backup: ticker not found in pse-stocks listing",
-    "CHP": " | filgit backup: ticker not found in pse-stocks listing",
-    "CLI": " | filgit backup: ticker not found in pse-stocks listing",
-    "CNPF": " | filgit backup: ticker not found in pse-stocks listing",
-    "CNVRG": " | filgit backup: ticker not found in pse-stocks listing",
-    "COAL": " | filgit backup: ticker not found in pse-stocks listing",
-    "COL": " | filgit backup: ticker not found in pse-stocks listing",
-    "COSCO": " | filgit backup: ticker not found in pse-stocks listing",
-    "CPM": " | filgit backup: ticker not found in pse-stocks listing",
-    "CREC": " | filgit backup: ticker not found in pse-stocks listing",
-    "CROWN": " | filgit backup: ticker not found in pse-stocks listing",
-    "CSB": " | filgit backup: ticker not found in pse-stocks listing",
-    "CTS": " | filgit backup: ticker not found in pse-stocks listing",
-    "CYBR": " | filgit backup: ticker not found in pse-stocks listing",
-    "DD": " | filgit backup: ticker not found in pse-stocks listing",
-    "DDMPR": " | filgit backup: ticker not found in pse-stocks listing",
-    "DELM": " | filgit backup: ticker not found in pse-stocks listing",
-    "DFNN": " | filgit backup: ticker not found in pse-stocks listing",
-    "DHI": " | filgit backup: ticker not found in pse-stocks listing",
-    "DITO": " | filgit backup: ticker not found in pse-stocks listing",
-    "DIZ": " | filgit backup: ticker not found in pse-stocks listing",
-    "DMW": " | filgit backup: ticker not found in pse-stocks listing",
-    "DNA": " | filgit backup: ticker not found in pse-stocks listing",
-    "DNL": " | filgit backup: ticker not found in pse-stocks listing",
-    "DWC": " | filgit backup: ticker not found in pse-stocks listing",
-    "ECP": " | filgit backup: ticker not found in pse-stocks listing",
-    "ECVC": " | filgit backup: ticker not found in pse-stocks listing",
-    "EEI": " | filgit backup: ticker not found in pse-stocks listing",
-    "EG": " | filgit backup: ticker not found in pse-stocks listing",
-    "ELI": " | filgit backup: ticker not found in pse-stocks listing",
-    "EMI": " | filgit backup: ticker not found in pse-stocks listing",
-    "ENEX": " | filgit backup: ticker not found in pse-stocks listing",
-    "EURO": " | filgit backup: ticker not found in pse-stocks listing",
-    "EVER": " | filgit backup: ticker not found in pse-stocks listing",
-    "EW": " | filgit backup: ticker not found in pse-stocks listing",
-    "FAF": " | filgit backup: ticker not found in pse-stocks listing",
-    "FB": " | filgit backup: ticker not found in pse-stocks listing",
-    "FCG": " | filgit backup: ticker not found in pse-stocks listing",
-    "FDC": " | filgit backup: ticker not found in pse-stocks listing",
-    "FERRO": " | filgit backup: ticker not found in pse-stocks listing",
-    "FEU": " | filgit backup: ticker not found in pse-stocks listing",
-    "FFI": " | filgit backup: ticker not found in pse-stocks listing",
-    "FGEN": " | filgit backup: ticker not found in pse-stocks listing",
-    "FJP": " | filgit backup: ticker not found in pse-stocks listing",
-    "FLI": " | filgit backup: ticker not found in pse-stocks listing",
-    "FMETF": " | filgit backup: ticker not found in pse-stocks listing",
-    "FNI": " | filgit backup: ticker not found in pse-stocks listing",
-    "FOOD": " | filgit backup: ticker not found in pse-stocks listing",
-    "FPH": " | filgit backup: ticker not found in pse-stocks listing",
-    "FPI": " | filgit backup: ticker not found in pse-stocks listing",
-    "FRUIT": " | filgit backup: ticker not found in pse-stocks listing",
-    "FYN": " | filgit backup: ticker not found in pse-stocks listing",
-    "GEO": " | filgit backup: ticker not found in pse-stocks listing",
-    "GERI": " | filgit backup: ticker not found in pse-stocks listing",
-    "GLO": " | filgit backup: ticker not found in pse-stocks listing",
-    "GMA7": " | filgit backup: ticker not found in pse-stocks listing",
-    "GMAP": " | filgit backup: ticker not found in pse-stocks listing",
-    "GPH": " | filgit backup: ticker not found in pse-stocks listing",
-    "GREEN": " | filgit backup: ticker not found in pse-stocks listing",
-    "GTCAP": " | filgit backup: ticker not found in pse-stocks listing",
-    "HI": " | filgit backup: ticker not found in pse-stocks listing",
-    "HOME": " | filgit backup: ticker not found in pse-stocks listing",
-    "HOUSE": " | filgit backup: ticker not found in pse-stocks listing",
-    "HTI": " | filgit backup: ticker not found in pse-stocks listing",
-    "HVN": " | filgit backup: ticker not found in pse-stocks listing",
-    "I": " | filgit backup: ticker not found in pse-stocks listing",
-    "ICT": " | filgit backup: ticker not found in pse-stocks listing",
-    "IDC": " | filgit backup: ticker not found in pse-stocks listing",
-    "IMI": " | filgit backup: ticker not found in pse-stocks listing",
-    "IMP": " | filgit backup: ticker not found in pse-stocks listing",
-    "INFRA": " | filgit backup: ticker not found in pse-stocks listing",
-    "ION": " | filgit backup: ticker not found in pse-stocks listing",
-    "IPM": " | filgit backup: ticker not found in pse-stocks listing",
-    "IPO": " | filgit backup: ticker not found in pse-stocks listing",
-    "IS": " | filgit backup: ticker not found in pse-stocks listing",
-    "JAS": " | filgit backup: ticker not found in pse-stocks listing",
-    "JFC": " | filgit backup: ticker not found in pse-stocks listing",
-    "JGS": " | filgit backup: ticker not found in pse-stocks listing",
-    "JOH": " | filgit backup: ticker not found in pse-stocks listing",
-    "KEEPR": " | filgit backup: ticker not found in pse-stocks listing",
-    "KEP": " | filgit backup: ticker not found in pse-stocks listing",
-    "KPH": " | filgit backup: ticker not found in pse-stocks listing",
-    "KPPI": " | filgit backup: ticker not found in pse-stocks listing",
-    "LAND": " | filgit backup: ticker not found in pse-stocks listing",
-    "LBC": " | filgit backup: ticker not found in pse-stocks listing",
-    "LC": " | filgit backup: ticker not found in pse-stocks listing",
-    "LFM": " | filgit backup: ticker not found in pse-stocks listing",
-    "LMG": " | filgit backup: ticker not found in pse-stocks listing",
-    "LODE": " | filgit backup: ticker not found in pse-stocks listing",
-    "LOTO": " | filgit backup: ticker not found in pse-stocks listing",
-    "LPC": " | filgit backup: ticker not found in pse-stocks listing",
-    "LPZ": " | filgit backup: ticker not found in pse-stocks listing",
-    "LSC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MA": " | filgit backup: ticker not found in pse-stocks listing",
-    "MAC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MACAY": " | filgit backup: ticker not found in pse-stocks listing",
-    "MAH": " | filgit backup: ticker not found in pse-stocks listing",
-    "MARC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MAXS": " | filgit backup: ticker not found in pse-stocks listing",
-    "MB": " | filgit backup: ticker not found in pse-stocks listing",
-    "MBC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MBT": " | filgit backup: ticker not found in pse-stocks listing",
-    "MED": " | filgit backup: ticker not found in pse-stocks listing",
-    "MEDIC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MEG": " | filgit backup: ticker not found in pse-stocks listing",
-    "MFC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MFIN": " | filgit backup: ticker not found in pse-stocks listing",
-    "MG": " | filgit backup: ticker not found in pse-stocks listing",
-    "MGH": " | filgit backup: ticker not found in pse-stocks listing",
-    "MHC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MJC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MJIC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MM": " | filgit backup: ticker not found in pse-stocks listing",
-    "MONDE": " | filgit backup: ticker not found in pse-stocks listing",
-    "MRC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MRSGI": " | filgit backup: ticker not found in pse-stocks listing",
-    "MVC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MWC": " | filgit backup: ticker not found in pse-stocks listing",
-    "MWIDE": " | filgit backup: ticker not found in pse-stocks listing",
-    "NI": " | filgit backup: ticker not found in pse-stocks listing",
-    "NIKL": " | filgit backup: ticker not found in pse-stocks listing",
-    "NOW": " | filgit backup: ticker not found in pse-stocks listing",
-    "NRCP": " | filgit backup: ticker not found in pse-stocks listing",
-    "NXGEN": " | filgit backup: ticker not found in pse-stocks listing",
-    "OGP": " | filgit backup: ticker not found in pse-stocks listing",
-    "OM": " | filgit backup: ticker not found in pse-stocks listing",
-    "OPM": " | filgit backup: ticker not found in pse-stocks listing",
-    "ORE": " | filgit backup: ticker not found in pse-stocks listing",
-    "OV": " | filgit backup: ticker not found in pse-stocks listing",
-    "PA": " | filgit backup: ticker not found in pse-stocks listing",
-    "PAL": " | filgit backup: ticker not found in pse-stocks listing",
-    "PAX": " | filgit backup: ticker not found in pse-stocks listing",
-    "PBB": " | filgit backup: ticker not found in pse-stocks listing",
-    "PBC": " | filgit backup: ticker not found in pse-stocks listing",
-    "PCOR": " | filgit backup: ticker not found in pse-stocks listing",
-    "PERC": " | filgit backup: ticker not found in pse-stocks listing",
-    "PGOLD": " | filgit backup: ticker not found in pse-stocks listing",
-    "PHA": " | filgit backup: ticker not found in pse-stocks listing",
-    "PHC": " | filgit backup: ticker not found in pse-stocks listing",
-    "PHES": " | filgit backup: ticker not found in pse-stocks listing",
-    "PHN": " | filgit backup: ticker not found in pse-stocks listing",
-    "PHR": " | filgit backup: ticker not found in pse-stocks listing",
-    "PIZZA": " | filgit backup: ticker not found in pse-stocks listing",
-    "PLUS": " | filgit backup: ticker not found in pse-stocks listing",
-    "PMPC": " | filgit backup: ticker not found in pse-stocks listing",
-    "PNB": " | filgit backup: ticker not found in pse-stocks listing",
-    "PNC": " | filgit backup: ticker not found in pse-stocks listing",
-    "PNX": " | filgit backup: ticker not found in pse-stocks listing",
-    "PORT": " | filgit backup: ticker not found in pse-stocks listing",
-    "PPC": " | filgit backup: ticker not found in pse-stocks listing",
-    "PRC": " | filgit backup: ticker not found in pse-stocks listing",
-    "PREIT": " | filgit backup: ticker not found in pse-stocks listing",
-    "PRIM": " | filgit backup: ticker not found in pse-stocks listing",
-    "PRMX": " | filgit backup: ticker not found in pse-stocks listing",
-    "PSB": " | filgit backup: ticker not found in pse-stocks listing",
-    "PSE": " | filgit backup: ticker not found in pse-stocks listing",
-    "PTC": " | filgit backup: ticker not found in pse-stocks listing",
-    "PTT": " | filgit backup: ticker not found in pse-stocks listing",
-    "PX": " | filgit backup: ticker not found in pse-stocks listing",
-    "PXP": " | filgit backup: ticker not found in pse-stocks listing",
-    "RCB": " | filgit backup: ticker not found in pse-stocks listing",
-    "RCI": " | filgit backup: ticker not found in pse-stocks listing",
-    "REDC": " | filgit backup: ticker not found in pse-stocks listing",
-    "REG": " | filgit backup: ticker not found in pse-stocks listing",
-    "RLC": " | filgit backup: ticker not found in pse-stocks listing",
-    "RLT": " | filgit backup: ticker not found in pse-stocks listing",
-    "ROCK": " | filgit backup: ticker not found in pse-stocks listing",
-    "ROX": " | filgit backup: ticker not found in pse-stocks listing",
-    "RRHI": " | filgit backup: ticker not found in pse-stocks listing",
-    "SBS": " | filgit backup: ticker not found in pse-stocks listing",
-    "SCC": " | filgit backup: ticker not found in pse-stocks listing",
-    "SECB": " | filgit backup: ticker not found in pse-stocks listing",
-    "SEVN": " | filgit backup: ticker not found in pse-stocks listing",
-    "SFI": " | filgit backup: ticker not found in pse-stocks listing",
-    "SGI": " | filgit backup: ticker not found in pse-stocks listing",
-    "SGP": " | filgit backup: ticker not found in pse-stocks listing",
-    "SHLPH": " | filgit backup: ticker not found in pse-stocks listing",
-    "SHNG": " | filgit backup: ticker not found in pse-stocks listing",
-    "SLF": " | filgit backup: ticker not found in pse-stocks listing",
-    "SLI": " | filgit backup: ticker not found in pse-stocks listing",
-    "SM": " | filgit backup: ticker not found in pse-stocks listing",
-    "SMC": " | filgit backup: ticker not found in pse-stocks listing",
-    "SMPH": " | filgit backup: ticker not found in pse-stocks listing",
-    "SOC": " | filgit backup: ticker not found in pse-stocks listing",
-    "SPC": " | filgit backup: ticker not found in pse-stocks listing",
-    "SPM": " | filgit backup: ticker not found in pse-stocks listing",
-    "SPNEC": " | filgit backup: ticker not found in pse-stocks listing",
-    "SRDC": " | filgit backup: ticker not found in pse-stocks listing",
-    "SSI": " | filgit backup: ticker not found in pse-stocks listing",
-    "SSP": " | filgit backup: ticker not found in pse-stocks listing",
-    "STI": " | filgit backup: ticker not found in pse-stocks listing",
-    "STN": " | filgit backup: ticker not found in pse-stocks listing",
-    "STR": " | filgit backup: ticker not found in pse-stocks listing",
-    "SUN": " | filgit backup: ticker not found in pse-stocks listing",
-    "T": " | filgit backup: ticker not found in pse-stocks listing",
-    "TBGI": " | filgit backup: ticker not found in pse-stocks listing",
-    "TECH": " | filgit backup: ticker not found in pse-stocks listing",
-    "TEL": " | filgit backup: ticker not found in pse-stocks listing",
-    "TFC": " | filgit backup: ticker not found in pse-stocks listing",
-    "TFHI": " | filgit backup: ticker not found in pse-stocks listing",
-    "TUGS": " | filgit backup: ticker not found in pse-stocks listing",
-    "UBP": " | filgit backup: ticker not found in pse-stocks listing",
-    "UNH": " | filgit backup: ticker not found in pse-stocks listing",
-    "UPM": " | filgit backup: ticker not found in pse-stocks listing",
-    "UPSON": " | filgit backup: ticker not found in pse-stocks listing",
-    "URC": " | filgit backup: ticker not found in pse-stocks listing",
-    "V": " | filgit backup: ticker not found in pse-stocks listing",
-    "VITA": " | filgit backup: ticker not found in pse-stocks listing",
-    "VLL": " | filgit backup: ticker not found in pse-stocks listing",
-    "VMC": " | filgit backup: ticker not found in pse-stocks listing",
-    "VREIT": " | filgit backup: ticker not found in pse-stocks listing",
-    "VVT": " | filgit backup: ticker not found in pse-stocks listing",
-    "WEB": " | filgit backup: ticker not found in pse-stocks listing",
-    "WIN": " | filgit backup: ticker not found in pse-stocks listing",
-    "WPI": " | filgit backup: ticker not found in pse-stocks listing",
-    "X": " | filgit backup: ticker not found in pse-stocks listing",
-    "XG": " | filgit backup: ticker not found in pse-stocks listing",
-    "ZHI": " | filgit backup: ticker not found in pse-stocks listing"
+    "AAA": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "AR": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "BH": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "BMM": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "COAL": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "CYBR": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "EG": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "FYN": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "I": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "LAND": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "MGH": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "MJC": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "MJIC": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "NXGEN": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "PNC": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "PNX": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "PORT": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "PTT": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing",
+    "ROX": " | filgit backup: ticker not found in pse-stocks listing | filgit backup: ticker not found in pse-stocks listing"
   },
-  "backupCheckedAt": "2026-07-04T21:45:44.976080+00:00"
+  "backupCheckedAt": "2026-07-04T23:05:30.827787+00:00"
 }
