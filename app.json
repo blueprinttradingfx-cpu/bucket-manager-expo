@@ -1,0 +1,22 @@
+{
+  "expo": {
+    "name": "Bucket Portfolio Manager",
+    "slug": "bucket-portfolio-manager",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0f172a"
+    },
+    "android": {
+      "package": "com.yourname.bucketportfoliomanager"
+    },
+    "ios": {
+      "bundleIdentifier": "com.yourname.bucketportfoliomanager",
+      "supportsTablet": false
+    },
+    "plugins": [
+      "expo-sqlite"
+    ]
+  }
+}

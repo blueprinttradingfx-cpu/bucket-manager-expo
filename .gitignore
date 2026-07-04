@@ -1,0 +1,8 @@
+node_modules/
+.expo/
+dist/
+*.log
+
+# Personal financial statements - never belongs in source control
+user-data/uploads/*
+!user-data/uploads/README.txt
