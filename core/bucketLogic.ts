@@ -362,3 +362,51 @@ export function computePortfolioValuation(
     unpricedTickers: valuedPositions.length - priced.length,
   };
 }
+
+/** Minimal structural shape for a yield-bracket lookup - deliberately NOT
+ *  importing BucketRow from storeApi here, since storeApi already imports
+ *  from this file (bucketLogic.ts) and importing back would create a
+ *  circular dependency. Any object with these three fields works,
+ *  including the real BucketRow from storeApi.ts. */
+export interface YieldBracket {
+  name: string;
+  yield_low: number | null;
+  yield_high: number | null;
+}
+
+export interface BucketSuggestion {
+  bucket: YieldBracket | null;
+  reason: 'match' | 'no_buckets_configured' | 'no_matching_range';
+  /** Only set when reason is 'no_matching_range' - the closest bracket by
+   *  distance, so the UI can say "closest is B5 (6%-7.5%)" rather than
+   *  just "nothing fits." */
+  nearestBucket?: YieldBracket;
+}
+
+/** The core "AREIT - 6.5% div yield - buy on what bucket?" feature:
+ *  matches a stock's dividend yield against configured bucket brackets
+ *  (yield_low <= yieldPct < yield_high) and returns which bucket it
+ *  belongs in. Buckets without both a low and high configured are
+ *  ignored - they can't participate in yield matching. */
+export function suggestBucketForYield(yieldPct: number, buckets: YieldBracket[]): BucketSuggestion {
+  const withRange = buckets.filter((b): b is YieldBracket & { yield_low: number; yield_high: number } =>
+    b.yield_low != null && b.yield_high != null
+  );
+  if (withRange.length === 0) {
+    return { bucket: null, reason: 'no_buckets_configured' };
+  }
+  const match = withRange.find((b) => yieldPct >= b.yield_low && yieldPct < b.yield_high);
+  if (match) {
+    return { bucket: match, reason: 'match' };
+  }
+  let nearest = withRange[0];
+  let nearestDistance = Infinity;
+  for (const b of withRange) {
+    const distance = yieldPct < b.yield_low ? b.yield_low - yieldPct : yieldPct - b.yield_high;
+    if (distance < nearestDistance) {
+      nearestDistance = distance;
+      nearest = b;
+    }
+  }
+  return { bucket: null, reason: 'no_matching_range', nearestBucket: nearest };
+}

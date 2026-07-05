@@ -29,10 +29,20 @@ export async function initSchema(db: SQLiteDatabase) {
       date TEXT, type TEXT, stock TEXT, description TEXT,
       quantity REAL, price REAL, fees REAL, currency TEXT, amount REAL,
       row_hash TEXT NOT NULL,
+      is_manual INTEGER DEFAULT 0,
       UNIQUE(bucket_id, row_hash),
       FOREIGN KEY(bucket_id) REFERENCES buckets(id)
     );
   `);
+
+  // Migration: add is_manual column if it doesn't exist (for existing databases)
+  const columns = await db.getAllAsync<{ name: string }>(
+    "PRAGMA table_info(transactions)"
+  );
+  const hasIsManual = columns.some((c) => c.name === 'is_manual');
+  if (!hasIsManual) {
+    await db.execAsync('ALTER TABLE transactions ADD COLUMN is_manual INTEGER DEFAULT 0');
+  }
 }
 
 export class NativeBucketStore implements BucketStoreAPI {
@@ -54,6 +64,31 @@ export class NativeBucketStore implements BucketStoreAPI {
     return this.db.getAllAsync<BucketRow>(
       'SELECT id, name, yield_low, yield_high FROM buckets ORDER BY sort_order, name'
     );
+  }
+
+  async updateBucket(id: number, updates: { name?: string; yieldLow?: number | null; yieldHigh?: number | null }): Promise<void> {
+    const current = await this.db.getFirstAsync<BucketRow>(
+      'SELECT id, name, yield_low, yield_high FROM buckets WHERE id = ?', id
+    );
+    if (!current) throw new Error(`Bucket ${id} not found`);
+    const name = updates.name ?? current.name;
+    const yieldLow = updates.yieldLow !== undefined ? updates.yieldLow : current.yield_low;
+    const yieldHigh = updates.yieldHigh !== undefined ? updates.yieldHigh : current.yield_high;
+    await this.db.runAsync(
+      'UPDATE buckets SET name = ?, yield_low = ?, yield_high = ? WHERE id = ?',
+      name, yieldLow, yieldHigh, id
+    );
+  }
+
+  async deleteBucket(id: number): Promise<void> {
+    const holdings = await this.db.getAllAsync<{ bucket_id: number }>(
+      'SELECT DISTINCT bucket_id FROM transactions WHERE bucket_id = ?',
+      id
+    );
+    if (holdings.length > 0) {
+      throw new Error('Cannot delete bucket with existing holdings');
+    }
+    await this.db.runAsync('DELETE FROM buckets WHERE id = ?', id);
   }
 
   async importIntoBucket(bucketName: string, rows: RawRow[]) {
@@ -154,6 +189,95 @@ export class NativeBucketStore implements BucketStoreAPI {
        WHERE bucket_id = ? AND type = 'CASH DIVIDEND' AND stock = ?
        ORDER BY date`,
       bucketId, ticker
+    );
+  }
+
+  async getTransactionHistory(bucketName: string, ticker: string): Promise<{ date: string; type: 'BUY' | 'SELL'; quantity: number; price: number; amount: number }[]> {
+    const bucketId = await this.getOrCreateBucket(bucketName);
+    return this.db.getAllAsync<{ date: string; type: 'BUY' | 'SELL'; quantity: number; price: number; amount: number }>(
+      `SELECT date, type, quantity, price, amount FROM transactions
+       WHERE bucket_id = ? AND type IN ('BUY', 'SELL') AND stock = ?
+       ORDER BY date`,
+      bucketId, ticker
+    );
+  }
+
+  async addManualTransaction(
+    bucketName: string,
+    type: 'BUY' | 'SELL' | 'CASH DIVIDEND',
+    stock: string,
+    date: string,
+    quantity?: number,
+    price?: number,
+    amount?: number
+  ): Promise<number> {
+    const bucketId = await this.getOrCreateBucket(bucketName);
+    const result = await this.db.runAsync(
+      `INSERT INTO transactions
+       (bucket_id, date, type, stock, description, quantity, price, fees, currency, amount, row_hash, is_manual)
+       VALUES (?, ?, ?, ?, NULL, ?, ?, NULL, NULL, ?, ?, 1)`,
+      bucketId, date, type, stock, quantity ?? null, price ?? null, amount ?? null, `manual_${Date.now()}_${Math.random()}`
+    );
+    return result.lastInsertRowId;
+  }
+
+  async deleteManualTransaction(transactionId: number): Promise<void> {
+    const txn = await this.db.getFirstAsync<{ is_manual: number }>(
+      'SELECT is_manual FROM transactions WHERE id = ?',
+      transactionId
+    );
+    if (!txn) throw new Error('Transaction not found');
+    if (txn.is_manual !== 1) throw new Error('Can only delete manually added transactions');
+    await this.db.runAsync('DELETE FROM transactions WHERE id = ?', transactionId);
+  }
+
+  async updateManualTransaction(
+    transactionId: number,
+    updates: { date?: string; quantity?: number | null; price?: number | null; amount?: number | null }
+  ): Promise<void> {
+    const txn = await this.db.getFirstAsync<{ is_manual: number }>(
+      'SELECT is_manual FROM transactions WHERE id = ?',
+      transactionId
+    );
+    if (!txn) throw new Error('Transaction not found');
+    if (txn.is_manual !== 1) throw new Error('Can only update manually added transactions');
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (updates.date !== undefined) {
+      fields.push('date = ?');
+      values.push(updates.date);
+    }
+    if (updates.quantity !== undefined) {
+      fields.push('quantity = ?');
+      values.push(updates.quantity);
+    }
+    if (updates.price !== undefined) {
+      fields.push('price = ?');
+      values.push(updates.price);
+    }
+    if (updates.amount !== undefined) {
+      fields.push('amount = ?');
+      values.push(updates.amount);
+    }
+
+    if (fields.length === 0) return;
+
+    values.push(transactionId);
+    await this.db.runAsync(
+      `UPDATE transactions SET ${fields.join(', ')} WHERE id = ?`,
+      ...values
+    );
+  }
+
+  async getManualTransactions(bucketName: string): Promise<{ id: number; date: string; type: string; stock: string; quantity: number | null; price: number | null; amount: number | null }[]> {
+    const bucketId = await this.getOrCreateBucket(bucketName);
+    return this.db.getAllAsync<{ id: number; date: string; type: string; stock: string; quantity: number | null; price: number | null; amount: number | null }>(
+      `SELECT id, date, type, stock, quantity, price, amount FROM transactions
+       WHERE bucket_id = ? AND is_manual = 1
+       ORDER BY date DESC`,
+      bucketId
     );
   }
 }

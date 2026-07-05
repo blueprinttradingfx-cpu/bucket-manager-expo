@@ -118,12 +118,11 @@ export default function DashboardScreen({ navigation }: Props) {
       contentContainerStyle={styles.scrollContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
-      <Text style={styles.header}>Dashboard</Text>
 
       {summary && (
         <>
           <View style={styles.marketValueBlock}>
-            <Text style={styles.caption}>Market Value</Text>
+            <Text style={styles.caption}>Overall Market Value</Text>
             <Text style={styles.marketValue}>
               ₱{(valuation ? valuation.totalMarketValue : summary.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </Text>

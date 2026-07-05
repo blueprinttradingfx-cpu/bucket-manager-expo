@@ -9,7 +9,7 @@
 // reachable from either drill-down path.
 
 import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Pressable } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -19,6 +19,7 @@ import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_7
 import { JetBrainsMono_500Medium, JetBrainsMono_600SemiBold, JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono';
 
 import { StoreProvider } from './core/StoreProvider';
+import { AlertHost } from './core/alert';
 import { colors, fonts } from './core/theme';
 import DashboardScreen from './screens/DashboardScreen';
 import BucketsScreen from './screens/BucketsScreen';
@@ -26,6 +27,8 @@ import ImportScreen from './screens/ImportScreen';
 import BucketDetailScreen from './screens/BucketDetailScreen';
 import StockDetailScreen from './screens/StockDetailScreen';
 import StockInBucketScreen from './screens/StockInBucketScreen';
+import SearchStockScreen from './screens/SearchStockScreen';
+import EditBucketScreen from './screens/EditBucketScreen';
 import { DashboardStackParamList, BucketsStackParamList } from './core/navigationTypes';
 
 const Tab = createBottomTabNavigator();
@@ -54,7 +57,18 @@ const stackScreenOptions = {
 function DashboardStackNavigator() {
   return (
     <DashboardStack.Navigator screenOptions={stackScreenOptions}>
-      <DashboardStack.Screen name="DashboardHome" component={DashboardScreen} options={{ title: 'Dashboard' }} />
+      <DashboardStack.Screen
+        name="DashboardHome"
+        component={DashboardScreen}
+        options={({ navigation }) => ({
+          title: 'Dashboard',
+          headerRight: () => (
+            <Pressable onPress={() => navigation.navigate('SearchStock')} hitSlop={10} style={{ marginRight: 4 }}>
+              <Ionicons name="search-outline" size={22} color={colors.onSurface} />
+            </Pressable>
+          ),
+        })}
+      />
       <DashboardStack.Screen
         name="StockDetail"
         component={StockDetailScreen}
@@ -64,6 +78,11 @@ function DashboardStackNavigator() {
         name="StockInBucket"
         component={StockInBucketScreen}
         options={({ route }: any) => ({ title: `${route.params?.ticker} · ${route.params?.bucket}` })}
+      />
+      <DashboardStack.Screen
+        name="SearchStock"
+        component={SearchStockScreen}
+        options={{ title: 'Search Stocks' }}
       />
     </DashboardStack.Navigator>
   );
@@ -82,6 +101,11 @@ function BucketsStackNavigator() {
         name="StockInBucket"
         component={StockInBucketScreen}
         options={({ route }: any) => ({ title: `${route.params?.ticker} · ${route.params?.bucket}` })}
+      />
+      <BucketsStack.Screen
+        name="EditBucket"
+        component={EditBucketScreen}
+        options={{ title: 'Edit Bucket' }}
       />
     </BucketsStack.Navigator>
   );
@@ -126,6 +150,7 @@ export default function App() {
           <Tab.Screen name="Buckets" component={BucketsStackNavigator} />
           <Tab.Screen name="Import" component={ImportScreen} />
         </Tab.Navigator>
+        <AlertHost />
       </NavigationContainer>
     </StoreProvider>
   );

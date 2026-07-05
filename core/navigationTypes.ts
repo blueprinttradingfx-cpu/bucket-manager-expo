@@ -7,10 +7,12 @@ export type DashboardStackParamList = {
   DashboardHome: undefined;
   StockDetail: { ticker: string };
   StockInBucket: { bucket: string; ticker: string };
+  SearchStock: undefined;
 };
 
 export type BucketsStackParamList = {
   BucketsHome: undefined;
   BucketDetail: { bucket: string };
   StockInBucket: { bucket: string; ticker: string };
+  EditBucket: { bucketId: number };
 };

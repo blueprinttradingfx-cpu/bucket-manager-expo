@@ -16,6 +16,11 @@ export interface BucketRow {
 export interface BucketStoreAPI {
   listBuckets(): Promise<BucketRow[]>;
   getOrCreateBucket(name: string, yieldLow?: number, yieldHigh?: number): Promise<number>;
+  /** Rename a bucket and/or adjust its yield bracket. Only fields present
+   *  in `updates` are changed - omit a field to leave it as-is. */
+  updateBucket(id: number, updates: { name?: string; yieldLow?: number | null; yieldHigh?: number | null }): Promise<void>;
+  /** Delete a bucket by ID. Only works if the bucket is empty (no holdings). */
+  deleteBucket(id: number): Promise<void>;
   importIntoBucket(
     bucketName: string,
     rows: RawRow[]
@@ -33,4 +38,25 @@ export interface BucketStoreAPI {
   getBucketPositions(bucketName: string): Promise<BucketStockPosition[]>;
   /** Specific stock + bucket drill-down: individual dividend payments. */
   getDividendHistory(bucketName: string, ticker: string): Promise<{ date: string; amount: number }[]>;
+  /** Specific stock + bucket drill-down: buy/sell transaction history. */
+  getTransactionHistory(bucketName: string, ticker: string): Promise<{ date: string; type: 'BUY' | 'SELL'; quantity: number; price: number; amount: number }[]>;
+  /** Add a manual transaction (BUY, SELL, or CASH DIVIDEND). Returns the transaction ID. */
+  addManualTransaction(
+    bucketName: string,
+    type: 'BUY' | 'SELL' | 'CASH DIVIDEND',
+    stock: string,
+    date: string,
+    quantity?: number,
+    price?: number,
+    amount?: number
+  ): Promise<number>;
+  /** Delete a manually added transaction by ID. Only works for transactions added manually. */
+  deleteManualTransaction(transactionId: number): Promise<void>;
+  /** Update a manually added transaction (date, quantity, price, amount only). Only works for transactions added manually. */
+  updateManualTransaction(
+    transactionId: number,
+    updates: { date?: string; quantity?: number | null; price?: number | null; amount?: number | null }
+  ): Promise<void>;
+  /** Get all manually added transactions for a bucket. */
+  getManualTransactions(bucketName: string): Promise<{ id: number; date: string; type: string; stock: string; quantity: number | null; price: number | null; amount: number | null }[]>;
 }

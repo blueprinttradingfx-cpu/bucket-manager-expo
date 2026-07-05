@@ -27,7 +27,7 @@ export interface PriceCache {
 // above normalizeGithubUrl for why it must be the raw form, not a
 // github.com/.../blob/... link).
 export const DEFAULT_PRICE_CACHE_URL =
-  'https://raw.githubusercontent.com/blueprinttradingfx-cpu/bucket-manager-expo/master/public/data/prices.json';
+  'https://github.com/blueprinttradingfx-cpu/bucket-manager-web/blob/master/public/data/prices.json';
 
 // It's an easy mistake to paste the URL straight from the GitHub file
 // viewer (github.com/.../blob/...) instead of the raw content URL - the
@@ -35,7 +35,7 @@ export const DEFAULT_PRICE_CACHE_URL =
 // browser (no Access-Control-Allow-Origin header), which is exactly what
 // that looks like when it happens: "Failed to fetch" with a CORS console
 // error, not a 404. Auto-correct it rather than requiring the exact form.
-function normalizeGithubUrl(url: string): string {
+export function normalizeGithubUrl(url: string): string {
   const blobMatch = url.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/blob\/([^/]+)\/(.+)$/);
   if (blobMatch) {
     const [, owner, repo, branch, path] = blobMatch;

@@ -30,17 +30,20 @@ export default function StockInBucketScreen({ route }: Props) {
   const store = useStore();
   const [position, setPosition] = useState<ValuedStockPosition | BucketStockPosition | null>(null);
   const [dividends, setDividends] = useState<{ date: string; amount: number }[]>([]);
+  const [transactions, setTransactions] = useState<{ date: string; type: 'BUY' | 'SELL'; quantity: number; price: number; amount: number }[]>([]);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [positions, divHistory] = await Promise.all([
+      const [positions, divHistory, txnHistory] = await Promise.all([
         store.getBucketPositions(bucket),
         store.getDividendHistory(bucket, ticker),
+        store.getTransactionHistory(bucket, ticker),
       ]);
       const found = positions.find((p) => p.ticker === ticker) ?? null;
       setDividends(divHistory);
+      setTransactions(txnHistory);
 
       if (found) {
         try {
@@ -85,7 +88,6 @@ export default function StockInBucketScreen({ route }: Props) {
       <View style={styles.statsRow}>
         <Stat label="Shares" value={String(position.totalQty)} />
         <Stat label="Avg Cost" value={`₱${position.avgCost}`} />
-        <Stat label="Lots" value={String(position.openLots)} />
       </View>
       <View style={styles.statsRow}>
         <Stat
@@ -111,6 +113,29 @@ export default function StockInBucketScreen({ route }: Props) {
         </View>
       )}
       {priceError && <Text style={styles.priceWarning}>Live prices unavailable - showing cost basis only.</Text>}
+
+      <Text style={styles.sectionHeader}>Transaction History</Text>
+      <FlatList
+        data={transactions}
+        keyExtractor={(t, i) => `${t.date}-${i}`}
+        renderItem={({ item }) => (
+          <View style={styles.txnRow}>
+            <View style={styles.txnLeft}>
+              <Text style={[styles.txnType, item.type === 'BUY' ? styles.positive : styles.negative]}>{item.type}</Text>
+              <Text style={styles.txnDate}>{item.date}</Text>
+            </View>
+            <View style={styles.txnRight}>
+              <Text style={styles.txnQty}>{item.quantity.toLocaleString()} sh</Text>
+              <Text style={styles.txnPrice}>@ ₱{item.price}</Text>
+              <Text style={[styles.txnAmount, item.type === 'BUY' ? styles.negative : styles.positive]}>
+                {item.type === 'BUY' ? '-' : '+'}₱{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </Text>
+            </View>
+          </View>
+        )}
+        ListEmptyComponent={<Text style={styles.empty}>No buy/sell transactions recorded yet for this ticker in this bucket.</Text>}
+        style={styles.list}
+      />
 
       <Text style={styles.sectionHeader}>Dividend History</Text>
       <FlatList
@@ -155,6 +180,19 @@ const styles = StyleSheet.create({
   negative: { color: colors.negative },
   priceWarning: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.negative, marginBottom: spacing.sm },
   sectionHeader: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.onSurfaceVariant, marginTop: spacing.sm, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 0.3 },
+  list: { marginBottom: spacing.md },
+  txnRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.lg, padding: spacing.md, marginBottom: spacing.base,
+  },
+  txnLeft: { flex: 1 },
+  txnType: { fontFamily: fonts.monoBold, fontSize: 12, textTransform: 'uppercase', marginBottom: 2 },
+  txnDate: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant },
+  txnRight: { alignItems: 'flex-end' },
+  txnQty: { fontFamily: fonts.mono, fontSize: 13, color: colors.onSurface },
+  txnPrice: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
+  txnAmount: { fontFamily: fonts.monoSemiBold, fontSize: 14, marginTop: 2 },
   divRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,

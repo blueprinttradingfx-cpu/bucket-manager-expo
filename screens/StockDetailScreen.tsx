@@ -11,12 +11,13 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
-import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation } from '../core/bucketLogic';
+import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation, YieldBracket } from '../core/bucketLogic';
 import { fetchPriceCache } from '../core/priceCache';
 import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { colors, spacing, radii, fonts } from '../core/theme';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
+import BucketSuggestion from './components/BucketSuggestion';
 
 type Props = NativeStackScreenProps<DashboardStackParamList, 'StockDetail'>;
 
@@ -57,12 +58,14 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   useScreenViewLog('StockDetail', { ticker });
   const store = useStore();
   const [stock, setStock] = useState<AggregatedStock | ValuedAggregatedStock | null>(null);
+  const [buckets, setBuckets] = useState<YieldBracket[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const all = await store.getAggregatedStocks();
+      const [all, bucketRows] = await Promise.all([store.getAggregatedStocks(), store.listBuckets()]);
       const found = all.find((s) => s.ticker === ticker) ?? null;
+      setBuckets(bucketRows);
       try {
         const prices = await fetchPriceCache();
         const valued = found ? applyPricesToAggregated([found], prices.tickers)[0] : null;
@@ -101,6 +104,16 @@ export default function StockDetailScreen({ route, navigation }: Props) {
       <Text style={styles.ticker}>{stock.ticker}</Text>
       <Text style={styles.subtitle}>Across {stock.buckets.length} bucket{stock.buckets.length === 1 ? '' : 's'}</Text>
 
+      <View style={styles.suggestionCard}>
+        <BucketSuggestion ticker={stock.ticker} yieldPct={valued?.currentYieldPct ?? null} buckets={buckets} />
+      </View>
+      <View style={styles.statsRow}>
+        <Stat
+          label="Current Price"
+          value={`₱${valued?.currentPrice ?? 'N/A'}`}
+          sublabel={valued?.currentYieldPct != null ? `yield ${valued.currentYieldPct}%` : undefined}
+        />
+      </View>
       <View style={styles.statsRow}>
         <Stat label="Total Shares" value={String(stock.totalQty)} />
         <Stat label="Blended Avg Cost" value={`₱${stock.avgCost}`} />
@@ -128,12 +141,6 @@ export default function StockDetailScreen({ route, navigation }: Props) {
             sign={valuation.totalReturn >= 0 ? 'positive' : 'negative'}
           />
         </View>
-      )}
-      {valued?.currentPrice != null && (
-        <Text style={styles.priceLine}>
-          current price ₱{valued.currentPrice}
-          {valued.currentYieldPct != null ? ` · yield ${valued.currentYieldPct}%` : ''}
-        </Text>
       )}
 
       <Text style={styles.positionsHeader}>Held In</Text>
@@ -171,6 +178,10 @@ const styles = StyleSheet.create({
   positive: { color: colors.positive },
   negative: { color: colors.negative },
   priceLine: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginBottom: spacing.md },
+  suggestionCard: {
+    backgroundColor: colors.surfaceContainerHigh, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,
+  },
   positionsHeader: { fontFamily: fonts.body, fontSize: 20, color: colors.onBackground, marginTop: spacing.xs, marginBottom: spacing.md },
   empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 },
 });
