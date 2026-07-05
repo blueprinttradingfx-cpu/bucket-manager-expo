@@ -13,6 +13,9 @@ import { useScreenViewLog } from '../core/useScreenViewLog';
 import { colors, spacing, radii, fonts } from '../core/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchPriceCache } from '../core/priceCache';
+import { fetchDividendHistory, getDividendHistoryForTicker } from '../core/dividendHistory';
+import { simulateDividends, SimpleTxn } from '../core/dividendSimulation';
+import { isValidIsoDate } from '../core/dateUtils';
 
 interface BucketRow { id: number; name: string }
 
@@ -39,6 +42,7 @@ export default function ImportScreen() {
   const [editQuantity, setEditQuantity] = useState('');
   const [editPrice, setEditPrice] = useState('');
   const [editAmount, setEditAmount] = useState('');
+  const [simulating, setSimulating] = useState(false);
 
   const refresh = useCallback(async () => {
     const b = await store.listBuckets();
@@ -61,8 +65,11 @@ export default function ImportScreen() {
 
   async function handleAddManual() {
     if (!selected) return Alert.alert('Select a bucket first');
-    if (!stock.trim()) return Alert.alert('Stock symbol is required');
+    if (!stock || !stock.trim()) return Alert.alert('Stock symbol is required');
     if (!date) return Alert.alert('Date is required');
+    if (!isValidIsoDate(date)) {
+      return Alert.alert('Invalid date', 'Enter a full date as YYYY-MM-DD, e.g. 2024-08-01 - not just a year.');
+    }
 
     const qtyNum = quantity ? parseFloat(quantity) : undefined;
     const priceNum = price ? parseFloat(price) : undefined;
@@ -110,7 +117,7 @@ export default function ImportScreen() {
 
   function handleEditManual(txn: { id: number; date: string; type: string; stock: string; quantity: number | null; price: number | null; amount: number | null }) {
     setEditingTxn(txn);
-    setEditDate(txn.date);
+    setEditDate(txn.date || '');
     setEditQuantity(txn.quantity != null ? String(txn.quantity) : '');
     setEditPrice(txn.price != null ? String(txn.price) : '');
     setEditAmount(txn.amount != null ? String(txn.amount) : '');
@@ -118,6 +125,9 @@ export default function ImportScreen() {
 
   async function handleSaveEdit() {
     if (!editingTxn) return;
+    if (editDate && !isValidIsoDate(editDate)) {
+      return Alert.alert('Invalid date', 'Enter a full date as YYYY-MM-DD, e.g. 2024-08-01 - not just a year.');
+    }
 
     const updates: { date?: string; quantity?: number | null; price?: number | null; amount?: number | null } = {};
 
@@ -149,6 +159,91 @@ export default function ImportScreen() {
 
   function handleCancelEdit() {
     setEditingTxn(null);
+  }
+
+  async function handleSimulateDividends() {
+    if (!selected) return Alert.alert('Select a bucket first');
+    setSimulating(true);
+    try {
+      const allManual = await store.getManualTransactions(selected);
+      const buySellRaw = allManual.filter((t) => (t.type === 'BUY' || t.type === 'SELL') && t.quantity != null);
+      const badDateTickers = [...new Set(buySellRaw.filter((t) => !t.date || !isValidIsoDate(t.date)).map((t) => t.stock))];
+      const buySell = buySellRaw.filter((t) => t.date && isValidIsoDate(t.date));
+      const tickersWithBuys = [...new Set(buySell.filter((t) => t.type === 'BUY').map((t) => t.stock))];
+
+      if (tickersWithBuys.length === 0) {
+        Alert.alert('Nothing to simulate', 'Add a manual BUY transaction first - dividends are simulated based on shares held over time.');
+        return;
+      }
+
+      // Dedupe key is ticker+date, not just date - two different tickers
+      // can legitimately pay a dividend on the same day.
+      const existingDividendKeys = new Set(
+        allManual.filter((t) => t.type === 'CASH DIVIDEND').map((t) => `${t.stock}|${t.date}`)
+      );
+
+      const historyCache = await fetchDividendHistory();
+      let insertedCount = 0;
+      let tickersWithHistory = 0;
+      const tickerDateProblems: string[] = [];
+
+      for (const ticker of tickersWithBuys) {
+        const history = getDividendHistoryForTicker(historyCache, ticker);
+        if (history.length === 0) continue;
+        tickersWithHistory++;
+
+        const tickerTxns: SimpleTxn[] = buySell
+          .filter((t) => t.stock === ticker)
+          .map((t) => ({ date: t.date, type: t.type as 'BUY' | 'SELL', quantity: t.quantity! }));
+
+        const { dividends: simulated, unparseableTxnDates } = simulateDividends(tickerTxns, history);
+        if (unparseableTxnDates.length > 0) {
+          tickerDateProblems.push(`${ticker} (${unparseableTxnDates.join(', ')})`);
+        }
+        for (const div of simulated) {
+          if (!div.date || !isValidIsoDate(div.date)) {
+            tickerDateProblems.push(`${ticker} (simulated dividend had no valid date)`);
+            continue; // never persist a transaction with a missing/bad date
+          }
+          const key = `${ticker}|${div.date}`;
+          if (existingDividendKeys.has(key)) continue; // already simulated (or manually entered) - don't duplicate on repeat runs
+          await store.addManualTransaction(selected, 'CASH DIVIDEND', ticker, div.date, undefined, undefined, div.totalAmount);
+          existingDividendKeys.add(key);
+          insertedCount++;
+        }
+      }
+
+      await refresh();
+      const badDateNote = badDateTickers.length > 0
+        ? `\n\nSkipped ${badDateTickers.join(', ')} - has a BUY/SELL with a missing or invalid date. Edit that transaction to YYYY-MM-DD and run again.`
+        : '';
+      if (insertedCount > 0) {
+        Alert.alert(
+          'Dividends Simulated',
+          `Added ${insertedCount} dividend payment${insertedCount === 1 ? '' : 's'} across ${tickersWithHistory} ticker${tickersWithHistory === 1 ? '' : 's'}, based on real dividend history and shares actually held on each ex-date.`
+          + (tickerDateProblems.length > 0 ? `\n\nSkipped some transactions with unreadable dates: ${tickerDateProblems.join('; ')}. Edit them to YYYY-MM-DD and run again.` : '')
+          + badDateNote
+        );
+      } else if (tickerDateProblems.length > 0) {
+        // This is the case that used to show a misleading "everything
+        // eligible is already recorded" - it wasn't recorded, the date(s)
+        // just couldn't be parsed, so nothing was ever eligible in the
+        // first place. Say that plainly instead.
+        Alert.alert(
+          'Some transaction dates need fixing',
+          `Couldn't read the date on: ${tickerDateProblems.join('; ')}. Use the pencil icon to edit it to a full YYYY-MM-DD date (e.g. 2024-08-01, not just "2024"), then run Simulate Dividends again.`
+          + badDateNote
+        );
+      } else if (tickersWithHistory === 0) {
+        Alert.alert('No dividend history found', `None of your manually-bought tickers (${tickersWithBuys.join(', ')}) were found in the dividend history data.` + badDateNote);
+      } else {
+        Alert.alert('Up to date', 'No new dividend payments to simulate - everything eligible is already recorded.' + badDateNote);
+      }
+    } catch (e: any) {
+      Alert.alert('Simulation failed', e.message ?? String(e));
+    } finally {
+      setSimulating(false);
+    }
   }
 
   async function handleImport() {
@@ -300,7 +395,22 @@ export default function ImportScreen() {
 
       {manualTxns.length > 0 && (
         <>
-          <Text style={styles.sectionHeader}>Manual Transactions</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeader}>Manual Transactions</Text>
+            <Pressable style={styles.simulateButton} onPress={handleSimulateDividends} disabled={simulating}>
+              {simulating ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="sparkles-outline" size={14} color={colors.primary} />
+                  <Text style={styles.simulateButtonText}>Simulate Dividends</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+          <Text style={styles.simulateHint}>
+            Fills in realistic dividend payments for manually-bought stocks, based on real dividend history and how many shares you actually held on each payment's ex-date.
+          </Text>
           {manualTxns.map((txn) => (
             <View key={txn.id} style={styles.txnRow}>
               {editingTxn?.id === txn.id ? (
@@ -358,7 +468,9 @@ export default function ImportScreen() {
                   <View style={styles.txnLeft}>
                     <Text style={[styles.txnType, txn.type === 'BUY' ? styles.positive : txn.type === 'SELL' ? styles.negative : styles.dividend]}>{txn.type}</Text>
                     <Text style={styles.txnStock}>{txn.stock}</Text>
-                    <Text style={styles.txnDate}>{txn.date}</Text>
+                    <Text style={[styles.txnDate, !isValidIsoDate(txn.date || '') && styles.txnDateInvalid]}>
+                      {txn.date || '(no date)'}{!isValidIsoDate(txn.date || '') ? ' ⚠' : ''}
+                    </Text>
                   </View>
                   <View style={styles.txnRight}>
                     {txn.quantity != null && <Text style={styles.txnDetail}>{txn.quantity.toLocaleString()} sh</Text>}
@@ -462,6 +574,14 @@ const styles = StyleSheet.create({
   addButton: { backgroundColor: colors.primary, borderRadius: radii.lg, padding: spacing.md, alignItems: 'center', marginTop: spacing.sm },
   addButtonText: { fontFamily: fonts.bodyBold, color: colors.onPrimary, fontSize: 15 },
   sectionHeader: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.onBackground, marginTop: spacing.lg, marginBottom: spacing.sm },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.lg },
+  simulateButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: colors.surfaceContainerHigh, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.full, paddingHorizontal: spacing.sm + 2, paddingVertical: 6,
+  },
+  simulateButtonText: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.primary },
+  simulateHint: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant, marginBottom: spacing.sm, lineHeight: 15 },
   txnRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
@@ -471,6 +591,7 @@ const styles = StyleSheet.create({
   txnType: { fontFamily: fonts.monoBold, fontSize: 11, textTransform: 'uppercase', marginBottom: 2 },
   txnStock: { fontFamily: fonts.monoSemiBold, fontSize: 14, color: colors.onSurface },
   txnDate: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant },
+  txnDateInvalid: { color: colors.negative, fontFamily: fonts.bodySemiBold },
   txnRight: { alignItems: 'flex-end' },
   txnDetail: { fontFamily: fonts.mono, fontSize: 12, color: colors.onSurfaceVariant },
   txnActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },

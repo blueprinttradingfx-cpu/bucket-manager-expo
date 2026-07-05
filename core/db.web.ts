@@ -189,6 +189,7 @@ export class WebBucketStore implements BucketStoreAPI {
       Type: type,
       Stock: stock,
       Date: date,
+      isoDate: date,
       Quantity: quantity ?? null,
       Price: price ?? null,
       Amount: amount ?? null,
@@ -215,7 +216,10 @@ export class WebBucketStore implements BucketStoreAPI {
     if (!txn) throw new Error('Transaction not found');
     if (txn.isManual !== 1) throw new Error('Can only update manually added transactions');
 
-    if (updates.date !== undefined) txn.Date = updates.date;
+    if (updates.date !== undefined) {
+      txn.Date = updates.date;
+      txn.isoDate = updates.date;
+    }
     if (updates.quantity !== undefined) txn.Quantity = updates.quantity;
     if (updates.price !== undefined) txn.Price = updates.price;
     if (updates.amount !== undefined) txn.Amount = updates.amount;
