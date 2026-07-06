@@ -36,12 +36,11 @@ export default function StockInBucketScreen({ route }: Props) {
 
   useEffect(() => {
     (async () => {
-      const [positions, divHistory, txnHistory] = await Promise.all([
-        store.getBucketPositions(bucket),
+      const [found, divHistory, txnHistory] = await Promise.all([
+        store.getBucketPositionForTicker(bucket, ticker),
         store.getDividendHistory(bucket, ticker),
         store.getTransactionHistory(bucket, ticker),
       ]);
-      const found = positions.find((p) => p.ticker === ticker) ?? null;
       setDividends(divHistory);
       setTransactions(txnHistory);
 
@@ -73,17 +72,18 @@ export default function StockInBucketScreen({ route }: Props) {
   if (!position) {
     return (
       <View style={styles.center}>
-        <Text style={styles.empty}>No current position for {ticker} in {bucket}.</Text>
+        <Text style={styles.empty}>No position found for {ticker} in {bucket}.</Text>
       </View>
     );
   }
 
   const valued = 'marketValue' in position ? (position as ValuedStockPosition) : null;
+  const isClosed = position.totalQty <= 0 && !position.pendingSettlement;
 
   return (
     <View style={styles.container}>
       <Text style={styles.ticker}>{ticker}</Text>
-      <Text style={styles.bucketLabel}>{bucket}</Text>
+      <Text style={styles.bucketLabel}>{bucket}{isClosed ? ' · fully sold' : position.pendingSettlement ? ' · awaiting NAVPU' : ''}</Text>
 
       <View style={styles.statsRow}>
         <Stat label="Shares" value={String(position.totalQty)} />
@@ -97,20 +97,41 @@ export default function StockInBucketScreen({ route }: Props) {
         />
         <Stat label="Dividends Earned" value={`₱${position.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} big sign="positive" />
       </View>
-      {valued?.unrealizedGain != null && (
+      {isClosed ? (
         <View style={styles.statsRow}>
           <Stat
-            label="Unrealized Gain"
-            value={`${valued.unrealizedGain >= 0 ? '+' : ''}₱${valued.unrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-            sublabel={`${valued.unrealizedGainPct! >= 0 ? '+' : ''}${valued.unrealizedGainPct}%`}
-            sign={valued.unrealizedGain >= 0 ? 'positive' : 'negative'}
+            label="Realized Gain"
+            value={`${position.realizedGain >= 0 ? '+' : ''}₱${position.realizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+            sign={position.realizedGain >= 0 ? 'positive' : 'negative'}
           />
-          <Stat
-            label="Current Price"
-            value={`₱${valued.currentPrice}`}
-            sublabel={valued.currentYieldPct != null ? `yield ${valued.currentYieldPct}%` : undefined}
-          />
+          {valued?.currentPrice != null && (
+            <Stat
+              label="Current Price"
+              value={`₱${valued.currentPrice}`}
+              sublabel={valued.currentYieldPct != null ? `yield ${valued.currentYieldPct}%` : undefined}
+            />
+          )}
         </View>
+      ) : position.pendingSettlement ? (
+        <View style={styles.statsRow}>
+          <Stat label="Status" value="Awaiting NAVPU" sublabel="Statement hasn't settled units/price yet" />
+        </View>
+      ) : (
+        valued?.unrealizedGain != null && (
+          <View style={styles.statsRow}>
+            <Stat
+              label="Unrealized Gain"
+              value={`${valued.unrealizedGain >= 0 ? '+' : ''}₱${valued.unrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              sublabel={`${valued.unrealizedGainPct! >= 0 ? '+' : ''}${valued.unrealizedGainPct}%`}
+              sign={valued.unrealizedGain >= 0 ? 'positive' : 'negative'}
+            />
+            <Stat
+              label="Current Price"
+              value={`₱${valued.currentPrice}`}
+              sublabel={valued.currentYieldPct != null ? `yield ${valued.currentYieldPct}%` : undefined}
+            />
+          </View>
+        )
       )}
       {priceError && <Text style={styles.priceWarning}>Live prices unavailable - showing cost basis only.</Text>}
 

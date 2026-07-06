@@ -8,8 +8,8 @@
 import { SQLiteDatabase } from 'expo-sqlite';
 import {
   RawRow, StoredTxn, prepareRows, computeHoldings, Holding,
-  computeBucketPositions, aggregateAcrossBuckets, computePortfolioSummary,
-  AggregatedStock, BucketStockPosition, PortfolioSummary,
+  computeBucketPositions, aggregateAcrossBuckets, computePortfolioSummary, summarizeStockHistory,
+  AggregatedStock, BucketStockPosition, PortfolioSummary, RealizedTrade,
 } from './bucketLogic';
 import { BucketRow, BucketStoreAPI } from './storeApi';
 
@@ -134,12 +134,13 @@ export class NativeBucketStore implements BucketStoreAPI {
 
   async getAllHoldings(): Promise<(Holding & { bucket: string })[]> {
     const buckets = await this.listBuckets();
-    const all: (Holding & { bucket: string })[] = [];
-    for (const b of buckets) {
-      const { holdings } = await this.getBucketHoldings(b.name);
-      for (const h of holdings) all.push({ ...h, bucket: b.name });
-    }
-    return all;
+    const perBucket = await Promise.all(
+      buckets.map(async (b) => {
+        const { holdings } = await this.getBucketHoldings(b.name);
+        return holdings.map((h) => ({ ...h, bucket: b.name }));
+      })
+    );
+    return perBucket.flat();
   }
 
   /** Fetches ALL relevant transaction types (not just BUY/SELL) for one bucket -
@@ -165,21 +166,68 @@ export class NativeBucketStore implements BucketStoreAPI {
     return positions;
   }
 
+  async getBucketPositionForTicker(bucketName: string, ticker: string): Promise<BucketStockPosition | null> {
+    const txns = await this.getBucketTxns(bucketName);
+    const { positions, closedPositions } = computeBucketPositions(bucketName, txns);
+    return positions.find((p) => p.ticker === ticker) ?? closedPositions.find((p) => p.ticker === ticker) ?? null;
+  }
+
   private async getAllPositions(): Promise<BucketStockPosition[]> {
     const buckets = await this.listBuckets();
-    let all: BucketStockPosition[] = [];
-    for (const b of buckets) {
-      all = all.concat(await this.getBucketPositions(b.name));
-    }
-    return all;
+    const perBucket = await Promise.all(buckets.map((b) => this.getBucketPositions(b.name)));
+    return perBucket.flat();
+  }
+
+  private async getAllBucketSummaries(): Promise<{ positions: BucketStockPosition[]; totalRealizedGain: number; totalDividends: number }> {
+    const buckets = await this.listBuckets();
+    const perBucket = await Promise.all(
+      buckets.map(async (b) => {
+        const txns = await this.getBucketTxns(b.name);
+        return computeBucketPositions(b.name, txns);
+      })
+    );
+    return {
+      positions: perBucket.flatMap((r) => r.positions),
+      totalRealizedGain: perBucket.reduce((s, r) => s + r.totalRealizedGain, 0),
+      totalDividends: perBucket.reduce((s, r) => s + r.totalDividends, 0),
+    };
   }
 
   async getPortfolioSummary(): Promise<PortfolioSummary> {
-    return computePortfolioSummary(await this.getAllPositions());
+    const { positions, totalRealizedGain, totalDividends } = await this.getAllBucketSummaries();
+    return computePortfolioSummary(positions, totalRealizedGain, totalDividends);
   }
 
   async getAggregatedStocks(): Promise<AggregatedStock[]> {
     return aggregateAcrossBuckets(await this.getAllPositions());
+  }
+
+  async getStockHistory(ticker: string): Promise<AggregatedStock | null> {
+    const buckets = await this.listBuckets();
+    const perBucket = await Promise.all(
+      buckets.map(async (b) => {
+        const txns = await this.getBucketTxns(b.name);
+        const { positions, closedPositions } = computeBucketPositions(b.name, txns);
+        return [...positions, ...closedPositions].filter((p) => p.ticker === ticker);
+      })
+    );
+    return summarizeStockHistory(ticker, perBucket.flat());
+  }
+
+  /** All-time dividends + realized gains for a bucket, including tickers that
+   *  are now fully exited (and so no longer appear in getBucketPositions). */
+  async getBucketLifetimeTotals(bucketName: string): Promise<{ totalRealizedGain: number; totalDividends: number; trades: RealizedTrade[] }> {
+    const txns = await this.getBucketTxns(bucketName);
+    const { realizedTrades, totalRealizedGain, totalDividends } = computeBucketPositions(bucketName, txns);
+    return { totalRealizedGain, totalDividends, trades: realizedTrades };
+  }
+
+  async getBucketTransactionFeed(bucketName: string): Promise<{ date: string; type: string; ticker: string; quantity: number | null; price: number | null; amount: number | null }[]> {
+    const txns = await this.getBucketTxns(bucketName);
+    return txns
+      .filter((t) => t.Stock != null)
+      .map((t) => ({ date: t.isoDate, type: t.Type, ticker: t.Stock!, quantity: t.Quantity, price: t.Price, amount: t.Amount }))
+      .sort((a, b) => b.date.localeCompare(a.date));
   }
 
   async getDividendHistory(bucketName: string, ticker: string): Promise<{ date: string; amount: number }[]> {
@@ -194,12 +242,13 @@ export class NativeBucketStore implements BucketStoreAPI {
 
   async getTransactionHistory(bucketName: string, ticker: string): Promise<{ date: string; type: 'BUY' | 'SELL'; quantity: number; price: number; amount: number }[]> {
     const bucketId = await this.getOrCreateBucket(bucketName);
-    return this.db.getAllAsync<{ date: string; type: 'BUY' | 'SELL'; quantity: number; price: number; amount: number }>(
+    const rows = await this.db.getAllAsync<{ date: string; type: 'BUY' | 'SELL'; quantity: number | null; price: number | null; amount: number | null }>(
       `SELECT date, type, quantity, price, amount FROM transactions
        WHERE bucket_id = ? AND type IN ('BUY', 'SELL') AND stock = ?
        ORDER BY date`,
       bucketId, ticker
     );
+    return rows.map((r) => ({ ...r, quantity: r.quantity ?? 0, price: r.price ?? 0, amount: r.amount ?? 0 }));
   }
 
   async addManualTransaction(

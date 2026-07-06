@@ -22,7 +22,7 @@ const BASE_URL = 'https://dividends.ph/company/';
 export const CACHE_HOURS = 24;
 
 export async function fetchPriceAndYield(ticker: string): Promise<PriceYield> {
-  const res = await fetch(BASE_URL + ticker.toUpperCase(), {
+  const res = await fetch(BASE_URL + encodeURIComponent(ticker.toUpperCase()), {
     headers: { 'User-Agent': 'Mozilla/5.0 (personal portfolio tool)' },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${ticker}`);

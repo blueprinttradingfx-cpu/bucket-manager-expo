@@ -8,7 +8,7 @@
 import { normalizeGithubUrl } from './priceCache';
 
 const DEFAULT_TICKERS_URL =
-  'https://github.com/blueprinttradingfx-cpu/bucket-manager-expo/blob/master/price-scraper/scripts/tickers.json';
+  'https://raw.githubusercontent.com/blueprinttradingfx-cpu/bucket-manager-web/refs/heads/master/price-scraper/scripts/tickers.json';
 
 let cached: string[] | null = null;
 let cachedAt = 0;

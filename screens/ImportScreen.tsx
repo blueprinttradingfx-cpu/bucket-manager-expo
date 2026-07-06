@@ -73,13 +73,35 @@ export default function ImportScreen() {
 
     const qtyNum = quantity ? parseFloat(quantity) : undefined;
     const priceNum = price ? parseFloat(price) : undefined;
-    const amountNum = amount ? parseFloat(amount) : undefined;
+    let amountNum = amount ? parseFloat(amount) : undefined;
 
     if (txnType !== 'CASH DIVIDEND' && (qtyNum === undefined || priceNum === undefined)) {
       return Alert.alert('Quantity and price are required for BUY/SELL transactions');
     }
     if (txnType === 'CASH DIVIDEND' && amountNum === undefined) {
       return Alert.alert('Amount is required for dividend transactions');
+    }
+
+    if (txnType === 'SELL' && qtyNum !== undefined) {
+      try {
+        const { holdings } = await store.getBucketHoldings(selected);
+        const held = holdings.find((h) => h.ticker === stock.trim())?.totalQty ?? 0;
+        if (held <= 0) {
+          return Alert.alert('No holding to sell', `You don't currently hold any ${stock.trim()} in ${selected} - add a BUY transaction first.`);
+        }
+        if (qtyNum > held) {
+          return Alert.alert('Not enough shares', `You're trying to sell ${qtyNum} shares of ${stock.trim()}, but only hold ${held} in ${selected}.`);
+        }
+      } catch (e: any) {
+        return Alert.alert('Could not verify holding', e.message);
+      }
+    }
+
+    // Store the trade's total value so it displays correctly elsewhere (Transaction
+    // History shows -amount for BUY / +amount for SELL) - previously this was left
+    // undefined for BUY/SELL and always showed ₱0.00.
+    if (txnType !== 'CASH DIVIDEND' && amountNum === undefined && qtyNum !== undefined && priceNum !== undefined) {
+      amountNum = Math.round(qtyNum * priceNum * 100) / 100;
     }
 
     try {
@@ -140,6 +162,16 @@ export default function ImportScreen() {
     }
     if (editAmount !== (editingTxn.amount != null ? String(editingTxn.amount) : '')) {
       updates.amount = editAmount ? parseFloat(editAmount) : null;
+    }
+
+    // For BUY/SELL, amount represents the trade's total value - keep it in sync
+    // whenever quantity or price changes, instead of letting it go stale.
+    if (editingTxn.type !== 'CASH DIVIDEND' && (updates.quantity !== undefined || updates.price !== undefined)) {
+      const finalQty = updates.quantity !== undefined ? updates.quantity : editingTxn.quantity;
+      const finalPrice = updates.price !== undefined ? updates.price : editingTxn.price;
+      if (finalQty != null && finalPrice != null) {
+        updates.amount = Math.round(finalQty * finalPrice * 100) / 100;
+      }
     }
 
     if (Object.keys(updates).length === 0) {

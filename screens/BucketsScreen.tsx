@@ -31,18 +31,19 @@ export default function BucketsScreen({ navigation }: Props) {
   const refresh = useCallback(async () => {
     const bucketList = await store.listBuckets();
     setBuckets(bucketList);
-    const emptyIds = new Set<number>();
-    for (const bucket of bucketList) {
-      try {
-        const holdings = await store.getBucketHoldings(bucket.name);
-        if (holdings.holdings.length === 0 && holdings.orphanSells.length === 0) {
-          emptyIds.add(bucket.id);
+    const results = await Promise.all(
+      bucketList.map(async (bucket) => {
+        try {
+          const holdings = await store.getBucketHoldings(bucket.name);
+          const isEmpty = holdings.holdings.length === 0 && holdings.orphanSells.length === 0;
+          return isEmpty ? bucket.id : null;
+        } catch (e) {
+          // If we can't check holdings, assume not empty to be safe
+          return null;
         }
-      } catch (e) {
-        // If we can't check holdings, assume not empty to be safe
-      }
-    }
-    setEmptyBucketIds(emptyIds);
+      })
+    );
+    setEmptyBucketIds(new Set(results.filter((id): id is number => id !== null)));
   }, [store]);
 
   // Refresh on every focus, not just mount - so renaming/adjusting a

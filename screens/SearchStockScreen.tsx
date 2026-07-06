@@ -13,11 +13,9 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { fetchStockUniverse } from '../core/stockUniverse';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
-import { YieldBracket } from '../core/bucketLogic';
 import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { colors, spacing, radii, fonts } from '../core/theme';
-import BucketSuggestion from './components/BucketSuggestion';
 
 type Props = NativeStackScreenProps<DashboardStackParamList, 'SearchStock'>;
 
@@ -28,8 +26,6 @@ export default function SearchStockScreen({ navigation }: Props) {
   const [universe, setUniverse] = useState<string[]>([]);
   const [heldTickers, setHeldTickers] = useState<Set<string>>(new Set());
   const [priceCache, setPriceCache] = useState<PriceCache | null>(null);
-  const [buckets, setBuckets] = useState<YieldBracket[]>([]);
-  const [expanded, setExpanded] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,16 +33,14 @@ export default function SearchStockScreen({ navigation }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const [tickers, held, prices, bucketRows] = await Promise.all([
+      const [tickers, held, prices] = await Promise.all([
         fetchStockUniverse(),
         store.getAggregatedStocks(),
         fetchPriceCache().catch(() => null),
-        store.listBuckets(),
       ]);
       setUniverse(tickers);
       setHeldTickers(new Set(held.map((h) => h.ticker)));
       setPriceCache(prices);
-      setBuckets(bucketRows);
     } catch (e: any) {
       console.log('[SearchStock] failed to load:', e.message);
       setError(e.message);
@@ -61,10 +55,6 @@ export default function SearchStockScreen({ navigation }: Props) {
     if (!q) return universe.slice(0, 30); // don't dump all ~300+ tickers before the person's typed anything
     return universe.filter((t) => t.includes(q)).slice(0, 50);
   }, [universe, query]);
-
-  function toggleExpanded(ticker: string) {
-    setExpanded((prev) => (prev === ticker ? null : ticker));
-  }
 
   return (
     <View style={styles.container}>
@@ -96,14 +86,19 @@ export default function SearchStockScreen({ navigation }: Props) {
           renderItem={({ item: ticker }) => {
             const isHeld = heldTickers.has(ticker);
             const priceEntry = priceCache?.tickers[ticker];
-            const isOpen = expanded === ticker;
 
+            // Tapping ANY ticker opens the full detail screen now, held or
+            // not - it used to only navigate for held tickers and just
+            // toggle an inline yield/bucket-fit panel for the rest, which
+            // meant there was no way to see a stock's price/yield/bucket-fit
+            // in full without holding it first. StockDetailScreen now
+            // handles the "not held anywhere" case itself.
             return (
-              <View style={styles.card}>
-                <Pressable
-                  style={styles.row}
-                  onPress={() => isHeld ? navigation.navigate('StockDetail', { ticker }) : toggleExpanded(ticker)}
-                >
+              <Pressable
+                style={styles.card}
+                onPress={() => navigation.navigate('StockDetail', { ticker })}
+              >
+                <View style={styles.row}>
                   <Text style={styles.ticker}>{ticker}</Text>
                   <View style={styles.rowRight}>
                     {priceEntry ? (
@@ -114,17 +109,14 @@ export default function SearchStockScreen({ navigation }: Props) {
                     {isHeld ? (
                       <View style={styles.heldBadge}><Text style={styles.heldBadgeText}>Held</Text></View>
                     ) : (
-                      <Text style={styles.chevron}>{isOpen ? '⌄' : '›'}</Text>
+                      <Text style={styles.chevron}>›</Text>
                     )}
                   </View>
-                </Pressable>
-
-                {isOpen && !isHeld && (
-                  <View style={styles.expandedPanel}>
-                    <BucketSuggestion ticker={ticker} yieldPct={priceEntry?.yieldPct ?? null} buckets={buckets} />
-                  </View>
+                </View>
+                {priceEntry?.yieldPct != null && (
+                  <Text style={styles.yieldLine}>{priceEntry.yieldPct}% div yield</Text>
                 )}
-              </View>
+              </Pressable>
             );
           }}
         />
@@ -154,8 +146,8 @@ const styles = StyleSheet.create({
   heldBadge: { backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.full, paddingHorizontal: spacing.sm, paddingVertical: 2 },
   heldBadgeText: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.primary },
   chevron: { color: colors.onSurfaceVariant, fontSize: 18 },
-  expandedPanel: {
-    backgroundColor: colors.surfaceVariant, borderTopWidth: 1, borderTopColor: colors.outlineVariant,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.md,
+  yieldLine: {
+    fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant,
+    paddingHorizontal: spacing.md, paddingBottom: spacing.sm, marginTop: -4,
   },
 });

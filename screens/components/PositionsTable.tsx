@@ -35,6 +35,10 @@ export interface PositionItem {
   unrealizedGain: number | null;
   unrealizedGainPct: number | null;
   assetType?: AssetType;
+  /** Awaiting fund settlement - no Quantity/Price in the statement yet,
+   *  only the peso amount invested (costBasis). See bucketLogic's
+   *  Holding.pendingSettlement for the full story. */
+  pendingSettlement?: boolean;
   expandedContent: React.ReactNode;
 }
 
@@ -139,13 +143,17 @@ export default function PositionsTable({ items, onItemPress, tabs, activeTab, on
 
                 <View style={styles.priceCol}>
                   <Text style={styles.priceValue}>
-                    {item.currentPrice != null ? `₱${item.currentPrice}` : `₱${item.avgCost}`}
+                    {item.pendingSettlement
+                      ? `₱${item.costBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                      : item.currentPrice != null ? `₱${item.currentPrice}` : `₱${item.avgCost}`}
                   </Text>
-                  <Text style={styles.qtySubtext}>{item.qty.toLocaleString()} Qty</Text>
+                  <Text style={styles.qtySubtext}>{item.pendingSettlement ? 'Awaiting NAVPU' : `${item.qty.toLocaleString()} Qty`}</Text>
                 </View>
 
                 <View style={styles.plCol}>
-                  {hasGain ? (
+                  {item.pendingSettlement ? (
+                    <Text style={styles.plUnavailable}>Pending</Text>
+                  ) : hasGain ? (
                     <>
                       <Text style={[styles.plAmount, item.unrealizedGain! >= 0 ? styles.positive : styles.negative]}>
                         {item.unrealizedGain! >= 0 ? '+' : ''}{item.unrealizedGain!.toLocaleString(undefined, { minimumFractionDigits: 2 })}

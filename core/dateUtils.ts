@@ -17,7 +17,8 @@ const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'se
  *  for anything else, including a bare year ("2024"), a full-but-wrong
  *  separator ("2024/01/01"), or missing components - so callers can
  *  distinguish "not a date at all" from "a date, just not this one." */
-export function parseIsoDate(s: string): Date | null {
+export function parseIsoDate(s: string | null | undefined): Date | null {
+  if (typeof s !== 'string') return null;
   const m = s.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!m) return null;
   const [, y, mo, d] = m;
@@ -47,6 +48,6 @@ export function parseMonthNameDate(s: string): Date | null {
  *  validate manual transaction date entry so a malformed date (like a
  *  bare "2024") gets caught at entry time instead of silently producing
  *  zero simulated dividends later with no clear reason why. */
-export function isValidIsoDate(s: string): boolean {
+export function isValidIsoDate(s: string | null | undefined): boolean {
   return parseIsoDate(s) !== null;
 }

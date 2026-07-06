@@ -12,7 +12,7 @@ import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-nat
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation, YieldBracket } from '../core/bucketLogic';
-import { fetchPriceCache } from '../core/priceCache';
+import { fetchPriceCache, PriceEntry } from '../core/priceCache';
 import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { colors, spacing, radii, fonts } from '../core/theme';
@@ -42,11 +42,19 @@ function toPositionItem(item: BucketPositionRow): PositionItem {
     marketValue: valued?.marketValue ?? null,
     unrealizedGain: valued?.unrealizedGain ?? null,
     unrealizedGainPct: valued?.unrealizedGainPct ?? null,
+    pendingSettlement: item.pendingSettlement,
     expandedContent: (
       <>
+        {item.totalQty <= 0 && !item.pendingSettlement && (
+          <ExpandedRow label="Status" value="Fully sold in this bucket" />
+        )}
+        {item.pendingSettlement && (
+          <ExpandedRow label="Status" value="Awaiting NAVPU from statement" />
+        )}
         <ExpandedRow label="Market Value" value={`₱${(valued?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
         <ExpandedRow label="Avg Cost" value={`₱${item.avgCost}`} />
         <ExpandedRow label="Open Lots" value={String(item.openLots)} />
+        <ExpandedRow label="Realized Gain" value={`${item.realizedGain >= 0 ? '+' : ''}₱${item.realizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} valueStyle={item.realizedGain !== 0 ? { color: item.realizedGain > 0 ? colors.positive : colors.negative } : undefined} />
         <ExpandedRow label="Dividends Earned" value={`₱${item.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} valueStyle={item.totalDividends > 0 ? { color: colors.positive } : undefined} />
       </>
     ),
@@ -59,15 +67,16 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   const store = useStore();
   const [stock, setStock] = useState<AggregatedStock | ValuedAggregatedStock | null>(null);
   const [buckets, setBuckets] = useState<YieldBracket[]>([]);
+  const [priceEntry, setPriceEntry] = useState<PriceEntry | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      const [all, bucketRows] = await Promise.all([store.getAggregatedStocks(), store.listBuckets()]);
-      const found = all.find((s) => s.ticker === ticker) ?? null;
+      const [found, bucketRows] = await Promise.all([store.getStockHistory(ticker), store.listBuckets()]);
       setBuckets(bucketRows);
       try {
         const prices = await fetchPriceCache();
+        setPriceEntry(prices.tickers[ticker] ?? null);
         const valued = found ? applyPricesToAggregated([found], prices.tickers)[0] : null;
         setStock(valued);
       } catch (e: any) {
@@ -85,11 +94,33 @@ export default function StockDetailScreen({ route, navigation }: Props) {
       </View>
     );
   }
+
+  // Not held in any bucket - still show what's available (price/yield from
+  // the cache, bucket-fit suggestion) rather than a dead end. This used to
+  // bail out entirely here because SearchStockScreen only navigated here for
+  // tickers you already held - now it navigates for any ticker, so this
+  // screen needs to handle "no holdings, and that's fine" as its own state.
   if (!stock) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.empty}>No holdings found for {ticker}.</Text>
-      </View>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.ticker}>{ticker}</Text>
+        <Text style={styles.subtitle}>Not currently held in any bucket</Text>
+
+        <View style={styles.suggestionCard}>
+          <BucketSuggestion ticker={ticker} yieldPct={priceEntry?.yieldPct ?? null} buckets={buckets} />
+        </View>
+
+        <View style={styles.statsRow}>
+          <Stat
+            label="Current Price"
+            value={priceEntry ? `₱${priceEntry.price}` : 'N/A'}
+            sublabel={priceEntry?.yieldPct != null ? `yield ${priceEntry.yieldPct}%` : 'no yield data'}
+          />
+        </View>
+
+        <Text style={styles.positionsHeader}>Held In</Text>
+        <PositionsTable items={[]} onItemPress={() => {}} emptyText="Not currently held in any bucket." />
+      </ScrollView>
     );
   }
 
@@ -98,11 +129,17 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   const valuation = valued
     ? computePortfolioValuation(stock.buckets as ValuedStockPosition[], stock.totalDividends, stock.totalCostBasis)
     : null;
+  const activeBucketCount = stock.buckets.filter((b) => b.totalQty > 0 || b.pendingSettlement).length;
+  const closedBucketCount = stock.buckets.length - activeBucketCount;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.ticker}>{stock.ticker}</Text>
-      <Text style={styles.subtitle}>Across {stock.buckets.length} bucket{stock.buckets.length === 1 ? '' : 's'}</Text>
+      <Text style={styles.subtitle}>
+        {activeBucketCount > 0
+          ? `Across ${activeBucketCount} bucket${activeBucketCount === 1 ? '' : 's'}${closedBucketCount > 0 ? ` · sold out of ${closedBucketCount} more` : ''}`
+          : `Fully sold · previously held in ${stock.buckets.length} bucket${stock.buckets.length === 1 ? '' : 's'}`}
+      </Text>
 
       <View style={styles.suggestionCard}>
         <BucketSuggestion ticker={stock.ticker} yieldPct={valued?.currentYieldPct ?? null} buckets={buckets} />

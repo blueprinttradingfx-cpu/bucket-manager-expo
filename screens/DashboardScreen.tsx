@@ -16,7 +16,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, RefreshControl, ScrollView } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
-import { AggregatedStock, PortfolioSummary, ValuedAggregatedStock, applyPricesToAggregated, computePortfolioValuation, PortfolioValuation } from '../core/bucketLogic';
+import { AggregatedStock, PortfolioSummary, ValuedAggregatedStock, applyPricesToAggregated, computePortfolioValuation, PortfolioValuation, sumMarketValue } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
 import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
@@ -47,11 +47,15 @@ function toPositionItem(item: StockRow): PositionItem {
     marketValue: valued?.marketValue ?? null,
     unrealizedGain: valued?.unrealizedGain ?? null,
     unrealizedGainPct: valued?.unrealizedGainPct ?? null,
+    pendingSettlement: item.pendingSettlement,
     expandedContent: (
       <>
         <ExpandedRow label="Market Value" value={`₱${(valued?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
         <ExpandedRow label="Avg Cost" value={`₱${item.avgCost}`} />
         <ExpandedRow label="Dividends Earned" value={`₱${item.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} valueStyle={item.totalDividends > 0 ? { color: colors.positive } : undefined} />
+        {item.pendingSettlement && (
+          <ExpandedRow label="Status" value="Awaiting NAVPU from statement" />
+        )}
         <View style={styles.bucketChipsLabel}><Text style={styles.bucketChipsLabelText}>Buckets</Text></View>
         <View style={styles.bucketChipsGrid}>
           {item.buckets.map((b, i) => (
@@ -88,7 +92,7 @@ export default function DashboardScreen({ navigation }: Props) {
       const valued = applyPricesToAggregated(a, prices.tickers);
       setStocks(valued);
       const flatPositions = valued.flatMap((v) => v.buckets);
-      setValuation(computePortfolioValuation(flatPositions, s.totalDividends, s.totalCostBasis));
+      setValuation(computePortfolioValuation(flatPositions, s.totalDividends, s.totalCostBasis, s.totalRealizedGain));
     } catch (e: any) {
       console.log('[Dashboard] price cache unavailable:', e.message);
       setPriceError(e.message);
@@ -107,6 +111,25 @@ export default function DashboardScreen({ navigation }: Props) {
 
   const stockCount = useMemo(() => stocks.filter((s) => s.assetType === 'stock').length, [stocks]);
   const fundCount = useMemo(() => stocks.filter((s) => s.assetType === 'fund').length, [stocks]);
+  // Stocks Total Portfolio Value - market value of stock-type holdings only.
+  // Funds have no live price feed (priceCache only covers PSE stock tickers),
+  // so there's no equivalent fund market value to compute yet - see
+  // "Funds Total Portfolio Value" stat below, shown as N/A for now.
+  const stocksValueInfo = useMemo(
+    () => (valuation ? sumMarketValue(stocks as ValuedAggregatedStock[], 'stock') : null),
+    [stocks, valuation]
+  );
+  // Scoped unrealized-gain delta shown under the "Total Investment" headline -
+  // stock-only since funds have no live price feed (so no fund-side
+  // unrealized gain can be computed - it's simply omitted rather than
+  // assumed 0). This is the portfolio's real, price-backed unrealized gain.
+  const stocksOnlyValuation = useMemo(() => {
+    if (!valuation || !summary) return null;
+    const valuedStockBuckets = (stocks as ValuedAggregatedStock[])
+      .filter((s) => s.assetType === 'stock')
+      .flatMap((s) => s.buckets);
+    return computePortfolioValuation(valuedStockBuckets, 0, summary.stocksCostBasis, 0);
+  }, [stocks, valuation, summary]);
   const visible = useMemo(
     () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map(toPositionItem),
     [stocks, activeTab]
@@ -122,29 +145,43 @@ export default function DashboardScreen({ navigation }: Props) {
       {summary && (
         <>
           <View style={styles.marketValueBlock}>
-            <Text style={styles.caption}>Overall Market Value</Text>
+            <Text style={styles.caption}>Total Investment</Text>
             <Text style={styles.marketValue}>
-              ₱{(valuation ? valuation.totalMarketValue : summary.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ₱{summary.totalCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </Text>
-            {valuation && (
-              <Text style={[styles.deltaLine, valuation.totalUnrealizedGain >= 0 ? styles.positive : styles.negative]}>
-                {valuation.totalUnrealizedGain >= 0 ? '↑' : '↓'} ₱{Math.abs(valuation.totalUnrealizedGain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                {' '}({valuation.totalUnrealizedGainPct >= 0 ? '+' : ''}{valuation.totalUnrealizedGainPct}%) unrealized
+            {stocksOnlyValuation && (
+              <Text style={[styles.deltaLine, stocksOnlyValuation.totalUnrealizedGain >= 0 ? styles.positive : styles.negative]}>
+                {stocksOnlyValuation.totalUnrealizedGain >= 0 ? '↑' : '↓'} ₱{Math.abs(stocksOnlyValuation.totalUnrealizedGain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {' '}({stocksOnlyValuation.totalUnrealizedGainPct >= 0 ? '+' : ''}{stocksOnlyValuation.totalUnrealizedGainPct}%) unrealized on stocks
               </Text>
             )}
             {priceCache && <Text style={styles.pricesAsOf}>Prices as of {new Date(priceCache.generatedAt).toLocaleString()}</Text>}
-            {priceError && <Text style={styles.priceWarning}>Live prices unavailable - showing cost basis only.</Text>}
+            {priceError && <Text style={styles.priceWarning}>Live prices unavailable - can't show unrealized gain/loss right now.</Text>}
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll} contentContainerStyle={styles.statsRow}>
+            <StatCard label="Stocks Total Portfolio Cost" value={`₱${summary.stocksCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+            <StatCard
+              label="Stocks Total Portfolio Value"
+              value={stocksValueInfo ? `₱${stocksValueInfo.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'N/A'}
+              sublabel={stocksValueInfo && stocksValueInfo.unpricedCount > 0 ? `${stocksValueInfo.unpricedCount} unpriced` : undefined}
+            />
+            <StatCard label="Funds Total Portfolio Cost" value={`₱${summary.fundsCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+            <StatCard label="Funds Total Portfolio Value" value="N/A" sublabel="no live fund pricing yet" />
             <StatCard label="Dividends Earned" value={`₱${summary.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} sublabel={`${summary.realizedDividendYieldPct}% of cost`} sign="positive" />
+            <StatCard
+              label="Realized Gain/Loss"
+              value={`${summary.totalRealizedGain >= 0 ? '+' : ''}₱${summary.totalRealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+              sublabel="from closed positions"
+              sign={summary.totalRealizedGain >= 0 ? 'positive' : 'negative'}
+            />
             <StatCard label="Stocks" value={String(summary.stockCount)} sublabel="Active Positions" />
             <StatCard label="Buckets" value={String(summary.bucketCount)} sublabel="Active Accounts" />
             {valuation && (
               <StatCard
                 label="Total Return"
                 value={`₱${valuation.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                sublabel={`${valuation.totalReturnPct >= 0 ? '+' : ''}${valuation.totalReturnPct}% (div + gain)`}
+                sublabel={`${valuation.totalReturnPct >= 0 ? '+' : ''}${valuation.totalReturnPct}% (div + gains)`}
                 sign={valuation.totalReturn >= 0 ? 'positive' : 'negative'}
               />
             )}
