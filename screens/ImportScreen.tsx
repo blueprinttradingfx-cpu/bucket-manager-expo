@@ -43,6 +43,11 @@ export default function ImportScreen() {
   const [editPrice, setEditPrice] = useState('');
   const [editAmount, setEditAmount] = useState('');
   const [simulating, setSimulating] = useState(false);
+  const [fundFills, setFundFills] = useState<{ id: number; date: string; stock: string; description: string | null; amount: number; quantity: number | null; price: number | null }[]>([]);
+  const [fillQty, setFillQty] = useState<Record<number, string>>({});
+  const [fillPrice, setFillPrice] = useState<Record<number, string>>({});
+  const [savingFillId, setSavingFillId] = useState<number | null>(null);
+  const [fundFillTab, setFundFillTab] = useState<'unsettled' | 'settled'>('unsettled');
 
   const refresh = useCallback(async () => {
     const b = await store.listBuckets();
@@ -50,6 +55,7 @@ export default function ImportScreen() {
     if (!selected && b.length) setSelected(b[0].name);
     if (selected) {
       setManualTxns(await store.getManualTransactions(selected));
+      setFundFills(await store.getFundFills(selected));
     }
   }, [store, selected]);
 
@@ -310,6 +316,39 @@ export default function ImportScreen() {
     }
   }
 
+  async function handleSaveFundFill(id: number, amount: number) {
+    const qtyStr = (fillQty[id] ?? '').trim();
+    const priceStr = (fillPrice[id] ?? '').trim();
+    if (!qtyStr && !priceStr) {
+      return Alert.alert('Enter units or NAVPU', 'Fill in at least one - the other is calculated from the amount already on file for this buy.');
+    }
+
+    let qty = qtyStr ? parseFloat(qtyStr) : NaN;
+    let unitPrice = priceStr ? parseFloat(priceStr) : NaN;
+
+    // Only one side is required - the amount already on file (from the
+    // statement) fills in whichever side is missing, same as how DragonFi
+    // itself derives units = amount / NAVPU on settlement.
+    if (!isNaN(qty) && isNaN(unitPrice)) unitPrice = qty > 0 ? amount / qty : NaN;
+    if (isNaN(qty) && !isNaN(unitPrice)) qty = unitPrice > 0 ? amount / unitPrice : NaN;
+
+    if (isNaN(qty) || isNaN(unitPrice) || qty <= 0 || unitPrice <= 0) {
+      return Alert.alert('Invalid values', 'Enter a positive number of units and/or NAVPU.');
+    }
+
+    setSavingFillId(id);
+    try {
+      await store.updateFundTransaction(id, Math.round(qty * 10000) / 10000, Math.round(unitPrice * 10000) / 10000);
+      setFillQty((prev) => { const next = { ...prev }; delete next[id]; return next; });
+      setFillPrice((prev) => { const next = { ...prev }; delete next[id]; return next; });
+      await refresh();
+    } catch (e: any) {
+      Alert.alert('Failed to update', e.message ?? String(e));
+    } finally {
+      setSavingFillId(null);
+    }
+  }
+
   if (buckets.length === 0) {
     return (
       <View style={styles.container}>
@@ -344,6 +383,90 @@ export default function ImportScreen() {
       </Pressable>
 
       {lastResult && <Text style={styles.result}>{lastResult}</Text>}
+
+      {fundFills.length > 0 && (() => {
+        const unsettled = fundFills.filter((f) => !(f.quantity != null && f.price != null));
+        const settled = fundFills.filter((f) => f.quantity != null && f.price != null);
+        const visible = fundFillTab === 'unsettled' ? unsettled : settled;
+        return (
+          <>
+            <View style={styles.divider} />
+            <Text style={styles.sectionHeader}>Fund Prices Needed</Text>
+            <Text style={styles.simulateHint}>
+              Fund buys come in with a peso amount but no units/NAVPU until DragonFi backfills it on settlement. Check the DragonFi dashboard and enter what you see below so the dashboard values these accurately - already-settled ones are shown too, in case you need to correct a value. You only need to fill in one field - the other is calculated from the amount already on file.
+            </Text>
+            <View style={styles.fundTabRow}>
+              <Pressable
+                style={[styles.fundTab, fundFillTab === 'unsettled' && styles.fundTabSelected]}
+                onPress={() => setFundFillTab('unsettled')}
+              >
+                <Text style={[styles.fundTabText, fundFillTab === 'unsettled' && styles.fundTabTextSelected]}>
+                  Unsettled ({unsettled.length})
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.fundTab, fundFillTab === 'settled' && styles.fundTabSelected]}
+                onPress={() => setFundFillTab('settled')}
+              >
+                <Text style={[styles.fundTabText, fundFillTab === 'settled' && styles.fundTabTextSelected]}>
+                  Settled ({settled.length})
+                </Text>
+              </Pressable>
+            </View>
+            {visible.length === 0 && (
+              <Text style={styles.empty}>
+                {fundFillTab === 'unsettled' ? 'All caught up - nothing waiting on a price.' : 'No settled entries yet.'}
+              </Text>
+            )}
+            {visible.map((f) => {
+              const isSettled = f.quantity != null && f.price != null;
+              return (
+                <View key={f.id} style={styles.txnRow}>
+                  <View style={styles.editForm}>
+                    <View style={styles.fundRowHeader}>
+                      <Text style={styles.txnStock}>{f.stock}</Text>
+                      {isSettled && <Text style={styles.simulateButtonText}>✓ Settled</Text>}
+                    </View>
+                    {f.description && <Text style={styles.txnDate}>{f.description}</Text>}
+                    <Text style={styles.txnDate}>
+                      {f.date} · ₱{f.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })} invested
+                    </Text>
+                    <Text style={styles.editLabel}>Units (from DragonFi)</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={fillQty[f.id] ?? (f.quantity != null ? String(f.quantity) : '')}
+                      onChangeText={(v) => setFillQty((prev) => ({ ...prev, [f.id]: v }))}
+                      placeholder="e.g. 1234.5678"
+                      placeholderTextColor={colors.onSurfaceVariant}
+                      keyboardType="decimal-pad"
+                    />
+                    <Text style={styles.editLabel}>NAVPU (leave blank to auto-calc)</Text>
+                    <TextInput
+                      style={styles.editInput}
+                      value={fillPrice[f.id] ?? (f.price != null ? String(f.price) : '')}
+                      onChangeText={(v) => setFillPrice((prev) => ({ ...prev, [f.id]: v }))}
+                      placeholder="e.g. 1.2345"
+                      placeholderTextColor={colors.onSurfaceVariant}
+                      keyboardType="decimal-pad"
+                    />
+                    <Pressable
+                      style={styles.saveButton}
+                      onPress={() => handleSaveFundFill(f.id, f.amount)}
+                      disabled={savingFillId === f.id}
+                    >
+                      {savingFillId === f.id ? (
+                        <ActivityIndicator color={colors.onPrimary} />
+                      ) : (
+                        <Text style={styles.saveButtonText}>{isSettled ? 'Update' : 'Save'}</Text>
+                      )}
+                    </Pressable>
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        );
+      })()}
 
       <View style={styles.divider} />
 
@@ -607,6 +730,7 @@ const styles = StyleSheet.create({
   addButtonText: { fontFamily: fonts.bodyBold, color: colors.onPrimary, fontSize: 15 },
   sectionHeader: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.onBackground, marginTop: spacing.lg, marginBottom: spacing.sm },
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing.lg },
+  fundRowHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   simulateButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: colors.surfaceContainerHigh, borderWidth: 1, borderColor: colors.outlineVariant,
@@ -614,6 +738,14 @@ const styles = StyleSheet.create({
   },
   simulateButtonText: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.primary },
   simulateHint: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant, marginBottom: spacing.sm, lineHeight: 15 },
+  fundTabRow: {
+    flexDirection: 'row', backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.lg,
+    padding: 4, marginBottom: spacing.md, gap: 4,
+  },
+  fundTab: { flex: 1, borderRadius: radii.lg - 2, paddingVertical: spacing.sm, alignItems: 'center' },
+  fundTabSelected: { backgroundColor: colors.primary },
+  fundTabText: { fontFamily: fonts.bodySemiBold, fontSize: 13, color: colors.onSurfaceVariant },
+  fundTabTextSelected: { color: colors.onPrimary },
   txnRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,

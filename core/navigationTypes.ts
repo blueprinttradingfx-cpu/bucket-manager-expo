@@ -17,7 +17,9 @@ export type DashboardStackParamList = {
 export type BucketsStackParamList = {
   BucketsHome: undefined;
   BucketDetail: { bucket: string };
+  StockDetail: { ticker: string };
   StockInBucket: { bucket: string; ticker: string };
   EditBucket: { bucketId: number };
   MonthlyDividendIncome: { bucket?: string };
+  BucketStrategyInfo: undefined;
 };

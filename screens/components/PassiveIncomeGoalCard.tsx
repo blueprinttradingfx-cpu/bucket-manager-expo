@@ -7,10 +7,13 @@
 // (the card chrome, the "Set Goal" modal) is plain RN primitives, same as
 // the rest of the app.
 //
-// Tracks the CURRENT calendar month's declared dividend income against the
-// goal, not a rolling average - it resets every month, same as how a
-// "monthly passive income goal" is usually meant (hit ₱1,000 THIS month),
-// rather than smoothing over a slow month with a fast one.
+// Tracks the AVERAGE monthly dividend income across completed months
+// (see bucketLogic's averageMonthlyDividendIncome), not the current
+// calendar month's total so far. Dividends land on specific dates rather
+// than smoothly through a month, so "this month so far" reads as "behind
+// goal" for most of any given month even when the portfolio is
+// comfortably on track - the average is the more honest "am I on pace"
+// number.
 
 import React, { useState } from 'react';
 import { View, Text, Pressable, Modal, TextInput, StyleSheet } from 'react-native';
@@ -52,9 +55,9 @@ function CircularGauge({ percent }: { percent: number }) {
 }
 
 export default function PassiveIncomeGoalCard({
-  currentMonthIncome, goal, onSaveGoal,
+  averageMonthlyIncome, goal, onSaveGoal,
 }: {
-  currentMonthIncome: number;
+  averageMonthlyIncome: number;
   goal: number | null;
   onSaveGoal: (goal: number) => Promise<void> | void;
 }) {
@@ -63,7 +66,7 @@ export default function PassiveIncomeGoalCard({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const percent = goal && goal > 0 ? (currentMonthIncome / goal) * 100 : 0;
+  const percent = goal && goal > 0 ? (averageMonthlyIncome / goal) * 100 : 0;
 
   function openModal() {
     setDraftGoal(goal != null ? String(goal) : '');
@@ -93,11 +96,11 @@ export default function PassiveIncomeGoalCard({
         <CircularGauge percent={percent} />
         <View style={styles.readout}>
           <Text style={styles.readoutValue}>
-            {currentMonthIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            {averageMonthlyIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             {' / '}
             {goal != null ? goal.toLocaleString(undefined, { minimumFractionDigits: 0 }) : '—'}
           </Text>
-          <Text style={styles.readoutCaption}>this month</Text>
+          <Text style={styles.readoutCaption}>avg. monthly income</Text>
         </View>
       </View>
       <Pressable onPress={openModal} hitSlop={8} style={styles.setGoalRow}>

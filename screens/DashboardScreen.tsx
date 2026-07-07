@@ -16,7 +16,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, RefreshControl, ScrollView } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
-import { AggregatedStock, PortfolioSummary, ValuedAggregatedStock, applyPricesToAggregated, computePortfolioValuation, PortfolioValuation, sumMarketValue, YieldBracket, DividendPayment, monthlyDividendTotals } from '../core/bucketLogic';
+import { AggregatedStock, PortfolioSummary, ValuedAggregatedStock, applyPricesToAggregated, computePortfolioValuation, PortfolioValuation, sumMarketValue, YieldBracket, DividendPayment, monthlyDividendTotals, averageMonthlyDividendIncome } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
 import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
@@ -159,10 +159,12 @@ export default function DashboardScreen({ navigation }: Props) {
   );
   const currentYear = new Date().getFullYear();
   const monthlyDividends = useMemo(() => monthlyDividendTotals(dividendFeed, currentYear), [dividendFeed, currentYear]);
-  // "This month" for the Passive Income Goal gauge - just this one month's
-  // slice of the same monthlyDividends array the chart below already uses,
-  // so the gauge and the chart never disagree with each other.
-  const currentMonthIncome = monthlyDividends[new Date().getMonth()];
+  // Average across completed months, not just this month's total so far -
+  // see averageMonthlyDividendIncome's own comment for why: dividends land
+  // on specific dates, not smoothly, so "this month so far" reads as
+  // "behind goal" for most of any given month even when the portfolio is
+  // comfortably on track.
+  const averageMonthlyIncome = useMemo(() => averageMonthlyDividendIncome(dividendFeed), [dividendFeed]);
 
   return (
     <ScrollView
@@ -217,7 +219,7 @@ export default function DashboardScreen({ navigation }: Props) {
           </ScrollView>
 
           <PassiveIncomeGoalCard
-            currentMonthIncome={currentMonthIncome}
+            averageMonthlyIncome={averageMonthlyIncome}
             goal={monthlyGoal}
             onSaveGoal={handleSaveGoal}
           />

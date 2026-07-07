@@ -4,7 +4,7 @@
 // they never import expo-sqlite or idb directly, so the platform split is
 // invisible above this layer.
 
-import { RawRow, StoredTxn, Holding, AggregatedStock, BucketStockPosition, PortfolioSummary, RealizedTrade } from './bucketLogic';
+import { RawRow, StoredTxn, Holding, AggregatedStock, BucketStockPosition, PortfolioSummary, RealizedTrade, FundFill } from './bucketLogic';
 
 export interface BucketRow {
   id: number;
@@ -72,6 +72,20 @@ export interface BucketStoreAPI {
   ): Promise<void>;
   /** Get all manually added transactions for a bucket. */
   getManualTransactions(bucketName: string): Promise<{ id: number; date: string; type: string; stock: string; quantity: number | null; price: number | null; amount: number | null }[]>;
+  /** Every fund BUY transaction in a bucket (imported or manual),
+   *  classified by a "fund" match in its Description - both still-pending
+   *  ones (no Quantity/Price yet) and already-settled ones, newest first.
+   *  Powers the "Fund Prices Needed" list on the Import screen, which lets
+   *  the user fill in - or go back and correct - units/NAVPU for any fund
+   *  buy, not just unsettled ones. */
+  getFundFills(bucketName: string): Promise<FundFill[]>;
+  /** Sets (or overwrites) the Quantity/Price on a fund BUY row (see
+   *  getFundFills). Unlike updateManualTransaction, this works on imported
+   *  rows too - settlement data legitimately arrives after the fact, and
+   *  a previously-entered value may need correcting. The existing Amount
+   *  is left untouched since it's the authoritative peso figure from the
+   *  statement. */
+  updateFundTransaction(transactionId: number, quantity: number, price: number): Promise<void>;
   /** Every CASH DIVIDEND transaction, either portfolio-wide (bucketName
    *  omitted, aggregated across every bucket) or scoped to one bucket -
    *  powers the Monthly Dividend Income chart/screen on the Dashboard

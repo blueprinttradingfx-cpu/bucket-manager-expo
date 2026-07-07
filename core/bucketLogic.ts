@@ -40,6 +40,21 @@ export interface Holding {
 
 export interface DividendEntry { ticker: string; date: string; amount: number; }
 
+/** A fund BUY row (imported or manual), classified by a "fund" match in
+ *  its Description. Quantity/Price are null while still unsettled (see
+ *  Holding.pendingSettlement) and populated once known - either way this
+ *  is what's surfaced on the Import screen's "Fund Prices Needed" list,
+ *  so a value can be filled in OR corrected later if it was wrong. */
+export interface FundFill {
+  id: number;
+  date: string;
+  stock: string;
+  description: string | null;
+  amount: number;
+  quantity: number | null;
+  price: number | null;
+}
+
 /** One closed (or partially closed) sale, matched against the FIFO lot(s) it
  *  consumed. This is what lets a fully-exited position still contribute a
  *  gain/loss number after it drops out of current holdings - without this,
@@ -626,6 +641,46 @@ export function monthlyDividendTotals(payments: { date: string; amount: number }
     if (month >= 1 && month <= 12) totals[month - 1] = round(totals[month - 1] + p.amount, 2);
   }
   return totals;
+}
+
+/** Average monthly dividend income across every COMPLETED calendar month
+ *  from the first-ever payment through the month before `asOf` - the
+ *  current, still-in-progress month is deliberately excluded, since a
+ *  slow start to this month (most dividends land on specific dates, not
+ *  smoothly across the month) would otherwise drag a perfectly healthy
+ *  average down before the month is even over. This is what the Passive
+ *  Income Goal gauge shows instead of just "this month's total so far" -
+ *  a lumpy dividend calendar means that number is near-zero for most of
+ *  any given month by construction, which reads as "behind goal" even for
+ *  a portfolio comfortably producing the target income on average.
+ *
+ *  Months with zero payments (a natural gap between quarterly payers,
+ *  for instance) count as 0 in the average rather than being excluded -
+ *  they're real months where nothing arrived, and should pull the
+ *  average down accordingly, not be smoothed away. Returns 0 if there
+ *  are no completed months yet (e.g. the very first month of investing). */
+export function averageMonthlyDividendIncome(payments: { date: string; amount: number }[], asOf: Date = new Date()): number {
+  if (payments.length === 0) return 0;
+
+  const monthKey = (y: number, m1to12: number) => `${y}-${String(m1to12).padStart(2, '0')}`;
+
+  const sorted = [...payments].sort((a, b) => a.date.localeCompare(b.date));
+  const firstMonthKey = sorted[0].date.slice(0, 7);
+
+  const lastCompleted = new Date(asOf.getFullYear(), asOf.getMonth() - 1, 1);
+  const lastMonthKey = monthKey(lastCompleted.getFullYear(), lastCompleted.getMonth() + 1);
+
+  if (lastMonthKey < firstMonthKey) return 0; // first payment is in the current, still-in-progress month
+
+  const totalInRange = payments
+    .filter((p) => { const k = p.date.slice(0, 7); return k >= firstMonthKey && k <= lastMonthKey; })
+    .reduce((s, p) => s + p.amount, 0);
+
+  const [fy, fm] = firstMonthKey.split('-').map(Number);
+  const [ly, lm] = lastMonthKey.split('-').map(Number);
+  const monthCount = (ly - fy) * 12 + (lm - fm) + 1;
+
+  return monthCount > 0 ? round(totalInRange / monthCount, 2) : 0;
 }
 
 /** Distinct calendar years present in a list of dividend payments, newest

@@ -9,7 +9,7 @@ import { SQLiteDatabase } from 'expo-sqlite';
 import {
   RawRow, StoredTxn, prepareRows, computeHoldings, Holding,
   computeBucketPositions, aggregateAcrossBuckets, computePortfolioSummary, summarizeStockHistory,
-  AggregatedStock, BucketStockPosition, PortfolioSummary, RealizedTrade,
+  AggregatedStock, BucketStockPosition, PortfolioSummary, RealizedTrade, FundFill,
 } from './bucketLogic';
 import { BucketRow, BucketStoreAPI } from './storeApi';
 
@@ -352,6 +352,31 @@ export class NativeBucketStore implements BucketStoreAPI {
        WHERE bucket_id = ? AND is_manual = 1
        ORDER BY date DESC`,
       bucketId
+    );
+  }
+
+  /** Fund BUY rows (imported or manual), pending or settled - see FundFill. */
+  async getFundFills(bucketName: string): Promise<FundFill[]> {
+    const bucketId = await this.getOrCreateBucket(bucketName);
+    return this.db.getAllAsync<FundFill>(
+      `SELECT id, date, stock, description, amount, quantity, price FROM transactions
+       WHERE bucket_id = ? AND type = 'BUY' AND stock IS NOT NULL AND amount IS NOT NULL
+         AND description LIKE '%fund%'
+       ORDER BY date DESC, id DESC`,
+      bucketId
+    );
+  }
+
+  async updateFundTransaction(transactionId: number, quantity: number, price: number): Promise<void> {
+    const txn = await this.db.getFirstAsync<{ id: number; type: string }>(
+      'SELECT id, type FROM transactions WHERE id = ?',
+      transactionId
+    );
+    if (!txn) throw new Error('Transaction not found');
+    if (txn.type !== 'BUY') throw new Error('Can only set units/price on a BUY transaction');
+    await this.db.runAsync(
+      'UPDATE transactions SET quantity = ?, price = ? WHERE id = ?',
+      quantity, price, transactionId
     );
   }
 

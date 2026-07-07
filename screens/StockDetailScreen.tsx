@@ -9,17 +9,25 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation, YieldBracket } from '../core/bucketLogic';
 import { fetchPriceCache, PriceEntry } from '../core/priceCache';
-import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { colors, spacing, radii, fonts } from '../core/theme';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
 import BucketSuggestion from './components/BucketSuggestion';
 
-type Props = NativeStackScreenProps<DashboardStackParamList, 'StockDetail'>;
+// Minimal structural prop type, not tied to either stack's specific
+// NativeStackScreenProps - this screen is registered in BOTH DashboardStack
+// (via SearchStock) and BucketsStack (via BucketDetail's "Find stocks"
+// finder), reachable through two different drill-down paths. The only
+// navigation call it makes is 'StockInBucket', which both stacks declare
+// identically, so a narrow structural type covers both without needing a
+// union of the two full param lists.
+interface Props {
+  route: { params: { ticker: string } };
+  navigation: { navigate: (screen: 'StockInBucket', params: { bucket: string; ticker: string }) => void };
+}
 
 type BucketPositionRow = ValuedStockPosition | BucketStockPosition;
 

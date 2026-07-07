@@ -9,7 +9,7 @@ import { openDB, IDBPDatabase } from 'idb';
 import {
   RawRow, StoredTxn, prepareRows, computeHoldings, Holding,
   computeBucketPositions, aggregateAcrossBuckets, computePortfolioSummary, summarizeStockHistory,
-  AggregatedStock, BucketStockPosition, PortfolioSummary, RealizedTrade,
+  AggregatedStock, BucketStockPosition, PortfolioSummary, RealizedTrade, FundFill,
 } from './bucketLogic';
 import { BucketRow, BucketStoreAPI } from './storeApi';
 
@@ -314,6 +314,28 @@ export class WebBucketStore implements BucketStoreAPI {
         amount: t.Amount ?? null,
       }))
       .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  /** Fund BUY rows (imported or manual), pending or settled - see FundFill. */
+  async getFundFills(bucketName: string): Promise<FundFill[]> {
+    const bucketId = await this.getOrCreateBucket(bucketName);
+    const all = await this.db.getAllFromIndex('transactions' as any, 'by_bucket', bucketId) as StoredWebTxn[];
+    return all
+      .filter((t) => t.Type === 'BUY' && t.Stock != null && t.Amount != null && !!t.Description && /fund/i.test(t.Description))
+      .map((t) => ({
+        id: t.id!, date: t.isoDate, stock: t.Stock!, description: t.Description ?? null,
+        amount: t.Amount!, quantity: t.Quantity ?? null, price: t.Price ?? null,
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.id ?? 0) - (a.id ?? 0));
+  }
+
+  async updateFundTransaction(transactionId: number, quantity: number, price: number): Promise<void> {
+    const txn = await this.db.get('transactions', transactionId) as StoredWebTxn | undefined;
+    if (!txn) throw new Error('Transaction not found');
+    if (txn.Type !== 'BUY') throw new Error('Can only set units/price on a BUY transaction');
+    txn.Quantity = quantity;
+    txn.Price = price;
+    await this.db.put('transactions', txn);
   }
 
   async getMonthlyIncomeGoal(): Promise<number | null> {

@@ -3,12 +3,15 @@
 // Restyled to match the Stitch design system (see DashboardScreen for
 // the full rationale) - same Positions table, stat cards, theme tokens.
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, ScrollView, Pressable } from 'react-native';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, RefreshControl, ScrollView, Pressable, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions, computePortfolioValuation, PortfolioValuation, sumMarketValue, monthlyDividendTotals } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
+import { fetchStockUniverse } from '../core/stockUniverse';
+import { BucketRow } from '../core/storeApi';
 import { BucketsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { colors, spacing, radii, fonts } from '../core/theme';
@@ -71,15 +74,27 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
     { date: string; type: string; ticker: string; quantity: number | null; price: number | null; amount: number | null }[]
   >([]);
 
+  // "Find stocks for <bucket>" - the stars/magic header button. Matches the
+  // full PSE ticker universe against this bucket's own yield_low/yield_high
+  // bracket, same match rule as suggestBucketForYield (low <= yield < high).
+  const [bucketBracket, setBucketBracket] = useState<BucketRow | null>(null);
+  const [finderOpen, setFinderOpen] = useState(false);
+  const [universe, setUniverse] = useState<string[]>([]);
+  const [universeLoaded, setUniverseLoaded] = useState(false);
+  const [universeLoading, setUniverseLoading] = useState(false);
+  const [universeError, setUniverseError] = useState<string | null>(null);
+
   const load = useCallback(async (forcePrices = false) => {
-    const [p, lifetime, feed] = await Promise.all([
+    const [p, lifetime, feed, buckets] = await Promise.all([
       store.getBucketPositions(bucket),
       store.getBucketLifetimeTotals(bucket),
       store.getBucketTransactionFeed(bucket),
+      store.listBuckets(),
     ]);
     setTotalRealizedGain(lifetime.totalRealizedGain);
     setTotalDividends(lifetime.totalDividends);
     setTransactionFeed(feed);
+    setBucketBracket(buckets.find((b) => b.name === bucket) ?? null);
     try {
       const prices = await fetchPriceCache(undefined, { force: forcePrices });
       setPriceCache(prices);
@@ -101,6 +116,49 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
     await load(true);
     setRefreshing(false);
   }
+
+  const openFinder = useCallback(async () => {
+    setFinderOpen(true);
+    if (universeLoaded) return; // stock universe barely changes day to day - fetch once per screen visit
+    setUniverseLoading(true);
+    setUniverseError(null);
+    try {
+      const tickers = await fetchStockUniverse();
+      setUniverse(tickers);
+      setUniverseLoaded(true);
+    } catch (e: any) {
+      setUniverseError(e.message);
+    }
+    setUniverseLoading(false);
+  }, [universeLoaded]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={openFinder}
+          hitSlop={10}
+          style={{ marginRight: 4 }}
+          accessibilityLabel={`Find stocks for ${bucket}`}
+        >
+          <Ionicons name="sparkles-outline" size={22} color={colors.onSurface} />
+        </Pressable>
+      ),
+    });
+  }, [navigation, bucket, openFinder]);
+
+  const heldTickers = useMemo(() => new Set(positions.map((p) => p.ticker)), [positions]);
+
+  const finderMatches = useMemo(() => {
+    if (!bucketBracket || bucketBracket.yield_low == null || bucketBracket.yield_high == null || !priceCache) return [];
+    const { yield_low, yield_high } = bucketBracket;
+    return universe
+      .map((ticker) => ({ ticker, entry: priceCache.tickers[ticker] }))
+      .filter((m): m is { ticker: string; entry: NonNullable<typeof m.entry> } =>
+        m.entry?.yieldPct != null && m.entry.yieldPct >= yield_low && m.entry.yieldPct < yield_high
+      )
+      .sort((a, b) => b.entry.yieldPct! - a.entry.yieldPct!);
+  }, [universe, priceCache, bucketBracket]);
 
   // All asset types combined - this is now literally the "Total Investment"
   // headline below: total money committed, stocks + funds, at cost. Not a
@@ -263,6 +321,73 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
           ))
         )
       )}
+
+      <Modal
+        visible={finderOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFinderOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Find stocks for {bucket}</Text>
+              <Pressable onPress={() => setFinderOpen(false)} hitSlop={8}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+            </View>
+
+            {(!bucketBracket || bucketBracket.yield_low == null || bucketBracket.yield_high == null) ? (
+              <Text style={styles.emptyFeedText}>
+                This bucket doesn't have a yield range set yet. Add one from the Buckets tab to get suggestions here.
+              </Text>
+            ) : (
+              <>
+                <Text style={styles.modalSubtitle}>
+                  {bucketBracket.yield_low}%–{bucketBracket.yield_high}% div yield
+                </Text>
+
+                {universeLoading && <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />}
+                {!universeLoading && universeError && (
+                  <Text style={styles.priceWarning}>Couldn't load the stock list: {universeError}</Text>
+                )}
+                {!universeLoading && !universeError && !pricesAvailable && (
+                  <Text style={styles.priceWarning}>Live prices unavailable - can't match yields right now.</Text>
+                )}
+                {!universeLoading && !universeError && pricesAvailable && (
+                  <FlatList
+                    data={finderMatches}
+                    keyExtractor={(m) => m.ticker}
+                    style={styles.stockList}
+                    ListEmptyComponent={
+                      <Text style={styles.emptyFeedText}>No stocks in the universe currently fall in this range.</Text>
+                    }
+                    renderItem={({ item }) => (
+                      <Pressable
+                        style={styles.finderRow}
+                        onPress={() => {
+                          setFinderOpen(false);
+                          navigation.navigate('StockDetail', { ticker: item.ticker });
+                        }}
+                      >
+                        <View>
+                          <Text style={styles.stockItemText}>{item.ticker}</Text>
+                          <Text style={styles.yieldLine}>{item.entry.yieldPct}% div yield · ₱{item.entry.price}</Text>
+                        </View>
+                        {heldTickers.has(item.ticker) ? (
+                          <View style={styles.heldBadge}><Text style={styles.heldBadgeText}>Held</Text></View>
+                        ) : (
+                          <Text style={styles.chevron}>›</Text>
+                        )}
+                      </Pressable>
+                    )}
+                  />
+                )}
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
@@ -310,4 +435,19 @@ const styles = StyleSheet.create({
   txnDate: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant },
   txnRight: { alignItems: 'flex-end' },
   txnDetail: { fontFamily: fonts.mono, fontSize: 12, color: colors.onSurfaceVariant },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, padding: spacing.md, maxHeight: '80%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  modalTitle: { fontFamily: fonts.bodySemiBold, fontSize: 18, color: colors.onBackground, flex: 1, marginRight: spacing.sm },
+  modalSubtitle: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant, marginBottom: spacing.md },
+  stockList: { flex: 1 },
+  stockItemText: { fontFamily: fonts.monoSemiBold, fontSize: 15, color: colors.onSurface },
+  yieldLine: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
+  finderRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: spacing.sm + 4, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant,
+  },
+  heldBadge: { backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.full, paddingHorizontal: spacing.sm, paddingVertical: 2 },
+  heldBadgeText: { fontFamily: fonts.bodyBold, fontSize: 11, color: colors.primary },
+  chevron: { color: colors.onSurfaceVariant, fontSize: 18 },
 });

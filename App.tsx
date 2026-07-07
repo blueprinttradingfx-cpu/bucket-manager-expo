@@ -29,6 +29,7 @@ import StockDetailScreen from './screens/StockDetailScreen';
 import StockInBucketScreen from './screens/StockInBucketScreen';
 import SearchStockScreen from './screens/SearchStockScreen';
 import EditBucketScreen from './screens/EditBucketScreen';
+import BucketStrategyInfoScreen from './screens/BucketStrategyInfoScreen';
 import MonthlyDividendIncomeScreen from './screens/MonthlyDividendIncomeScreen';
 import { DashboardStackParamList, BucketsStackParamList } from './core/navigationTypes';
 
@@ -104,6 +105,11 @@ function BucketsStackNavigator() {
         options={({ route }: any) => ({ title: route.params?.bucket ?? 'Bucket' })}
       />
       <BucketsStack.Screen
+        name="StockDetail"
+        component={StockDetailScreen}
+        options={({ route }: any) => ({ title: route.params?.ticker ?? 'Stock' })}
+      />
+      <BucketsStack.Screen
         name="StockInBucket"
         component={StockInBucketScreen}
         options={({ route }: any) => ({ title: `${route.params?.ticker} · ${route.params?.bucket}` })}
@@ -112,6 +118,11 @@ function BucketsStackNavigator() {
         name="EditBucket"
         component={EditBucketScreen}
         options={{ title: 'Edit Bucket' }}
+      />
+      <BucketsStack.Screen
+        name="BucketStrategyInfo"
+        component={BucketStrategyInfoScreen}
+        options={{ title: 'Why Multiple Buckets?' }}
       />
       <BucketsStack.Screen
         name="MonthlyDividendIncome"
