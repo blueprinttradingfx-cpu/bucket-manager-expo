@@ -7,12 +7,13 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, RefreshControl, ScrollView, Pressable } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
-import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions, computePortfolioValuation, PortfolioValuation, sumMarketValue } from '../core/bucketLogic';
+import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions, computePortfolioValuation, PortfolioValuation, sumMarketValue, monthlyDividendTotals } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
 import { BucketsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { colors, spacing, radii, fonts } from '../core/theme';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
+import MonthlyDividendChart from './components/MonthlyDividendChart';
 
 type Props = NativeStackScreenProps<BucketsStackParamList, 'BucketDetail'>;
 
@@ -140,6 +141,17 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
     () => (activeTab === 'all' ? positions : positions.filter((p) => p.assetType === activeTab)).map(toPositionItem),
     [positions, activeTab]
   );
+  const currentYear = new Date().getFullYear();
+  // Reuses the already-loaded transaction feed rather than a second
+  // store call - it already carries every CASH DIVIDEND row for this
+  // bucket, dated, which is all monthlyDividendTotals needs.
+  const monthlyDividends = useMemo(
+    () => monthlyDividendTotals(
+      transactionFeed.filter((t) => t.type === 'CASH DIVIDEND').map((t) => ({ date: t.date, amount: t.amount ?? 0 })),
+      currentYear
+    ),
+    [transactionFeed, currentYear]
+  );
 
   return (
     <ScrollView
@@ -203,6 +215,12 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
 
       {priceError && <Text style={styles.priceWarning}>Live prices unavailable - can't show unrealized gain/loss right now.</Text>}
       {priceCache && <Text style={styles.priceFreshness}>Prices as of {new Date(priceCache.generatedAt).toLocaleString()}</Text>}
+
+      <MonthlyDividendChart
+        year={currentYear}
+        monthlyTotals={monthlyDividends}
+        onViewAll={() => navigation.navigate('MonthlyDividendIncome', { bucket })}
+      />
 
       <Text style={styles.positionsHeader}>Positions</Text>
 

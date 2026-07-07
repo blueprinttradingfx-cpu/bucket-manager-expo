@@ -29,6 +29,7 @@ import StockDetailScreen from './screens/StockDetailScreen';
 import StockInBucketScreen from './screens/StockInBucketScreen';
 import SearchStockScreen from './screens/SearchStockScreen';
 import EditBucketScreen from './screens/EditBucketScreen';
+import MonthlyDividendIncomeScreen from './screens/MonthlyDividendIncomeScreen';
 import { DashboardStackParamList, BucketsStackParamList } from './core/navigationTypes';
 
 const Tab = createBottomTabNavigator();
@@ -84,6 +85,11 @@ function DashboardStackNavigator() {
         component={SearchStockScreen}
         options={{ title: 'Search Stocks' }}
       />
+      <DashboardStack.Screen
+        name="MonthlyDividendIncome"
+        component={MonthlyDividendIncomeScreen}
+        options={({ route }: any) => ({ title: route.params?.bucket ? `Dividends · ${route.params.bucket}` : 'Monthly Dividend Income' })}
+      />
     </DashboardStack.Navigator>
   );
 }
@@ -106,6 +112,11 @@ function BucketsStackNavigator() {
         name="EditBucket"
         component={EditBucketScreen}
         options={{ title: 'Edit Bucket' }}
+      />
+      <BucketsStack.Screen
+        name="MonthlyDividendIncome"
+        component={MonthlyDividendIncomeScreen}
+        options={({ route }: any) => ({ title: route.params?.bucket ? `Dividends · ${route.params.bucket}` : 'Monthly Dividend Income' })}
       />
     </BucketsStack.Navigator>
   );

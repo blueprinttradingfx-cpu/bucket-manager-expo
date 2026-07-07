@@ -602,6 +602,42 @@ export function computePortfolioValuation(
   };
 }
 
+/** One CASH DIVIDEND payment tagged with the bucket it was earned in -
+ *  powers the Monthly Dividend Income chart/screen, both aggregated across
+ *  all buckets (Dashboard) and scoped to one bucket (BucketDetail). Same
+ *  underlying data as DividendEntry, just with the bucket name attached
+ *  (DividendEntry alone can't tell two same-ticker dividends in different
+ *  buckets apart, which the "declared payouts" list needs to do). */
+export interface DividendPayment {
+  date: string;      // isoDate, YYYY-MM-DD
+  ticker: string;
+  amount: number;
+  bucket: string;
+}
+
+/** Buckets a list of dividend payments into 12 monthly totals (index 0 =
+ *  January) for one calendar year, matched against the isoDate's year. */
+export function monthlyDividendTotals(payments: { date: string; amount: number }[], year: number): number[] {
+  const totals = new Array(12).fill(0);
+  for (const p of payments) {
+    const [y, m] = p.date.split('-');
+    if (Number(y) !== year) continue;
+    const month = Number(m);
+    if (month >= 1 && month <= 12) totals[month - 1] = round(totals[month - 1] + p.amount, 2);
+  }
+  return totals;
+}
+
+/** Distinct calendar years present in a list of dividend payments, newest
+ *  first - builds the year tabs on the Monthly Dividend Income screen.
+ *  Always includes currentYear even with zero payments yet, so the tab
+ *  for "this year" doesn't disappear just because nothing's landed yet. */
+export function dividendYearsAvailable(payments: { date: string }[], currentYear: number): number[] {
+  const years = new Set<number>([currentYear]);
+  for (const p of payments) years.add(Number(p.date.slice(0, 4)));
+  return [...years].sort((a, b) => b - a);
+}
+
 /** Minimal structural shape for a yield-bracket lookup - deliberately NOT
  *  importing BucketRow from storeApi here, since storeApi already imports
  *  from this file (bucketLogic.ts) and importing back would create a

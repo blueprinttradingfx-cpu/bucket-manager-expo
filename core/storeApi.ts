@@ -72,6 +72,11 @@ export interface BucketStoreAPI {
   ): Promise<void>;
   /** Get all manually added transactions for a bucket. */
   getManualTransactions(bucketName: string): Promise<{ id: number; date: string; type: string; stock: string; quantity: number | null; price: number | null; amount: number | null }[]>;
+  /** Every CASH DIVIDEND transaction, either portfolio-wide (bucketName
+   *  omitted, aggregated across every bucket) or scoped to one bucket -
+   *  powers the Monthly Dividend Income chart/screen on the Dashboard
+   *  (aggregated) and BucketDetail (single-bucket) views. Oldest first. */
+  getDividendFeed(bucketName?: string): Promise<{ date: string; ticker: string; amount: number; bucket: string }[]>;
   /** All-time dividends + realized gains for a bucket, including tickers that
    *  are now fully exited (and so no longer appear in getBucketPositions or
    *  in a naive sum of getBucketPositions()[].totalDividends). */
@@ -80,4 +85,10 @@ export interface BucketStoreAPI {
    *  (manual + imported), newest first - powers the bucket-level Transaction
    *  History view. */
   getBucketTransactionFeed(bucketName: string): Promise<{ date: string; type: string; ticker: string; quantity: number | null; price: number | null; amount: number | null }[]>;
+
+  /** The user-set monthly passive income goal (a peso amount), powering the
+   *  "Passive Income Goal" gauge on the main Dashboard. null if never set. */
+  getMonthlyIncomeGoal(): Promise<number | null>;
+  /** Set (or clear, by passing null) the monthly passive income goal. */
+  setMonthlyIncomeGoal(goal: number | null): Promise<void>;
 }

@@ -33,6 +33,10 @@ export async function initSchema(db: SQLiteDatabase) {
       UNIQUE(bucket_id, row_hash),
       FOREIGN KEY(bucket_id) REFERENCES buckets(id)
     );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value REAL
+    );
   `);
 
   // Migration: add is_manual column if it doesn't exist (for existing databases)
@@ -214,6 +218,27 @@ export class NativeBucketStore implements BucketStoreAPI {
     return summarizeStockHistory(ticker, perBucket.flat());
   }
 
+  /** Every CASH DIVIDEND transaction, either portfolio-wide (bucketName
+   *  omitted) or scoped to one bucket - powers the Monthly Dividend Income
+   *  chart/screen. Oldest first. */
+  async getDividendFeed(bucketName?: string): Promise<{ date: string; ticker: string; amount: number; bucket: string }[]> {
+    const rows = bucketName
+      ? await this.db.getAllAsync<{ date: string; ticker: string; amount: number | null; bucket: string }>(
+          `SELECT t.date as date, t.stock as ticker, t.amount as amount, b.name as bucket
+           FROM transactions t JOIN buckets b ON b.id = t.bucket_id
+           WHERE b.name = ? AND t.type = 'CASH DIVIDEND' AND t.stock IS NOT NULL
+           ORDER BY t.date`,
+          bucketName
+        )
+      : await this.db.getAllAsync<{ date: string; ticker: string; amount: number | null; bucket: string }>(
+          `SELECT t.date as date, t.stock as ticker, t.amount as amount, b.name as bucket
+           FROM transactions t JOIN buckets b ON b.id = t.bucket_id
+           WHERE t.type = 'CASH DIVIDEND' AND t.stock IS NOT NULL
+           ORDER BY t.date`
+        );
+    return rows.map((r) => ({ ...r, amount: r.amount ?? 0 }));
+  }
+
   /** All-time dividends + realized gains for a bucket, including tickers that
    *  are now fully exited (and so no longer appear in getBucketPositions). */
   async getBucketLifetimeTotals(bucketName: string): Promise<{ totalRealizedGain: number; totalDividends: number; trades: RealizedTrade[] }> {
@@ -328,5 +353,23 @@ export class NativeBucketStore implements BucketStoreAPI {
        ORDER BY date DESC`,
       bucketId
     );
+  }
+
+  async getMonthlyIncomeGoal(): Promise<number | null> {
+    const row = await this.db.getFirstAsync<{ value: number }>(
+      "SELECT value FROM settings WHERE key = 'monthlyIncomeGoal'"
+    );
+    return row?.value ?? null;
+  }
+
+  async setMonthlyIncomeGoal(goal: number | null): Promise<void> {
+    if (goal == null) {
+      await this.db.runAsync("DELETE FROM settings WHERE key = 'monthlyIncomeGoal'");
+    } else {
+      await this.db.runAsync(
+        "INSERT INTO settings (key, value) VALUES ('monthlyIncomeGoal', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        goal
+      );
+    }
   }
 }

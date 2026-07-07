@@ -14,7 +14,7 @@ import {
 import { BucketRow, BucketStoreAPI } from './storeApi';
 
 const DB_NAME = 'bucket_portfolio';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 interface StoredBucket { id: number; name: string; yield_low: number | null; yield_high: number | null; }
 interface StoredWebTxn extends StoredTxn { id?: number; bucketId: number; isManual?: number; }
@@ -39,6 +39,14 @@ async function openBucketDB(): Promise<IDBPDatabase> {
         // IndexedDB doesn't support ALTER TABLE, but we can add new properties to existing records
         // The isManual field will be added automatically when we update records
         // No action needed - the field will be undefined for existing records and we handle that in the code
+      }
+
+      // Migration (version 2 -> 3): plain key-value store for small bits of
+      // app state that don't fit the buckets/transactions model - currently
+      // just the monthly passive income goal, but a generic 'key' keyPath
+      // means any future setting can reuse this without another migration.
+      if (!db.objectStoreNames.contains('settings')) {
+        db.createObjectStore('settings', { keyPath: 'key' });
       }
     },
   });
@@ -184,6 +192,22 @@ export class WebBucketStore implements BucketStoreAPI {
     return summarizeStockHistory(ticker, perBucket.flat());
   }
 
+  /** Every CASH DIVIDEND transaction, either portfolio-wide (bucketName
+   *  omitted) or scoped to one bucket - powers the Monthly Dividend Income
+   *  chart/screen. Oldest first. */
+  async getDividendFeed(bucketName?: string): Promise<{ date: string; ticker: string; amount: number; bucket: string }[]> {
+    const buckets = bucketName ? [{ name: bucketName } as StoredBucket] : await this.listBuckets();
+    const perBucket = await Promise.all(
+      buckets.map(async (b) => {
+        const txns = await this.getBucketTxns(b.name);
+        return txns
+          .filter((t) => t.Type === 'CASH DIVIDEND' && t.Stock != null)
+          .map((t) => ({ date: t.isoDate, ticker: t.Stock!, amount: t.Amount ?? 0, bucket: b.name }));
+      })
+    );
+    return perBucket.flat().sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   /** All-time dividends + realized gains for a bucket, including tickers that
    *  are now fully exited (and so no longer appear in getBucketPositions). */
   async getBucketLifetimeTotals(bucketName: string): Promise<{ totalRealizedGain: number; totalDividends: number; trades: RealizedTrade[] }> {
@@ -290,5 +314,18 @@ export class WebBucketStore implements BucketStoreAPI {
         amount: t.Amount ?? null,
       }))
       .sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  async getMonthlyIncomeGoal(): Promise<number | null> {
+    const row = await this.db.get('settings', 'monthlyIncomeGoal') as { key: string; value: number } | undefined;
+    return row?.value ?? null;
+  }
+
+  async setMonthlyIncomeGoal(goal: number | null): Promise<void> {
+    if (goal == null) {
+      await this.db.delete('settings', 'monthlyIncomeGoal');
+    } else {
+      await this.db.put('settings', { key: 'monthlyIncomeGoal', value: goal });
+    }
   }
 }

@@ -16,12 +16,15 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, RefreshControl, ScrollView } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
-import { AggregatedStock, PortfolioSummary, ValuedAggregatedStock, applyPricesToAggregated, computePortfolioValuation, PortfolioValuation, sumMarketValue } from '../core/bucketLogic';
+import { AggregatedStock, PortfolioSummary, ValuedAggregatedStock, applyPricesToAggregated, computePortfolioValuation, PortfolioValuation, sumMarketValue, YieldBracket, DividendPayment, monthlyDividendTotals } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
 import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { colors, spacing, radii, fonts, bucketColorFor } from '../core/theme';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
+import BucketSuggestion from './components/BucketSuggestion';
+import MonthlyDividendChart from './components/MonthlyDividendChart';
+import PassiveIncomeGoalCard from './components/PassiveIncomeGoalCard';
 
 type Props = NativeStackScreenProps<DashboardStackParamList, 'DashboardHome'>;
 
@@ -31,7 +34,7 @@ function isValued(s: StockRow): s is ValuedAggregatedStock {
   return 'marketValue' in s;
 }
 
-function toPositionItem(item: StockRow): PositionItem {
+function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[]): PositionItem {
   const valued = isValued(item) ? item : null;
   return {
     key: item.ticker,
@@ -65,6 +68,12 @@ function toPositionItem(item: StockRow): PositionItem {
             </View>
           ))}
         </View>
+        {/* Same "where should I buy more" logic as StockDetailScreen, so a
+            person deciding whether to add to a position doesn't need to
+            drill in another level just to see it. */}
+        <View style={styles.bucketSuggestion}>
+          <BucketSuggestion ticker={item.ticker} yieldPct={valued?.currentYieldPct ?? null} buckets={yieldBuckets} />
+        </View>
       </>
     ),
   };
@@ -75,6 +84,9 @@ export default function DashboardScreen({ navigation }: Props) {
   const store = useStore();
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [stocks, setStocks] = useState<StockRow[]>([]);
+  const [yieldBuckets, setYieldBuckets] = useState<YieldBracket[]>([]);
+  const [dividendFeed, setDividendFeed] = useState<DividendPayment[]>([]);
+  const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
   const [valuation, setValuation] = useState<PortfolioValuation | null>(null);
   const [priceCache, setPriceCache] = useState<PriceCache | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
@@ -82,8 +94,14 @@ export default function DashboardScreen({ navigation }: Props) {
   const [activeTab, setActiveTab] = useState<'all' | 'stock' | 'fund'>('all');
 
   const load = useCallback(async (forcePrices = false) => {
-    const [s, a] = await Promise.all([store.getPortfolioSummary(), store.getAggregatedStocks()]);
+    const [s, a, b, d, g] = await Promise.all([
+      store.getPortfolioSummary(), store.getAggregatedStocks(), store.listBuckets(), store.getDividendFeed(),
+      store.getMonthlyIncomeGoal(),
+    ]);
     setSummary(s);
+    setYieldBuckets(b);
+    setDividendFeed(d);
+    setMonthlyGoal(g);
 
     try {
       const prices = await fetchPriceCache(undefined, { force: forcePrices });
@@ -109,6 +127,11 @@ export default function DashboardScreen({ navigation }: Props) {
     setRefreshing(false);
   }
 
+  async function handleSaveGoal(goal: number) {
+    await store.setMonthlyIncomeGoal(goal);
+    setMonthlyGoal(goal);
+  }
+
   const stockCount = useMemo(() => stocks.filter((s) => s.assetType === 'stock').length, [stocks]);
   const fundCount = useMemo(() => stocks.filter((s) => s.assetType === 'fund').length, [stocks]);
   // Stocks Total Portfolio Value - market value of stock-type holdings only.
@@ -131,9 +154,15 @@ export default function DashboardScreen({ navigation }: Props) {
     return computePortfolioValuation(valuedStockBuckets, 0, summary.stocksCostBasis, 0);
   }, [stocks, valuation, summary]);
   const visible = useMemo(
-    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map(toPositionItem),
-    [stocks, activeTab]
+    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map((item) => toPositionItem(item, yieldBuckets)),
+    [stocks, activeTab, yieldBuckets]
   );
+  const currentYear = new Date().getFullYear();
+  const monthlyDividends = useMemo(() => monthlyDividendTotals(dividendFeed, currentYear), [dividendFeed, currentYear]);
+  // "This month" for the Passive Income Goal gauge - just this one month's
+  // slice of the same monthlyDividends array the chart below already uses,
+  // so the gauge and the chart never disagree with each other.
+  const currentMonthIncome = monthlyDividends[new Date().getMonth()];
 
   return (
     <ScrollView
@@ -187,6 +216,12 @@ export default function DashboardScreen({ navigation }: Props) {
             )}
           </ScrollView>
 
+          <PassiveIncomeGoalCard
+            currentMonthIncome={currentMonthIncome}
+            goal={monthlyGoal}
+            onSaveGoal={handleSaveGoal}
+          />
+
           {summary.byBucket.length > 0 && (
             <View style={styles.yieldCard}>
               <View style={styles.yieldCardHeader}>
@@ -209,6 +244,12 @@ export default function DashboardScreen({ navigation }: Props) {
           )}
         </>
       )}
+
+      <MonthlyDividendChart
+        year={currentYear}
+        monthlyTotals={monthlyDividends}
+        onViewAll={() => navigation.navigate('MonthlyDividendIncome', {})}
+      />
 
       <Text style={styles.positionsHeader}>Positions</Text>
 
@@ -283,4 +324,8 @@ const styles = StyleSheet.create({
   },
   bucketChipLabel: { fontFamily: fonts.bodyBold, fontSize: 10, textTransform: 'uppercase', marginBottom: 2 },
   bucketChipValue: { fontFamily: fonts.mono, fontSize: 12, color: colors.onSurface },
+  bucketSuggestion: {
+    marginTop: spacing.md, backgroundColor: colors.surfaceContainerHighest, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.default, padding: spacing.sm,
+  },
 });
