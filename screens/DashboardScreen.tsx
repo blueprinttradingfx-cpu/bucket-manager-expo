@@ -84,15 +84,18 @@ function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[], colors: Th
   };
 }
 
-// Builds a StatCard sublabel like "+2.15% · 1 unpriced" for the value cards -
-// % change first (when the relevant scoped valuation is available), then
-// unpriced-count tacked on so that signal isn't lost now that the sublabel
-// slot is doing double duty.
+// Builds a StatCard sublabel like "₱11,172.86 (-5.94%) · 1 unpriced" for the
+// value cards - peso delta + % change first (when the relevant scoped
+// valuation is available), then unpriced-count tacked on so that signal
+// isn't lost now that the sublabel slot is doing double duty. The peso
+// amount itself is unsigned (Math.abs) - direction is carried by the sign
+// on the percentage and by the card's red/green coloring, same convention
+// as the Total Investment delta line above.
 function valueCardSublabel(scopedValuation: PortfolioValuation | null, unpricedCount?: number): string | undefined {
   const parts: string[] = [];
   if (scopedValuation) {
-    const pct = scopedValuation.totalUnrealizedGainPct;
-    parts.push(`${pct >= 0 ? '+' : ''}${pct}%`);
+    const { totalUnrealizedGain: gain, totalUnrealizedGainPct: pct } = scopedValuation;
+    parts.push(`₱${Math.abs(gain).toLocaleString(undefined, { minimumFractionDigits: 2 })} (${pct >= 0 ? '+' : ''}${pct}%)`);
   }
   if (unpricedCount && unpricedCount > 0) {
     parts.push(`${unpricedCount} unpriced`);
@@ -242,12 +245,17 @@ export default function DashboardScreen({ navigation }: Props) {
           <View style={styles.marketValueBlock}>
             <Text style={styles.caption}>Total Investment</Text>
             <Text style={styles.marketValue}>
-              ₱{summary.totalCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ₱{(summary.stocksCostBasis + summary.fundsCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </Text>
-            {stocksOnlyValuation && (
-              <Text style={[styles.deltaLine, stocksOnlyValuation.totalUnrealizedGain >= 0 ? styles.positive : styles.negative]}>
-                {stocksOnlyValuation.totalUnrealizedGain >= 0 ? '↑' : '↓'} ₱{Math.abs(stocksOnlyValuation.totalUnrealizedGain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                {' '}({stocksOnlyValuation.totalUnrealizedGainPct >= 0 ? '+' : ''}{stocksOnlyValuation.totalUnrealizedGainPct}%) unrealized on stocks
+            {/* Portfolio-wide unrealized delta (Total Investment cost vs value,
+                stocks + funds combined) - uses the top-level `valuation` object
+                rather than the stocks-only one now that funds have live pricing
+                too. stocksOnlyValuation is still used further down, scoped to
+                just the Stocks Total Portfolio Value card. */}
+            {valuation && (
+              <Text style={[styles.deltaLine, valuation.totalUnrealizedGain >= 0 ? styles.positive : styles.negative]}>
+                {valuation.totalUnrealizedGain >= 0 ? '↑' : '↓'} ₱{Math.abs(valuation.totalUnrealizedGain).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {' '}({valuation.totalUnrealizedGainPct >= 0 ? '+' : ''}{valuation.totalUnrealizedGainPct}%) unrealized
               </Text>
             )}
             {(priceCache || fundCache) && (
@@ -285,7 +293,7 @@ export default function DashboardScreen({ navigation }: Props) {
                   sublabel="from closed positions"
                   sign={summary.totalRealizedGain >= 0 ? 'positive' : 'negative'}
                 />
-                <StatCard wide={isWideWeb} label="Stocks" value={String(summary.stockCount)} sublabel="Active Positions" />
+                <StatCard wide={isWideWeb} label="All Stocks and Funds" value={String(stocks.length)} sublabel="Active Positions" />
                 <StatCard wide={isWideWeb} label="Buckets" value={String(summary.bucketCount)} sublabel="Active Accounts" />
                 {valuation && (
                   <StatCard
