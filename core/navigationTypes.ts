@@ -23,3 +23,20 @@ export type BucketsStackParamList = {
   MonthlyDividendIncome: { bucket?: string };
   BucketStrategyInfo: undefined;
 };
+
+export type WatchListStackParamList = {
+  WatchListHome: undefined;
+  StockDetail: { ticker: string };
+  StockInBucket: { bucket: string; ticker: string };
+  SearchStock: undefined;
+};
+
+export type SettingsStackParamList = {
+  SettingsHome: undefined;
+  Account: undefined;
+  About: undefined;
+  Contact: undefined;
+  TermsOfUse: undefined;
+  PrivacyPolicy: undefined;
+  BucketStrategyInfo: undefined;
+};

@@ -7,9 +7,11 @@
 // names that don't follow the B1-B5 convention).
 //
 // Portfolio totals + one row per TICKER merged across buckets. Layers in
-// live price/yield data from the GitHub Actions price-cache pipeline
-// where available - market value, unrealized gain/loss, current yield.
-// Gracefully degrades to cost-basis-only if the price cache can't be
+// live price/yield data from two independent GitHub Actions pipelines where
+// available - stock prices/yields (priceCache.ts) and mutual fund NAVPU
+// (fundCache.ts) - merged into one lookup before valuation runs, so market
+// value/unrealized gain/current yield cover both asset types the same way.
+// Gracefully degrades to cost-basis-only for whichever feed(s) can't be
 // reached - never blocks the core view on it.
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
@@ -18,9 +20,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { AggregatedStock, PortfolioSummary, ValuedAggregatedStock, applyPricesToAggregated, computePortfolioValuation, PortfolioValuation, sumMarketValue, YieldBracket, DividendPayment, monthlyDividendTotals, averageMonthlyDividendIncome } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
+import { fetchFundCache, FundCache, fundCacheToPriceLookup } from '../core/fundCache';
 import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts, bucketColorFor } from '../core/theme';
+import { spacing, radii, fonts, bucketColorFor, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
+import { useResponsive } from '../core/responsive';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
 import BucketSuggestion from './components/BucketSuggestion';
 import MonthlyDividendChart from './components/MonthlyDividendChart';
@@ -34,7 +39,7 @@ function isValued(s: StockRow): s is ValuedAggregatedStock {
   return 'marketValue' in s;
 }
 
-function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[]): PositionItem {
+function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[], colors: ThemeColors, styles: ReturnType<typeof createStyles>): PositionItem {
   const valued = isValued(item) ? item : null;
   return {
     key: item.ticker,
@@ -79,8 +84,27 @@ function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[]): PositionI
   };
 }
 
+// Builds a StatCard sublabel like "+2.15% · 1 unpriced" for the value cards -
+// % change first (when the relevant scoped valuation is available), then
+// unpriced-count tacked on so that signal isn't lost now that the sublabel
+// slot is doing double duty.
+function valueCardSublabel(scopedValuation: PortfolioValuation | null, unpricedCount?: number): string | undefined {
+  const parts: string[] = [];
+  if (scopedValuation) {
+    const pct = scopedValuation.totalUnrealizedGainPct;
+    parts.push(`${pct >= 0 ? '+' : ''}${pct}%`);
+  }
+  if (unpricedCount && unpricedCount > 0) {
+    parts.push(`${unpricedCount} unpriced`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}
+
 export default function DashboardScreen({ navigation }: Props) {
   useScreenViewLog('Dashboard');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { isWideWeb } = useResponsive();
   const store = useStore();
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [stocks, setStocks] = useState<StockRow[]>([]);
@@ -89,6 +113,7 @@ export default function DashboardScreen({ navigation }: Props) {
   const [monthlyGoal, setMonthlyGoal] = useState<number | null>(null);
   const [valuation, setValuation] = useState<PortfolioValuation | null>(null);
   const [priceCache, setPriceCache] = useState<PriceCache | null>(null);
+  const [fundCache, setFundCache] = useState<FundCache | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'stock' | 'fund'>('all');
@@ -103,20 +128,43 @@ export default function DashboardScreen({ navigation }: Props) {
     setDividendFeed(d);
     setMonthlyGoal(g);
 
-    try {
-      const prices = await fetchPriceCache(undefined, { force: forcePrices });
-      setPriceCache(prices);
-      setPriceError(null);
-      const valued = applyPricesToAggregated(a, prices.tickers);
-      setStocks(valued);
-      const flatPositions = valued.flatMap((v) => v.buckets);
-      setValuation(computePortfolioValuation(flatPositions, s.totalDividends, s.totalCostBasis, s.totalRealizedGain));
-    } catch (e: any) {
-      console.log('[Dashboard] price cache unavailable:', e.message);
-      setPriceError(e.message);
+    // Stock prices (priceCache.ts) and fund NAVPU (fundCache.ts) are two
+    // independent feeds - fetch both, but don't let either one's failure
+    // block the other. applyPricesToAggregated doesn't care which feed a
+    // ticker's price came from, so whatever comes back just gets merged into
+    // one lookup. Same "never blocks the core view" degradation as before,
+    // just extended to cover funds too now that they have a live feed.
+    const [priceResult, fundResult] = await Promise.allSettled([
+      fetchPriceCache(undefined, { force: forcePrices }),
+      fetchFundCache(undefined, { force: forcePrices }),
+    ]);
+
+    const prices = priceResult.status === 'fulfilled' ? priceResult.value : null;
+    const funds = fundResult.status === 'fulfilled' ? fundResult.value : null;
+    setPriceCache(prices);
+    setFundCache(funds);
+
+    if (priceResult.status === 'rejected') {
+      console.log('[Dashboard] price cache unavailable:', priceResult.reason?.message);
+    }
+    if (fundResult.status === 'rejected') {
+      console.log('[Dashboard] fund cache unavailable:', fundResult.reason?.message);
+    }
+    // Kept scoped to the stock feed specifically - the warning this gates
+    // ("can't show unrealized gain/loss") is about stocksOnlyValuation,
+    // which is stock-only math, so a fund-cache-only outage shouldn't trip it.
+    setPriceError(priceResult.status === 'rejected' ? (priceResult.reason?.message ?? 'Live prices unavailable') : null);
+
+    if (!prices && !funds) {
       setStocks(a);
       setValuation(null);
+      return;
     }
+    const mergedLookup = { ...(prices?.tickers ?? {}), ...fundCacheToPriceLookup(funds) };
+    const valued = applyPricesToAggregated(a, mergedLookup);
+    setStocks(valued);
+    const flatPositions = valued.flatMap((v) => v.buckets);
+    setValuation(computePortfolioValuation(flatPositions, s.totalDividends, s.totalCostBasis, s.totalRealizedGain));
   }, [store]);
 
   useEffect(() => { load(); }, [load]);
@@ -135,17 +183,24 @@ export default function DashboardScreen({ navigation }: Props) {
   const stockCount = useMemo(() => stocks.filter((s) => s.assetType === 'stock').length, [stocks]);
   const fundCount = useMemo(() => stocks.filter((s) => s.assetType === 'fund').length, [stocks]);
   // Stocks Total Portfolio Value - market value of stock-type holdings only.
-  // Funds have no live price feed (priceCache only covers PSE stock tickers),
-  // so there's no equivalent fund market value to compute yet - see
-  // "Funds Total Portfolio Value" stat below, shown as N/A for now.
   const stocksValueInfo = useMemo(
     () => (valuation ? sumMarketValue(stocks as ValuedAggregatedStock[], 'stock') : null),
     [stocks, valuation]
   );
+  // Funds Total Portfolio Value - now backed by fundCache.ts's live NAVPU
+  // feed (funds.json), merged into the same lookup as stock prices before
+  // valuation runs. A fund whose ticker isn't in that feed still falls back
+  // to null marketValue (counted under unpricedCount) rather than N/A for
+  // the whole card, same convention as an unpriced stock.
+  const fundsValueInfo = useMemo(
+    () => (valuation ? sumMarketValue(stocks as ValuedAggregatedStock[], 'fund') : null),
+    [stocks, valuation]
+  );
   // Scoped unrealized-gain delta shown under the "Total Investment" headline -
-  // stock-only since funds have no live price feed (so no fund-side
-  // unrealized gain can be computed - it's simply omitted rather than
-  // assumed 0). This is the portfolio's real, price-backed unrealized gain.
+  // stock-only (see stocksOnlyValuation's own computePortfolioValuation call
+  // below, scoped via valuedStockBuckets) - this is specifically the
+  // pre-existing "stocks-only" callout under Total Investment, not the
+  // portfolio-wide total which now includes funds via `valuation` above.
   const stocksOnlyValuation = useMemo(() => {
     if (!valuation || !summary) return null;
     const valuedStockBuckets = (stocks as ValuedAggregatedStock[])
@@ -153,9 +208,18 @@ export default function DashboardScreen({ navigation }: Props) {
       .flatMap((s) => s.buckets);
     return computePortfolioValuation(valuedStockBuckets, 0, summary.stocksCostBasis, 0);
   }, [stocks, valuation, summary]);
+  // Same idea as stocksOnlyValuation above, just scoped to fund positions -
+  // powers the % change under the Funds Total Portfolio Value card.
+  const fundsOnlyValuation = useMemo(() => {
+    if (!valuation || !summary) return null;
+    const valuedFundBuckets = (stocks as ValuedAggregatedStock[])
+      .filter((s) => s.assetType === 'fund')
+      .flatMap((s) => s.buckets);
+    return computePortfolioValuation(valuedFundBuckets, 0, summary.fundsCostBasis, 0);
+  }, [stocks, valuation, summary]);
   const visible = useMemo(
-    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map((item) => toPositionItem(item, yieldBuckets)),
-    [stocks, activeTab, yieldBuckets]
+    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map((item) => toPositionItem(item, yieldBuckets, colors, styles)),
+    [stocks, activeTab, yieldBuckets, colors, styles]
   );
   const currentYear = new Date().getFullYear();
   const monthlyDividends = useMemo(() => monthlyDividendTotals(dividendFeed, currentYear), [dividendFeed, currentYear]);
@@ -186,37 +250,67 @@ export default function DashboardScreen({ navigation }: Props) {
                 {' '}({stocksOnlyValuation.totalUnrealizedGainPct >= 0 ? '+' : ''}{stocksOnlyValuation.totalUnrealizedGainPct}%) unrealized on stocks
               </Text>
             )}
-            {priceCache && <Text style={styles.pricesAsOf}>Prices as of {new Date(priceCache.generatedAt).toLocaleString()}</Text>}
+            {(priceCache || fundCache) && (
+              <Text style={styles.pricesAsOf}>
+                Prices as of {new Date((priceCache ?? fundCache)!.generatedAt).toLocaleString()}
+              </Text>
+            )}
             {priceError && <Text style={styles.priceWarning}>Live prices unavailable - can't show unrealized gain/loss right now.</Text>}
           </View>
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll} contentContainerStyle={styles.statsRow}>
-            <StatCard label="Stocks Total Portfolio Cost" value={`₱${summary.stocksCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
-            <StatCard
-              label="Stocks Total Portfolio Value"
-              value={stocksValueInfo ? `₱${stocksValueInfo.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'N/A'}
-              sublabel={stocksValueInfo && stocksValueInfo.unpricedCount > 0 ? `${stocksValueInfo.unpricedCount} unpriced` : undefined}
-            />
-            <StatCard label="Funds Total Portfolio Cost" value={`₱${summary.fundsCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
-            <StatCard label="Funds Total Portfolio Value" value="N/A" sublabel="no live fund pricing yet" />
-            <StatCard label="Dividends Earned" value={`₱${summary.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} sublabel={`${summary.realizedDividendYieldPct}% of cost`} sign="positive" />
-            <StatCard
-              label="Realized Gain/Loss"
-              value={`${summary.totalRealizedGain >= 0 ? '+' : ''}₱${summary.totalRealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-              sublabel="from closed positions"
-              sign={summary.totalRealizedGain >= 0 ? 'positive' : 'negative'}
-            />
-            <StatCard label="Stocks" value={String(summary.stockCount)} sublabel="Active Positions" />
-            <StatCard label="Buckets" value={String(summary.bucketCount)} sublabel="Active Accounts" />
-            {valuation && (
-              <StatCard
-                label="Total Return"
-                value={`₱${valuation.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-                sublabel={`${valuation.totalReturnPct >= 0 ? '+' : ''}${valuation.totalReturnPct}% (div + gains)`}
-                sign={valuation.totalReturn >= 0 ? 'positive' : 'negative'}
-              />
-            )}
-          </ScrollView>
+          {(() => {
+            const statCards = (
+              <>
+                <StatCard wide={isWideWeb} label="Stocks Total Portfolio Cost" value={`₱${summary.stocksCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+                <StatCard
+                  wide={isWideWeb}
+                  label="Stocks Total Portfolio Value"
+                  value={stocksValueInfo ? `₱${stocksValueInfo.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'N/A'}
+                  sublabel={valueCardSublabel(stocksOnlyValuation, stocksValueInfo?.unpricedCount)}
+                  sign={stocksOnlyValuation ? (stocksOnlyValuation.totalUnrealizedGain >= 0 ? 'positive' : 'negative') : undefined}
+                />
+                <StatCard wide={isWideWeb} label="Funds Total Portfolio Cost" value={`₱${summary.fundsCostBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
+                <StatCard
+                  wide={isWideWeb}
+                  label="Funds Total Portfolio Value"
+                  value={fundsValueInfo && fundsValueInfo.pricedCount > 0 ? `₱${fundsValueInfo.value.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : 'N/A'}
+                  sublabel={fundsValueInfo && fundsValueInfo.pricedCount > 0 ? valueCardSublabel(fundsOnlyValuation, fundsValueInfo.unpricedCount) : undefined}
+                  sign={fundsValueInfo && fundsValueInfo.pricedCount > 0 && fundsOnlyValuation ? (fundsOnlyValuation.totalUnrealizedGain >= 0 ? 'positive' : 'negative') : undefined}
+                />
+                <StatCard wide={isWideWeb} label="Dividends Earned" value={`₱${summary.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} sublabel={`${summary.realizedDividendYieldPct}% of cost`} sign="positive" />
+                <StatCard
+                  wide={isWideWeb}
+                  label="Realized Gain/Loss"
+                  value={`${summary.totalRealizedGain >= 0 ? '+' : ''}₱${summary.totalRealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                  sublabel="from closed positions"
+                  sign={summary.totalRealizedGain >= 0 ? 'positive' : 'negative'}
+                />
+                <StatCard wide={isWideWeb} label="Stocks" value={String(summary.stockCount)} sublabel="Active Positions" />
+                <StatCard wide={isWideWeb} label="Buckets" value={String(summary.bucketCount)} sublabel="Active Accounts" />
+                {valuation && (
+                  <StatCard
+                    wide={isWideWeb}
+                    label="Total Return"
+                    value={`₱${valuation.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+                    sublabel={`${valuation.totalReturnPct >= 0 ? '+' : ''}${valuation.totalReturnPct}% (div + gains)`}
+                    sign={valuation.totalReturn >= 0 ? 'positive' : 'negative'}
+                  />
+                )}
+              </>
+            );
+            // Wide web: cards wrap into a proper grid that fills the row -
+            // a horizontal-scroll strip on a desktop-sized viewport just
+            // leaves the rest of the row empty, which is the "phone layout
+            // stretched onto a monitor" look. Phones/narrow web keep the
+            // swipeable strip, which is the better fit for a thumb.
+            return isWideWeb ? (
+              <View style={styles.statsGrid}>{statCards}</View>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll} contentContainerStyle={styles.statsRow}>
+                {statCards}
+              </ScrollView>
+            );
+          })()}
 
           <PassiveIncomeGoalCard
             averageMonthlyIncome={averageMonthlyIncome}
@@ -271,9 +365,11 @@ export default function DashboardScreen({ navigation }: Props) {
   );
 }
 
-function StatCard({ label, value, sublabel, sign }: { label: string; value: string; sublabel?: string; sign?: 'positive' | 'negative' }) {
+function StatCard({ label, value, sublabel, sign, wide }: { label: string; value: string; sublabel?: string; sign?: 'positive' | 'negative'; wide?: boolean }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
-    <View style={styles.statCard}>
+    <View style={[styles.statCard, wide && styles.statCardGrid]}>
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={[styles.statValue, sign === 'positive' && styles.positive, sign === 'negative' && styles.negative]}>{value}</Text>
       {sublabel && <Text style={[styles.statSublabel, sign === 'positive' && styles.positive, sign === 'negative' && styles.negative]}>{sublabel}</Text>}
@@ -281,8 +377,8 @@ function StatCard({ label, value, sublabel, sign }: { label: string; value: stri
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, ...centeredContent },
   scrollContent: { padding: spacing.md, paddingBottom: 40 },
   header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: spacing.sm },
   caption: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3 },
@@ -295,10 +391,14 @@ const styles = StyleSheet.create({
   negative: { color: colors.negative },
   statsScroll: { marginBottom: spacing.lg, marginHorizontal: -spacing.md },
   statsRow: { flexDirection: 'row', gap: spacing.md, paddingHorizontal: spacing.md },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginBottom: spacing.lg },
   statCard: {
     minWidth: 150, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
     borderRadius: radii.xl, padding: spacing.md,
   },
+  // Grid variant: fills the row in even columns instead of a fixed width
+  // tuned for a horizontal-scroll strip.
+  statCardGrid: { minWidth: 200, flexBasis: 200, flexGrow: 1 },
   statLabel: { fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },
   statValue: { fontFamily: fonts.monoBold, fontSize: 22, color: colors.onSurface },
   statSublabel: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },

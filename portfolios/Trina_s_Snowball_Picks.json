@@ -1,0 +1,38 @@
+[
+  {
+    "STOCK": "AREIT",
+    "BUY BELOW PRICE": "₱34.20"
+  },
+  {
+    "STOCK": "CREIT",
+    "BUY BELOW PRICE": "₱2.80"
+  },
+  {
+    "STOCK": "GLO",
+    "BUY BELOW PRICE": "₱1,496.00"
+  },
+  {
+    "STOCK": "LTG",
+    "BUY BELOW PRICE": "₱16.02"
+  },
+  {
+    "STOCK": "MREIT",
+    "BUY BELOW PRICE": "₱14.22"
+  },
+  {
+    "STOCK": "OGP",
+    "BUY BELOW PRICE": "₱35.90"
+  },
+  {
+    "STOCK": "RCR",
+    "BUY BELOW PRICE": "₱6.10"
+  },
+  {
+    "STOCK": "RFM",
+    "BUY BELOW PRICE": "₱5.99"
+  },
+  {
+    "STOCK": "SGP",
+    "BUY BELOW PRICE": "₱21.66"
+  }
+]

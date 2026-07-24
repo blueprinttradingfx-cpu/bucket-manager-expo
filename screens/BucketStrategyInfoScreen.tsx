@@ -6,12 +6,15 @@
 // use the same low/high mechanism for a non-yield axis. Pure content, no
 // data fetching.
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { colors, spacing, fonts, radii, bucketColorFor } from '../core/theme';
+import { spacing, fonts, radii, bucketColorFor, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 import { suggestBucketForYield, YieldBracket } from '../core/bucketLogic';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{title}</Text>
@@ -21,6 +24,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function Body({ children }: { children: React.ReactNode }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return <Text style={styles.body}>{children}</Text>;
 }
 
@@ -65,6 +70,8 @@ const SAMPLE_TICKERS: { ticker: string; yieldPct: number; note?: string }[] = [
 ];
 
 function SimulationRow({ ticker, yieldPct, note }: { ticker: string; yieldPct: number; note?: string }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const suggestion = suggestBucketForYield(yieldPct, SAMPLE_YIELD_BRACKETS);
   const matchedBucket = suggestion.reason === 'match' ? suggestion.bucket : suggestion.nearestBucket ?? null;
   const bucketIndex = matchedBucket ? SAMPLE_BUCKETS.findIndex((b) => b.name === matchedBucket.name) : -1;
@@ -123,6 +130,8 @@ function simulateFifoSell() {
 }
 
 function LotChip({ id, qty, unitCost, dateLabel, muted }: { id: string; qty: number; unitCost: number; dateLabel?: string; muted?: boolean }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={[styles.lotChip, muted && styles.lotChipMuted]}>
       <Text style={[styles.lotChipId, muted && styles.lotChipTextMuted]}>{id}</Text>
@@ -133,6 +142,8 @@ function LotChip({ id, qty, unitCost, dateLabel, muted }: { id: string; qty: num
 }
 
 function FifoQueueDiagram() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { matched, remaining, costBasis, proceeds, realizedGain } = simulateFifoSell();
   return (
     <View style={styles.diagram}>
@@ -167,6 +178,8 @@ function FifoQueueDiagram() {
 }
 
 function FifoStat({ label, value, positive }: { label: string; value: string; positive?: boolean }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.fifoStat}>
       <Text style={styles.fifoStatLabel}>{label}</Text>
@@ -181,6 +194,8 @@ function FifoStat({ label, value, positive }: { label: string; value: string; po
 // "what does a yield bracket actually look like" for anyone who'd rather
 // see the ranges than read them.
 function YieldAxisDiagram() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const segments = buildSegments();
   return (
     <View style={styles.diagram}>
@@ -221,6 +236,8 @@ function YieldAxisDiagram() {
 }
 
 export default function BucketStrategyInfoScreen() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.header}>How the Multi-Bucket Strategy Works</Text>
@@ -342,8 +359,8 @@ export default function BucketStrategyInfoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, ...centeredContent },
   scrollContent: { padding: spacing.md, paddingBottom: 40 },
   header: { fontFamily: fonts.bodySemiBold, fontSize: 24, color: colors.onBackground, marginBottom: 4 },
   subheader: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant, marginBottom: spacing.lg },

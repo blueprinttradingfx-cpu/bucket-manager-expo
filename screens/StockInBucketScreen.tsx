@@ -7,13 +7,14 @@
 // registered in both stacks. Restyled to match the Stitch design system
 // (see DashboardScreen for the full rationale).
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator } from 'react-native';
 import { useStore } from '../core/StoreProvider';
 import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions } from '../core/bucketLogic';
 import { fetchPriceCache } from '../core/priceCache';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts } from '../core/theme';
+import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 
 // Minimal structural prop type, not tied to either stack's specific
 // NativeStackScreenProps - this screen is registered in BOTH
@@ -27,6 +28,8 @@ interface Props {
 export default function StockInBucketScreen({ route }: Props) {
   const { bucket, ticker } = route.params;
   useScreenViewLog('StockInBucket', { bucket, ticker });
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
   const [position, setPosition] = useState<ValuedStockPosition | BucketStockPosition | null>(null);
   const [dividends, setDividends] = useState<{ date: string; amount: number }[]>([]);
@@ -177,6 +180,8 @@ export default function StockInBucketScreen({ route }: Props) {
 function Stat({ label, value, big, sublabel, sign }: {
   label: string; value: string; big?: boolean; sublabel?: string; sign?: 'positive' | 'negative';
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.stat}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -186,8 +191,8 @@ function Stat({ label, value, big, sublabel, sign }: {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background, ...centeredContent },
   center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   ticker: { fontFamily: fonts.monoBold, fontSize: 26, color: colors.onBackground },
   bucketLabel: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.primary, marginBottom: spacing.md },

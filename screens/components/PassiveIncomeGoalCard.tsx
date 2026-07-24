@@ -15,15 +15,18 @@
 // comfortably on track - the average is the more honest "am I on pace"
 // number.
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, Pressable, Modal, TextInput, StyleSheet } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { colors, spacing, radii, fonts } from '../../core/theme';
+import { spacing, radii, fonts, ThemeColors } from '../../core/theme';
+import { useThemeColors } from '../../core/ThemeContext';
 
 const GAUGE_SIZE = 100;
 const STROKE_WIDTH = 10;
 
 function CircularGauge({ percent }: { percent: number }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const radius = (GAUGE_SIZE - STROKE_WIDTH) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(percent, 100));
@@ -61,6 +64,8 @@ export default function PassiveIncomeGoalCard({
   goal: number | null;
   onSaveGoal: (goal: number) => Promise<void> | void;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [modalOpen, setModalOpen] = useState(false);
   const [draftGoal, setDraftGoal] = useState(goal != null ? String(goal) : '');
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +142,7 @@ export default function PassiveIncomeGoalCard({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
     borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,

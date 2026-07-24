@@ -5,7 +5,7 @@
 // (see db.native.ts/db.web.ts), never by name, so a rename here doesn't
 // orphan anything.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import Alert from '../core/alert';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -13,11 +13,14 @@ import { useStore } from '../core/StoreProvider';
 import { BucketRow } from '../core/storeApi';
 import { BucketsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts } from '../core/theme';
+import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 
 type Props = NativeStackScreenProps<BucketsStackParamList, 'EditBucket'>;
 
 export default function EditBucketScreen({ route, navigation }: Props) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { bucketId } = route.params;
   useScreenViewLog('EditBucket', { bucketId });
   const store = useStore();
@@ -101,8 +104,8 @@ export default function EditBucketScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background, ...centeredContent },
   center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   label: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6, marginTop: spacing.md },
   input: {

@@ -12,7 +12,8 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { AssetType } from '../../core/bucketLogic';
-import { colors, spacing, radii, fonts } from '../../core/theme';
+import { spacing, radii, fonts, ThemeColors } from '../../core/theme';
+import { useThemeColors } from '../../core/ThemeContext';
 
 export type SortKey = 'value' | 'gain' | 'dividends' | 'name' | 'qty';
 
@@ -73,6 +74,8 @@ function sortValue(item: PositionItem, key: SortKey): number | string {
 }
 
 export default function PositionsTable({ items, onItemPress, tabs, activeTab, onTabChange, emptyText = 'Nothing here yet.' }: Props) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [sortKey, setSortKey] = useState<SortKey>('value');
   const [sortAsc, setSortAsc] = useState(false);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -178,6 +181,8 @@ export default function PositionsTable({ items, onItemPress, tabs, activeTab, on
 }
 
 export function ExpandedRow({ label, value, valueStyle }: { label: string; value: string; valueStyle?: any }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.expandedRow}>
       <Text style={styles.expandedLabel}>{label}</Text>
@@ -187,6 +192,8 @@ export function ExpandedRow({ label, value, valueStyle }: { label: string; value
 }
 
 function TabButton({ label, count, active, onPress }: { label: string; count: number; active: boolean; onPress: () => void }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable style={[styles.tabButton, active && styles.tabButtonActive]} onPress={onPress}>
       <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]}>
@@ -196,11 +203,11 @@ function TabButton({ label, count, active, onPress }: { label: string; count: nu
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   controlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   tabTrack: { flexDirection: 'row', backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.lg, padding: 2 },
   tabButton: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radii.lg - 1 },
-  tabButtonActive: { backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  tabButtonActive: { backgroundColor: colors.surface, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   tabButtonText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant },
   tabButtonTextActive: { fontFamily: fonts.bodyBold, color: colors.primary },
   tabButtonCount: { opacity: 0.5 },
@@ -208,7 +215,7 @@ const styles = StyleSheet.create({
   sortByLabel: { fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.4 },
   sortButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.outlineVariant,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
     borderRadius: radii.lg, paddingHorizontal: spacing.sm, paddingVertical: 6,
   },
   sortButtonText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurface },

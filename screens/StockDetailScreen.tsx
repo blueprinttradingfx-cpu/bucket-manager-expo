@@ -7,15 +7,20 @@
 // "Held In" list uses the same Positions table component as the other two
 // screens, just with rows keyed by bucket instead of ticker.
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import Alert from '../core/alert';
 import { useStore } from '../core/StoreProvider';
 import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation, YieldBracket } from '../core/bucketLogic';
+import { WatchlistItem } from '../core/storeApi';
 import { fetchPriceCache, PriceEntry } from '../core/priceCache';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts } from '../core/theme';
+import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
 import BucketSuggestion from './components/BucketSuggestion';
+import WatchlistSection from './components/WatchlistSection';
 
 // Minimal structural prop type, not tied to either stack's specific
 // NativeStackScreenProps - this screen is registered in BOTH DashboardStack
@@ -35,7 +40,7 @@ function isValuedPosition(p: BucketPositionRow): p is ValuedStockPosition {
   return 'marketValue' in p;
 }
 
-function toPositionItem(item: BucketPositionRow): PositionItem {
+function toPositionItem(item: BucketPositionRow, colors: ThemeColors): PositionItem {
   const valued = isValuedPosition(item) ? item : null;
   return {
     key: item.bucket,
@@ -72,11 +77,15 @@ function toPositionItem(item: BucketPositionRow): PositionItem {
 export default function StockDetailScreen({ route, navigation }: Props) {
   const { ticker } = route.params;
   useScreenViewLog('StockDetail', { ticker });
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
   const [stock, setStock] = useState<AggregatedStock | ValuedAggregatedStock | null>(null);
   const [buckets, setBuckets] = useState<YieldBracket[]>([]);
   const [priceEntry, setPriceEntry] = useState<PriceEntry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [watchlistItem, setWatchlistItem] = useState<WatchlistItem | null>(null);
+  const [watchlistBusy, setWatchlistBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -94,6 +103,44 @@ export default function StockDetailScreen({ route, navigation }: Props) {
       setLoading(false);
     })();
   }, [store, ticker]);
+
+  // Refresh watchlist status on every focus (not just mount) - so removing
+  // this ticker from the Watch List tab and coming back here reflects it
+  // immediately, same as buckets refresh in BucketsScreen.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      store.getWatchlist().then((list) => {
+        if (!cancelled) setWatchlistItem(list.find((w) => w.ticker === ticker) ?? null);
+      });
+      return () => { cancelled = true; };
+    }, [store, ticker])
+  );
+
+  async function toggleWatchlist() {
+    setWatchlistBusy(true);
+    try {
+      if (watchlistItem) {
+        await store.removeFromWatchlist(ticker);
+        setWatchlistItem(null);
+      } else {
+        await store.addToWatchlist(ticker);
+        setWatchlistItem({ ticker, buyBelowPrice: null, addedAt: new Date().toISOString() });
+      }
+    } catch (e: any) {
+      Alert.alert('Could not update Watch List', e.message ?? String(e));
+    }
+    setWatchlistBusy(false);
+  }
+
+  async function saveWatchlistBuyBelow(price: number | null) {
+    try {
+      await store.setWatchlistBuyBelowPrice(ticker, price);
+      setWatchlistItem((prev) => (prev ? { ...prev, buyBelowPrice: price } : prev));
+    } catch (e: any) {
+      Alert.alert('Could not save price', e.message ?? String(e));
+    }
+  }
 
   if (loading) {
     return (
@@ -118,6 +165,17 @@ export default function StockDetailScreen({ route, navigation }: Props) {
           <BucketSuggestion ticker={ticker} yieldPct={priceEntry?.yieldPct ?? null} buckets={buckets} />
         </View>
 
+        <View style={styles.watchlistCard}>
+          <WatchlistSection
+            inWatchlist={!!watchlistItem}
+            buyBelowPrice={watchlistItem?.buyBelowPrice ?? null}
+            currentPrice={priceEntry?.price ?? null}
+            busy={watchlistBusy}
+            onToggle={toggleWatchlist}
+            onSaveBuyBelow={saveWatchlistBuyBelow}
+          />
+        </View>
+
         <View style={styles.statsRow}>
           <Stat
             label="Current Price"
@@ -133,7 +191,7 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   }
 
   const valued = 'marketValue' in stock ? (stock as ValuedAggregatedStock) : null;
-  const heldIn = stock.buckets.map(toPositionItem);
+  const heldIn = stock.buckets.map((b) => toPositionItem(b, colors));
   const valuation = valued
     ? computePortfolioValuation(stock.buckets as ValuedStockPosition[], stock.totalDividends, stock.totalCostBasis)
     : null;
@@ -151,6 +209,16 @@ export default function StockDetailScreen({ route, navigation }: Props) {
 
       <View style={styles.suggestionCard}>
         <BucketSuggestion ticker={stock.ticker} yieldPct={valued?.currentYieldPct ?? null} buckets={buckets} />
+      </View>
+      <View style={styles.watchlistCard}>
+        <WatchlistSection
+          inWatchlist={!!watchlistItem}
+          buyBelowPrice={watchlistItem?.buyBelowPrice ?? null}
+          currentPrice={valued?.currentPrice ?? null}
+          busy={watchlistBusy}
+          onToggle={toggleWatchlist}
+          onSaveBuyBelow={saveWatchlistBuyBelow}
+        />
       </View>
       <View style={styles.statsRow}>
         <Stat
@@ -199,6 +267,8 @@ export default function StockDetailScreen({ route, navigation }: Props) {
 }
 
 function Stat({ label, value, big, sign, sublabel }: { label: string; value: string; big?: boolean; sign?: 'positive' | 'negative'; sublabel?: string }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.stat}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -208,8 +278,8 @@ function Stat({ label, value, big, sign, sublabel }: { label: string; value: str
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, ...centeredContent },
   scrollContent: { padding: spacing.md, paddingBottom: 40 },
   center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   ticker: { fontFamily: fonts.monoBold, fontSize: 26, color: colors.onBackground },
@@ -225,6 +295,10 @@ const styles = StyleSheet.create({
   priceLine: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginBottom: spacing.md },
   suggestionCard: {
     backgroundColor: colors.surfaceContainerHigh, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,
+  },
+  watchlistCard: {
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
     borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,
   },
   positionsHeader: { fontFamily: fonts.body, fontSize: 20, color: colors.onBackground, marginTop: spacing.xs, marginBottom: spacing.md },

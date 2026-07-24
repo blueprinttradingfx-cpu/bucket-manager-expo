@@ -4,13 +4,14 @@
 // rather than a silent no-op that leaves you wondering if it worked.
 // Also supports manual transaction entry for missing transactions.
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, TextInput, ScrollView, Modal } from 'react-native';
 import Alert from '../core/alert';
 import { useStore } from '../core/StoreProvider';
 import { pickStatementFile, parseStatementFile } from '../core/xlsxImport';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts } from '../core/theme';
+import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchPriceCache } from '../core/priceCache';
 import { fetchDividendHistory, getDividendHistoryForTicker } from '../core/dividendHistory';
@@ -21,6 +22,8 @@ interface BucketRow { id: number; name: string }
 
 export default function ImportScreen() {
   useScreenViewLog('Import');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
   const [buckets, setBuckets] = useState<BucketRow[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -693,8 +696,8 @@ export default function ImportScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background, ...centeredContent },
   header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: spacing.md },
   label: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },
   chipRow: { marginBottom: spacing.lg, flexGrow: 0 },

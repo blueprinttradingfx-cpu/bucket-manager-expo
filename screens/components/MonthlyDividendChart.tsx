@@ -8,9 +8,10 @@
 // bucket scope (undefined = aggregated, a name = single-bucket) so the two
 // screens always agree on what they're showing.
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import { colors, spacing, radii, fonts } from '../../core/theme';
+import { spacing, radii, fonts, ThemeColors } from '../../core/theme';
+import { useThemeColors } from '../../core/ThemeContext';
 
 const MONTH_ABBR = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const TRACK_HEIGHT = 90;
@@ -19,6 +20,8 @@ const TRACK_HEIGHT = 90;
  *  by MonthlyDividendIncomeScreen's own per-year chart (which sits inside
  *  its own year-tab UI rather than a dashboard summary card). */
 export function MonthlyDividendBars({ year, monthlyTotals }: { year: number; monthlyTotals: number[] }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const max = Math.max(...monthlyTotals, 0);
   const total = monthlyTotals.reduce((s, v) => s + v, 0);
 
@@ -55,6 +58,8 @@ export default function MonthlyDividendChart({
   monthlyTotals: number[]; // length 12, index 0 = January
   onViewAll: () => void;
 }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.card}>
       <View style={styles.headerRow}>
@@ -68,7 +73,7 @@ export default function MonthlyDividendChart({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   card: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
     borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,

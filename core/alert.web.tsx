@@ -9,9 +9,10 @@
 // <AlertHost /> must be mounted once near the root (see App.tsx) - it renders
 // whatever alert is currently queued.
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, Modal, StyleSheet } from 'react-native';
-import { colors, spacing, radii, fonts } from './theme';
+import { spacing, radii, fonts, ThemeColors } from './theme';
+import { useThemeColors } from './ThemeContext';
 
 type AlertButtonStyle = 'default' | 'cancel' | 'destructive';
 
@@ -46,6 +47,8 @@ class Alert {
 export default Alert;
 
 export function AlertHost() {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [current, setCurrent] = useState<QueuedAlert[]>(queue);
 
   React.useEffect(() => {
@@ -98,7 +101,7 @@ export function AlertHost() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(5, 15, 25, 0.4)',

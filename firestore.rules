@@ -1,0 +1,20 @@
+// firestore.rules
+// Not deployed by npm/eas - push this via the Firebase Console
+// (Firestore Database > Rules) or `firebase deploy --only firestore:rules`
+// (Firebase CLI). Nothing under core/syncEngine.ts is actually secure
+// until this is live - the client SDK doesn't enforce anything on its own.
+//
+// Matches sync-plan.md §2's data shape: users/{uid}/{buckets,transactions,
+// watchlist,settings}/... Every doc a user's data lives under is scoped to
+// their own uid - a signed-in user can read/write only their own subtree,
+// never another user's.
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

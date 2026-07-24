@@ -9,18 +9,26 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, FlatList, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { fetchStockUniverse } from '../core/stockUniverse';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
-import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts } from '../core/theme';
+import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 
-type Props = NativeStackScreenProps<DashboardStackParamList, 'SearchStock'>;
+// Minimal structural prop type, not tied to any one stack's param list -
+// this screen is registered in DashboardStack and WatchListStack alike
+// (reached from either's search icon), and both declare 'StockDetail'
+// identically, so a narrow structural type covers both. Same technique as
+// StockDetailScreen.tsx.
+interface Props {
+  navigation: { navigate: (screen: 'StockDetail', params: { ticker: string }) => void };
+}
 
 export default function SearchStockScreen({ navigation }: Props) {
   useScreenViewLog('SearchStock');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
   const [query, setQuery] = useState('');
   const [universe, setUniverse] = useState<string[]>([]);
@@ -125,8 +133,8 @@ export default function SearchStockScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, padding: spacing.md },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, padding: spacing.md, ...centeredContent },
   center: { paddingVertical: 40, alignItems: 'center' },
   searchInput: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant, color: colors.onSurface,

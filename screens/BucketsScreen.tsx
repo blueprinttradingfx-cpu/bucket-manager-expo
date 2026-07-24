@@ -9,7 +9,7 @@
 // Dashboard/BucketDetail, so this screen actually tells you something
 // about each bucket at a glance instead of being a settings-only list.
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { View, Text, TextInput, FlatList, Pressable, StyleSheet, Modal } from 'react-native';
 import Alert from '../core/alert';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -21,7 +21,8 @@ import { applyPricesToPositions, sumMarketValue } from '../core/bucketLogic';
 import { fetchPriceCache } from '../core/priceCache';
 import { BucketsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts, bucketColorFor } from '../core/theme';
+import { spacing, radii, fonts, bucketColorFor, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 
 type Props = NativeStackScreenProps<BucketsStackParamList, 'BucketsHome'>;
 
@@ -37,6 +38,8 @@ interface BucketSummary {
 
 export default function BucketsScreen({ navigation }: Props) {
   useScreenViewLog('Buckets');
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
   const [buckets, setBuckets] = useState<BucketRow[]>([]);
   const [emptyBucketIds, setEmptyBucketIds] = useState<Set<number>>(new Set());
@@ -283,6 +286,8 @@ export default function BucketsScreen({ navigation }: Props) {
 }
 
 function MiniStat({ label, value, sublabel, sign }: { label: string; value: string; sublabel?: string; sign?: 'positive' | 'negative' }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.miniStat}>
       <Text style={styles.miniStatLabel}>{label}</Text>
@@ -292,8 +297,8 @@ function MiniStat({ label, value, sublabel, sign }: { label: string; value: stri
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, padding: spacing.md, backgroundColor: colors.background, ...centeredContent },
   header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: spacing.sm },
   priceWarning: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.negative, marginBottom: spacing.sm },
   bucketCard: {

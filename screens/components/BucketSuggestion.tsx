@@ -6,12 +6,16 @@
 // yield bracket). Both screens should always agree on this logic, hence
 // pulling it into one component rather than keeping two copies in sync.
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { suggestBucketForYield, YieldBracket } from '../../core/bucketLogic';
-import { colors, fonts } from '../../core/theme';
+import { fonts, ThemeColors } from '../../core/theme';
+import { useThemeColors } from '../../core/ThemeContext';
 
 export default function BucketSuggestion({ ticker, yieldPct, buckets }: { ticker: string; yieldPct: number | null; buckets: YieldBracket[] }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (yieldPct == null) {
     return (
       <Text style={styles.suggestionText}>
@@ -46,7 +50,7 @@ export default function BucketSuggestion({ ticker, yieldPct, buckets }: { ticker
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
   suggestionHeadline: { fontFamily: fonts.monoSemiBold, fontSize: 13, color: colors.onSurface, marginBottom: 6 },
   suggestionMatch: { fontFamily: fonts.body, fontSize: 13, color: colors.onSurface },
   suggestionBucketName: { fontFamily: fonts.bodyBold, color: colors.primary },

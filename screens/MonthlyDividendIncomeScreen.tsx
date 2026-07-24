@@ -14,7 +14,8 @@ import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from
 import { useStore } from '../core/StoreProvider';
 import { DividendPayment, monthlyDividendTotals, dividendYearsAvailable } from '../core/bucketLogic';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts } from '../core/theme';
+import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 import { MonthlyDividendBars } from './components/MonthlyDividendChart';
 
 const MONTH_NAMES = [
@@ -32,6 +33,8 @@ interface Props {
 export default function MonthlyDividendIncomeScreen({ route }: Props) {
   const { bucket } = route.params ?? {};
   useScreenViewLog('MonthlyDividendIncome', { bucket: bucket ?? 'all' });
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
   const [payments, setPayments] = useState<DividendPayment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,8 +127,8 @@ export default function MonthlyDividendIncomeScreen({ route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, ...centeredContent },
   scrollContent: { padding: spacing.md, paddingBottom: 40 },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background },
   header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: 2 },

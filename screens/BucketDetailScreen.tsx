@@ -14,7 +14,8 @@ import { fetchStockUniverse } from '../core/stockUniverse';
 import { BucketRow } from '../core/storeApi';
 import { BucketsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { colors, spacing, radii, fonts } from '../core/theme';
+import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
+import { useThemeColors } from '../core/ThemeContext';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
 import MonthlyDividendChart from './components/MonthlyDividendChart';
 
@@ -26,7 +27,7 @@ function isValued(p: PositionRow): p is ValuedStockPosition {
   return 'marketValue' in p;
 }
 
-function toPositionItem(item: PositionRow): PositionItem {
+function toPositionItem(item: PositionRow, colors: ThemeColors): PositionItem {
   const valued = isValued(item) ? item : null;
   return {
     key: item.ticker,
@@ -60,6 +61,8 @@ function toPositionItem(item: PositionRow): PositionItem {
 export default function BucketDetailScreen({ route, navigation }: Props) {
   const { bucket } = route.params;
   useScreenViewLog('BucketDetail', { bucket });
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
   const [positions, setPositions] = useState<PositionRow[]>([]);
   const [priceCache, setPriceCache] = useState<PriceCache | null>(null);
@@ -145,7 +148,7 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
         </Pressable>
       ),
     });
-  }, [navigation, bucket, openFinder]);
+  }, [navigation, bucket, openFinder, colors]);
 
   const heldTickers = useMemo(() => new Set(positions.map((p) => p.ticker)), [positions]);
 
@@ -196,8 +199,8 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
   const stockCount = useMemo(() => positions.filter((p) => p.assetType === 'stock').length, [positions]);
   const fundCount = useMemo(() => positions.filter((p) => p.assetType === 'fund').length, [positions]);
   const visible = useMemo(
-    () => (activeTab === 'all' ? positions : positions.filter((p) => p.assetType === activeTab)).map(toPositionItem),
-    [positions, activeTab]
+    () => (activeTab === 'all' ? positions : positions.filter((p) => p.assetType === activeTab)).map((p) => toPositionItem(p, colors)),
+    [positions, activeTab, colors]
   );
   const currentYear = new Date().getFullYear();
   // Reuses the already-loaded transaction feed rather than a second
@@ -393,6 +396,8 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
 }
 
 function Stat({ label, value, sublabel, sign }: { label: string; value: string; sublabel?: string; sign?: 'positive' | 'negative' }) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <View style={styles.stat}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -402,8 +407,8 @@ function Stat({ label, value, sublabel, sign }: { label: string; value: string; 
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
+const createStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background, ...centeredContent },
   scrollContent: { padding: spacing.md, paddingBottom: 40 },
   header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: spacing.md },
   marketValueBlock: { marginBottom: spacing.lg },
