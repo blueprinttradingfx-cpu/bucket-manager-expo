@@ -17,16 +17,27 @@
 
 module.exports = {
   expo: {
-    name: "Bucket Portfolio Manager",
+    name: "Ani",
+    // NOTE: slug/android.package/ios.bundleIdentifier intentionally left as
+    // the old "bucketportfoliomanager" identifiers - see Tier 3 of
+    // ani-branding-plan.md. This is a load-bearing decision (Play
+    // Store/App Store/Firebase permanent app identity), not an oversight.
     slug: "bucket-portfolio-manager",
     version: "0.1.0",
     orientation: "portrait",
     userInterfaceStyle: "automatic",
-    splash: {
-      backgroundColor: "#FFFFFF"
-    },
+    // Ani branding plan, Tier 2: real icon/splash assets built around the
+    // sprout mark (previously no icon was configured at all - native builds
+    // fell back to Expo's default gray icon).
+    icon: "./assets/icon.png",
     android: {
-      package: "com.wilzebob.bucketportfoliomanager"
+      package: "com.wilzebob.bucketportfoliomanager",
+      adaptiveIcon: {
+        // Sprout only, shrunk to fit Android's ~66%-diameter safe zone so it
+        // isn't clipped by circle/squircle/rounded-square launcher masks.
+        foregroundImage: "./assets/adaptive-icon.png",
+        backgroundColor: "#0052FF"
+      }
     },
     ios: {
       bundleIdentifier: "com.wilzebob.bucketportfoliomanager",
@@ -44,6 +55,20 @@ module.exports = {
           // passes validation and is obviously fake; set the real
           // GOOGLE_IOS_URL_SCHEME env var before an actual iOS build.
           iosUrlScheme: process.env.GOOGLE_IOS_URL_SCHEME || "com.googleusercontent.apps.placeholder"
+        }
+      ],
+      [
+        // Replaces the old top-level `splash` key, which SDK 52 is
+        // deprecating in favor of this plugin - and Android no longer
+        // supports a full-screen splash image at all, only a small
+        // centered one. `splash-icon.png` is the circular sprout badge
+        // (same mark as the web favicon/sidebar), sized to read as a
+        // logo rather than a stretched full-bleed image.
+        "expo-splash-screen",
+        {
+          image: "./assets/splash-icon.png",
+          resizeMode: "contain",
+          backgroundColor: "#FFFFFF"
         }
       ]
     ],

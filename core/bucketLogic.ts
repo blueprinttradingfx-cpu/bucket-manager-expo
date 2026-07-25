@@ -740,3 +740,101 @@ export function suggestBucketForYield(yieldPct: number, buckets: YieldBracket[])
   }
   return { bucket: null, reason: 'no_matching_range', nearestBucket: nearest };
 }
+
+// --- Ani branding, Tier 4: bucket growth stage --------------------------
+// Drives which mascot illustration (seed/sprout/sapling/tree) a bucket
+// shows. Blend of two dimensions, per the branding-plan decision:
+//   1. Yield achieved vs. this bucket's own target (yield_low).
+//   2. How long the bucket has actually been held.
+//
+// IMPORTANT UNIT MISMATCH this blend has to bridge: yield_low/yield_high
+// are an ANNUAL dividend-yield % used to sort STOCKS into a bucket at
+// purchase time (see suggestBucketForYield above) - not a target for the
+// bucket's own cumulative realized return. Comparing them directly to
+// BucketStockPosition.totalDividends (all-time, unbounded) would make
+// yieldProgress hit 1.0 permanently within a year or two, then sit there
+// for good - it wouldn't measure anything after that. So this function
+// annualizes: it sums only CASH DIVIDEND rows from the trailing 12 months
+// and divides by the bucket's *current* cost basis, which is the same
+// unit as yield_low and stays meaningful indefinitely instead of maxing
+// out early.
+export type GrowthStage = 'seed' | 'sprout' | 'sapling' | 'tree';
+
+export interface GrowthStageInput {
+  /** BUY + CASH DIVIDEND rows for ONE bucket only - same shape as
+   *  store.getBucketTransactionFeed() returns. Other txn types are
+   *  ignored here. */
+  transactionFeed: { date: string; type: string; amount: number | null }[];
+  /** The bucket's current total cost basis, all asset types (e.g.
+   *  positions.reduce((s, p) => s + p.totalCostBasis, 0)). */
+  costBasis: number;
+  /** The bucket's own yield_low target. null (unset bracket) drops the
+   *  yield dimension entirely - stage is then time-only for that bucket,
+   *  rather than crashing or silently treating it as 0%. */
+  yieldLow: number | null;
+}
+
+export interface GrowthStageResult {
+  stage: GrowthStage;
+  monthsHeld: number;
+  /** null when there's no cost basis to divide by yet (brand-new bucket). */
+  trailing12moYieldPct: number | null;
+  timeProgress: number;              // 0-1
+  yieldProgress: number | null;      // 0-1, null when yieldLow is unset
+  combinedProgress: number;          // 0-1, what the stage thresholds below apply to
+}
+
+/** 5 years of holding = full time-based maturity. Picked as a round number
+ *  for a dividend-income strategy where "held it through a few market
+ *  cycles" is a reasonable proxy for commitment - not derived from any
+ *  data in this repo, easy to retune once real usage shows how it feels. */
+const GROWTH_TIME_HORIZON_MONTHS = 60;
+
+/** Ordered highest-first so the first match wins. */
+const GROWTH_STAGE_THRESHOLDS: { stage: GrowthStage; min: number }[] = [
+  { stage: 'tree', min: 0.85 },
+  { stage: 'sapling', min: 0.55 },
+  { stage: 'sprout', min: 0.25 },
+  { stage: 'seed', min: 0 },
+];
+
+function clamp01(n: number): number {
+  return Math.max(0, Math.min(1, n));
+}
+
+function monthsBetween(fromIso: string, toIso: string): number {
+  const [fy, fm, fd] = fromIso.split('-').map(Number);
+  const [ty, tm, td] = toIso.split('-').map(Number);
+  let months = (ty - fy) * 12 + (tm - fm);
+  if (td < fd) months -= 1; // hasn't reached the same day-of-month yet this month
+  return Math.max(0, months);
+}
+
+export function computeBucketGrowthStage(input: GrowthStageInput, asOf: Date = new Date()): GrowthStageResult {
+  const { transactionFeed, costBasis, yieldLow } = input;
+  const asOfIso = asOf.toISOString().slice(0, 10);
+
+  const buyDates = transactionFeed.filter((t) => t.type === 'BUY' && t.date).map((t) => t.date).sort();
+  const monthsHeld = buyDates.length === 0 ? 0 : monthsBetween(buyDates[0], asOfIso);
+  const timeProgress = clamp01(monthsHeld / GROWTH_TIME_HORIZON_MONTHS);
+
+  const cutoffDate = new Date(asOf.getFullYear(), asOf.getMonth(), asOf.getDate());
+  cutoffDate.setMonth(cutoffDate.getMonth() - 12);
+  const trailing12moCutoff = cutoffDate.toISOString().slice(0, 10);
+  const trailing12moDividends = round(
+    transactionFeed
+      .filter((t) => t.type === 'CASH DIVIDEND' && t.date >= trailing12moCutoff)
+      .reduce((s, t) => s + (t.amount ?? 0), 0),
+    2
+  );
+  const trailing12moYieldPct = costBasis > 0 ? round((trailing12moDividends / costBasis) * 100, 2) : null;
+
+  const yieldProgress = yieldLow != null && yieldLow > 0 && trailing12moYieldPct != null
+    ? clamp01(trailing12moYieldPct / yieldLow)
+    : null;
+
+  const combinedProgress = yieldProgress != null ? (timeProgress + yieldProgress) / 2 : timeProgress;
+  const stage = GROWTH_STAGE_THRESHOLDS.find((t) => combinedProgress >= t.min)!.stage;
+
+  return { stage, monthsHeld, trailing12moYieldPct, timeProgress, yieldProgress, combinedProgress };
+}

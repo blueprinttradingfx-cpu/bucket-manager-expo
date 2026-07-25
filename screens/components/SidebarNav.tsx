@@ -13,6 +13,8 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, radii, fonts, layout, ThemeColors } from '../../core/theme';
 import { useThemeColors } from '../../core/ThemeContext';
+import { APP_NAME } from '../../core/branding';
+import SproutMark from './SproutMark';
 
 export interface SidebarItem {
   key: string;
@@ -33,9 +35,9 @@ export default function SidebarNav({ items, activeKey, onNavigate }: Props) {
     <View style={styles.sidebar}>
       <View style={styles.brandRow}>
         <View style={styles.brandMark}>
-          <Ionicons name="wallet-outline" size={18} color={colors.onPrimary} />
+          <SproutMark size={18} stemColor={colors.onPrimary} />
         </View>
-        <Text style={styles.brandText}>Bucket Manager</Text>
+        <Text style={styles.brandText}>{APP_NAME}</Text>
       </View>
 
       <View style={styles.navList}>

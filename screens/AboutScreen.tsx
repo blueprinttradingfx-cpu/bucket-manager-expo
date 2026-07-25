@@ -7,10 +7,10 @@ import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { spacing, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
+import { APP_NAME } from '../core/branding';
 
 // TODO: pull this from app.json / Constants.expoConfig.version instead of
 // hardcoding, so it never drifts from the actual build.
-const APP_NAME = '[APP_NAME]';
 const APP_VERSION = '[APP_VERSION]';
 
 function Section({ title, styles, children }: { title: string; styles: ReturnType<typeof createStyles>; children: React.ReactNode }) {

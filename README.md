@@ -1,4 +1,4 @@
-# Bucket Portfolio Manager (Expo Universal)
+# Ani (Expo Universal)
 
 A local-first, no-backend multi-bucket portfolio manager for DragonFi.
 One codebase, targets iOS, Android, AND web (via react-native-web) - same
@@ -6,7 +6,9 @@ screens, same App.tsx, same core logic. Only the storage layer is
 platform-specific (SQLite native, IndexedDB web), resolved automatically
 by Metro's `.native.ts` / `.web.ts` file suffix convention.
 
-See `bucket-portfolio-manager-scope.md` for full design rationale.
+See `bucket-portfolio-manager-scope.md` for full design rationale (filename
+predates the Ani rename - kept as-is since it's a historical scoping doc,
+not user-facing).
 
 ## Information architecture (4 views, drill-down)
 

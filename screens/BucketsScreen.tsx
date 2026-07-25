@@ -17,7 +17,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useStore } from '../core/StoreProvider';
 import { BucketRow } from '../core/storeApi';
-import { applyPricesToPositions, sumMarketValue } from '../core/bucketLogic';
+import { applyPricesToPositions, sumMarketValue, computeBucketGrowthStage, GrowthStage } from '../core/bucketLogic';
+import GrowthStageMark from './components/GrowthStageMark';
 import { fetchPriceCache } from '../core/priceCache';
 import { BucketsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
@@ -34,6 +35,7 @@ interface BucketSummary {
   unrealizedGain: number | null;
   unrealizedGainPct: number | null;
   dividends: number;
+  growthStage: GrowthStage;
 }
 
 export default function BucketsScreen({ navigation }: Props) {
@@ -69,14 +71,20 @@ export default function BucketsScreen({ navigation }: Props) {
     const results = await Promise.all(
       bucketList.map(async (bucket) => {
         try {
-          const [holdings, positions, lifetime] = await Promise.all([
+          const [holdings, positions, lifetime, transactionFeed] = await Promise.all([
             store.getBucketHoldings(bucket.name),
             store.getBucketPositions(bucket.name),
             store.getBucketLifetimeTotals(bucket.name),
+            store.getBucketTransactionFeed(bucket.name),
           ]);
           const isEmpty = holdings.holdings.length === 0 && holdings.orphanSells.length === 0;
 
           const costBasis = positions.reduce((s, p) => s + p.totalCostBasis, 0);
+          const growthStage = computeBucketGrowthStage({
+            transactionFeed,
+            costBasis,
+            yieldLow: bucket.yield_low,
+          }).stage;
           let summary: BucketSummary;
           if (priceTickers) {
             const valued = applyPricesToPositions(positions, priceTickers);
@@ -92,6 +100,7 @@ export default function BucketsScreen({ navigation }: Props) {
               unrealizedGain,
               unrealizedGainPct,
               dividends: lifetime.totalDividends,
+              growthStage,
             };
           } else {
             summary = {
@@ -102,6 +111,7 @@ export default function BucketsScreen({ navigation }: Props) {
               unrealizedGain: null,
               unrealizedGainPct: null,
               dividends: lifetime.totalDividends,
+              growthStage,
             };
           }
           return { id: bucket.id, isEmpty: isEmpty ? bucket.id : null, summary };
@@ -182,6 +192,7 @@ export default function BucketsScreen({ navigation }: Props) {
               <View style={styles.bucketHeaderRow}>
                 <View style={styles.bucketNameRow}>
                   <View style={[styles.dot, { backgroundColor: bucketColorFor(item.name, index) }]} />
+                  {summary && <GrowthStageMark stage={summary.growthStage} size={18} />}
                   <Text style={styles.bucketName}>{item.name}</Text>
                 </View>
                 <View style={styles.bucketRowRight}>

@@ -8,7 +8,7 @@
 // screens, just with rows keyed by bucket instead of ticker.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Alert from '../core/alert';
 import { useStore } from '../core/StoreProvider';
@@ -35,6 +35,20 @@ interface Props {
 }
 
 type BucketPositionRow = ValuedStockPosition | BucketStockPosition;
+
+// The "all transactions of this stock" table below Held In - every bucket's
+// buy/sell history for this one ticker, merged. getTransactionHistory is
+// per-bucket, so `bucket` gets stitched on here by the caller since the
+// store method itself doesn't know which bucket it was called for.
+interface TickerTxnRow {
+  bucket: string;
+  date: string;
+  type: 'BUY' | 'SELL';
+  quantity: number;
+  price: number;
+  amount: number;
+}
+type TxnSortKey = 'bucket' | 'date' | 'price';
 
 function isValuedPosition(p: BucketPositionRow): p is ValuedStockPosition {
   return 'marketValue' in p;
@@ -86,6 +100,9 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [watchlistItem, setWatchlistItem] = useState<WatchlistItem | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
+  const [txnHistory, setTxnHistory] = useState<TickerTxnRow[]>([]);
+  const [txnSortKey, setTxnSortKey] = useState<TxnSortKey>('date');
+  const [txnSortDir, setTxnSortDir] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     (async () => {
@@ -100,6 +117,29 @@ export default function StockDetailScreen({ route, navigation }: Props) {
         console.log('[StockDetail] price cache unavailable:', e.message);
         setStock(found);
       }
+
+      // Every bucket that's EVER transacted this ticker (found.buckets
+      // includes fully-exited, zero-share ones too - see getStockHistory's
+      // doc comment) - getTransactionHistory is per-bucket, so this is one
+      // call per bucket, same N+1-but-parallelized pattern as the Dashboard/
+      // BucketsScreen growth-stage fetch.
+      if (found) {
+        try {
+          const perBucket = await Promise.all(
+            found.buckets.map(async (b) => {
+              const rows = await store.getTransactionHistory(b.bucket, ticker);
+              return rows.map((r) => ({ ...r, bucket: b.bucket }));
+            })
+          );
+          setTxnHistory(perBucket.flat());
+        } catch (e: any) {
+          console.log('[StockDetail] transaction history unavailable:', e.message);
+          setTxnHistory([]);
+        }
+      } else {
+        setTxnHistory([]);
+      }
+
       setLoading(false);
     })();
   }, [store, ticker]);
@@ -139,6 +179,29 @@ export default function StockDetailScreen({ route, navigation }: Props) {
       setWatchlistItem((prev) => (prev ? { ...prev, buyBelowPrice: price } : prev));
     } catch (e: any) {
       Alert.alert('Could not save price', e.message ?? String(e));
+    }
+  }
+
+  const sortedTxnHistory = useMemo(() => {
+    const rows = [...txnHistory];
+    rows.sort((a, b) => {
+      const cmp = txnSortKey === 'bucket' ? a.bucket.localeCompare(b.bucket)
+        : txnSortKey === 'date' ? a.date.localeCompare(b.date) // ISO dates - string compare sorts correctly
+        : a.price - b.price;
+      return txnSortDir === 'asc' ? cmp : -cmp;
+    });
+    return rows;
+  }, [txnHistory, txnSortKey, txnSortDir]);
+
+  function toggleTxnSort(key: TxnSortKey) {
+    if (txnSortKey === key) {
+      setTxnSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setTxnSortKey(key);
+      // Newest-first is the useful default for date (matches every other
+      // transaction feed in the app); bucket/price default to ascending
+      // (A-Z, lowest first) since there's no equivalent "natural" direction.
+      setTxnSortDir(key === 'date' ? 'desc' : 'asc');
     }
   }
 
@@ -262,7 +325,63 @@ export default function StockDetailScreen({ route, navigation }: Props) {
         onItemPress={(bucket) => navigation.navigate('StockInBucket', { bucket, ticker: stock.ticker })}
         emptyText="Not currently held in any bucket."
       />
+
+      <Text style={styles.positionsHeader}>All Transactions</Text>
+      <TickerTransactionsTable
+        rows={sortedTxnHistory}
+        sortKey={txnSortKey}
+        sortDir={txnSortDir}
+        onSort={toggleTxnSort}
+      />
     </ScrollView>
+  );
+}
+
+function TickerTransactionsTable({
+  rows, sortKey, sortDir, onSort,
+}: {
+  rows: TickerTxnRow[];
+  sortKey: TxnSortKey;
+  sortDir: 'asc' | 'desc';
+  onSort: (key: TxnSortKey) => void;
+}) {
+  const colors = useThemeColors();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  if (rows.length === 0) {
+    return <Text style={styles.empty}>No transactions for this ticker.</Text>;
+  }
+
+  const arrow = sortDir === 'asc' ? '↑' : '↓';
+  function HeaderCell({ label, col, style }: { label: string; col: TxnSortKey; style: StyleProp<ViewStyle> }) {
+    return (
+      <Pressable style={style} onPress={() => onSort(col)} hitSlop={6}>
+        <Text style={[styles.txnTableHeaderText, sortKey === col && styles.txnTableHeaderTextActive]}>
+          {label}{sortKey === col ? ` ${arrow}` : ''}
+        </Text>
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.txnTable}>
+      <View style={styles.txnTableRow}>
+        <HeaderCell label="Bucket" col="bucket" style={styles.txnTableColBucket} />
+        <HeaderCell label="Date" col="date" style={styles.txnTableColDate} />
+        <Text style={[styles.txnTableHeaderText, styles.txnTableColShares]}>Shares</Text>
+        <HeaderCell label="Price" col="price" style={styles.txnTableColPrice} />
+      </View>
+      {rows.map((r, i) => (
+        <View key={i} style={[styles.txnTableRow, styles.txnTableDataRow]}>
+          <Text style={[styles.txnTableCellText, styles.txnTableColBucket]} numberOfLines={1}>{r.bucket}</Text>
+          <Text style={[styles.txnTableCellText, styles.txnTableColDate]}>{r.date}</Text>
+          <Text style={[styles.txnTableCellText, styles.txnTableColShares, r.type === 'SELL' && styles.negative]}>
+            {r.type === 'SELL' ? '−' : ''}{r.quantity.toLocaleString()}
+          </Text>
+          <Text style={[styles.txnTableCellText, styles.txnTableColPrice]}>₱{r.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -303,4 +422,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   positionsHeader: { fontFamily: fonts.body, fontSize: 20, color: colors.onBackground, marginTop: spacing.xs, marginBottom: spacing.md },
   empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 },
+  txnTable: {
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.xl, overflow: 'hidden', marginBottom: spacing.lg,
+  },
+  txnTableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: spacing.md },
+  txnTableDataRow: { borderTopWidth: 1, borderTopColor: colors.outlineVariant },
+  txnTableColBucket: { flex: 1.3, paddingRight: spacing.xs },
+  txnTableColDate: { flex: 1.1 },
+  txnTableColShares: { flex: 0.9, textAlign: 'right' },
+  txnTableColPrice: { flex: 0.9, textAlign: 'right' },
+  txnTableHeaderText: {
+    fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant,
+    textTransform: 'uppercase', letterSpacing: 0.3,
+  },
+  txnTableHeaderTextActive: { color: colors.onSurface },
+  txnTableCellText: { fontFamily: fonts.mono, fontSize: 13, color: colors.onSurface },
 });

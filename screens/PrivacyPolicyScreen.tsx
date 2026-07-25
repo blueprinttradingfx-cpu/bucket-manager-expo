@@ -14,8 +14,8 @@ import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { spacing, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
+import { APP_NAME } from '../core/branding';
 
-const APP_NAME = '[APP_NAME]';
 const EFFECTIVE_DATE = '[EFFECTIVE_DATE]';
 const SUPPORT_EMAIL = '[SUPPORT_EMAIL]';
 

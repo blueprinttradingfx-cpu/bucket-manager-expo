@@ -20,6 +20,24 @@ import { isValidIsoDate } from '../core/dateUtils';
 
 interface BucketRow { id: number; name: string }
 
+// Import Format Guide content - column-by-column, derived directly from
+// how core/xlsxRows.ts and core/bucketLogic.ts actually read these fields
+// (formatDate's accepted date shapes, computeHoldings' fee-into-cost-basis
+// math, classifyAssetType's description-based fund/stock split). Keep this
+// in sync if any of that parsing logic changes - it's user-facing
+// documentation of an internal contract, not independent of it.
+const IMPORT_FORMAT_SPEC: { column: string; requiredLabel: string; notes: string }[] = [
+  { column: 'Date', requiredLabel: 'Required', notes: 'DD/MM/YYYY, e.g. 05/03/2026. A real Excel date-formatted cell works too.' },
+  { column: 'Type', requiredLabel: 'Required', notes: 'BUY, SELL, or CASH DIVIDEND - the only three that currently affect your holdings, cost basis, or dividend totals.' },
+  { column: 'Stock', requiredLabel: 'Required', notes: 'Ticker symbol, e.g. AREIT.' },
+  { column: 'Quantity', requiredLabel: 'Required for BUY/SELL', notes: 'Number of shares. Not needed for CASH DIVIDEND.' },
+  { column: 'Price', requiredLabel: 'Required for BUY/SELL', notes: 'Price per share. Not needed for CASH DIVIDEND.' },
+  { column: 'Amount', requiredLabel: 'Required for CASH DIVIDEND', notes: 'Peso amount received. For BUY/SELL, leave blank - it\u2019s calculated from Quantity \u00d7 Price.' },
+  { column: 'Comm & Other Fees', requiredLabel: 'Optional', notes: 'Added into cost basis for BUY rows if present. Defaults to 0 if blank.' },
+  { column: 'Description', requiredLabel: 'Optional', notes: 'Include the word "fund" (e.g. "Feeder Fund") to have that ticker tracked as a fund instead of a stock - otherwise everything imports as a stock.' },
+  { column: 'Currency', requiredLabel: 'Optional', notes: 'Stored, but not currently used in any calculation.' },
+];
+
 export default function ImportScreen() {
   useScreenViewLog('Import');
   const colors = useThemeColors();
@@ -30,6 +48,7 @@ export default function ImportScreen() {
   const [busy, setBusy] = useState(false);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [showFormatGuide, setShowFormatGuide] = useState(false);
   const [manualTxns, setManualTxns] = useState<{ id: number; date: string; type: string; stock: string; quantity: number | null; price: number | null; amount: number | null }[]>([]);
   const [txnType, setTxnType] = useState<'BUY' | 'SELL' | 'CASH DIVIDEND'>('BUY');
   const [stock, setStock] = useState('');
@@ -384,6 +403,37 @@ export default function ImportScreen() {
       <Pressable style={styles.button} onPress={handleImport} disabled={busy}>
         {busy ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.buttonText}>Select File to Import</Text>}
       </Pressable>
+
+      <Pressable style={styles.toggleButton} onPress={() => setShowFormatGuide((v) => !v)}>
+        <Text style={styles.toggleButtonText}>{showFormatGuide ? 'Hide format guide' : 'What file format do I need?'}</Text>
+        <Ionicons name={showFormatGuide ? 'chevron-up' : 'chevron-down'} size={20} color={colors.primary} />
+      </Pressable>
+
+      {showFormatGuide && (
+        <View style={styles.formatGuide}>
+          <Text style={styles.formatGuideParagraph}>
+            Currently supported out of the box: DragonFi's exported Statement of Account (.xlsx). Select a bucket above, then Select File to Import - no extra steps needed.
+          </Text>
+          <Text style={styles.formatGuideSubheader}>Not on DragonFi?</Text>
+          <Text style={styles.formatGuideParagraph}>
+            Any .xlsx or .xls file works, as long as its first row has these exact column headers (order doesn't matter):
+          </Text>
+          {IMPORT_FORMAT_SPEC.map((row) => (
+            <View key={row.column} style={styles.formatSpecRow}>
+              <View style={styles.formatSpecHeaderLine}>
+                <Text style={styles.formatSpecColumn}>{row.column}</Text>
+                <Text style={[styles.formatSpecBadge, row.requiredLabel === 'Optional' ? styles.formatSpecBadgeOptional : styles.formatSpecBadgeRequired]}>
+                  {row.requiredLabel}
+                </Text>
+              </View>
+              <Text style={styles.formatSpecNotes}>{row.notes}</Text>
+            </View>
+          ))}
+          <Text style={styles.formatGuideFootnote}>
+            DEPOSIT, WITHDRAWAL, and ADJUSTMENT rows are accepted without error but don't currently affect anything - only BUY, SELL, and CASH DIVIDEND drive your numbers.
+          </Text>
+        </View>
+      )}
 
       {lastResult && <Text style={styles.result}>{lastResult}</Text>}
 
@@ -787,4 +837,23 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   stockList: { flex: 1 },
   stockItem: { paddingVertical: spacing.sm + 4, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant },
   stockItemText: { fontFamily: fonts.monoSemiBold, fontSize: 15, color: colors.onSurface },
+  formatGuide: {
+    backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.xl, padding: spacing.md, marginTop: spacing.sm,
+  },
+  formatGuideParagraph: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant, lineHeight: 18, marginBottom: spacing.sm },
+  formatGuideSubheader: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.onSurface, marginTop: spacing.xs, marginBottom: 4 },
+  formatGuideFootnote: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, lineHeight: 16, marginTop: spacing.sm, fontStyle: 'italic' },
+  formatSpecRow: {
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.lg, padding: spacing.sm + 2, marginBottom: spacing.sm,
+  },
+  formatSpecHeaderLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
+  formatSpecColumn: { fontFamily: fonts.monoSemiBold, fontSize: 13, color: colors.onSurface },
+  formatSpecBadge: {
+    fontFamily: fonts.bodySemiBold, fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.3,
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: radii.full, overflow: 'hidden',
+  },
+  formatSpecBadgeRequired: { backgroundColor: colors.primaryContainer, color: colors.primary },
+  formatSpecBadgeOptional: { backgroundColor: colors.surfaceContainerHighest, color: colors.onSurfaceVariant },
+  formatSpecNotes: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, lineHeight: 16 },
 });

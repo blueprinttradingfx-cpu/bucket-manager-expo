@@ -1,5 +1,5 @@
 {
-  "name": "bucket-portfolio-manager",
+  "name": "ani",
   "version": "0.1.0",
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
@@ -27,6 +27,7 @@
     "expo-document-picker": "~13.0.0",
     "expo-file-system": "~18.0.0",
     "expo-font": "~13.0.4",
+    "expo-splash-screen": "~0.29.22",
     "expo-sqlite": "~15.1.4",
     "expo-status-bar": "~2.0.0",
     "expo-system-ui": "~4.0.5",

@@ -8,7 +8,7 @@ import { View, Text, StyleSheet, RefreshControl, ScrollView, Pressable, Modal, F
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
-import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions, computePortfolioValuation, PortfolioValuation, sumMarketValue, monthlyDividendTotals } from '../core/bucketLogic';
+import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions, computePortfolioValuation, PortfolioValuation, sumMarketValue, monthlyDividendTotals, computeBucketGrowthStage } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
 import { fetchStockUniverse } from '../core/stockUniverse';
 import { BucketRow } from '../core/storeApi';
@@ -18,6 +18,7 @@ import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/the
 import { useThemeColors } from '../core/ThemeContext';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
 import MonthlyDividendChart from './components/MonthlyDividendChart';
+import GrowthStageMark from './components/GrowthStageMark';
 
 type Props = NativeStackScreenProps<BucketsStackParamList, 'BucketDetail'>;
 
@@ -168,6 +169,14 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
   // market value at all (deliberately - see stocksOnlyValuation below for
   // the price-backed gain/loss figure that goes with it).
   const totalCost = positions.reduce((s, p) => s + p.totalCostBasis, 0);
+  const growthStage = useMemo(
+    () => computeBucketGrowthStage({
+      transactionFeed,
+      costBasis: totalCost,
+      yieldLow: bucketBracket?.yield_low ?? null,
+    }).stage,
+    [transactionFeed, totalCost, bucketBracket]
+  );
   // Stock-only cost basis for the "Stocks Total Portfolio Cost" stat -
   // deliberately excludes funds (and, like totalCost, excludes Dividends
   // Earned/Realized G/L entirely - those are separate stats and DragonFi
@@ -220,7 +229,10 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
       contentContainerStyle={styles.scrollContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
-      <Text style={styles.header}>{bucket}</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>{bucket}</Text>
+        <GrowthStageMark stage={growthStage} size={26} />
+      </View>
 
       <View style={styles.marketValueBlock}>
         <Text style={styles.caption}>Total Investment</Text>
@@ -410,7 +422,8 @@ function Stat({ label, value, sublabel, sign }: { label: string; value: string; 
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, ...centeredContent },
   scrollContent: { padding: spacing.md, paddingBottom: 40 },
-  header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground, marginBottom: spacing.md },
+  header: { fontFamily: fonts.body, fontSize: 24, color: colors.onBackground },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
   marketValueBlock: { marginBottom: spacing.lg },
   caption: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3 },
   marketValue: { fontFamily: fonts.bodySemiBold, fontSize: 32, color: colors.onSurface, marginTop: 4, letterSpacing: -0.3 },
