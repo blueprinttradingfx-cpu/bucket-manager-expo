@@ -41,6 +41,17 @@ export default function SettingsScreen({ navigation }: Props) {
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <Text style={styles.header}>Settings</Text>
 
+      <Pressable style={styles.supportCard} onPress={() => navigation.navigate('Support')}>
+        <View style={styles.supportIconWrap}>
+          <Ionicons name="cafe" size={20} color={colors.onPrimary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.supportTitle}>Support the Developer</Text>
+          <Text style={styles.supportSubtitle}>Free app, no ads - GCash, Maya, or Buy Me a Coffee.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+      </Pressable>
+
       <Text style={styles.sectionTitle}>Account</Text>
       <Pressable style={styles.card} onPress={() => navigation.navigate('Account')}>
         <View style={styles.row}>
@@ -94,6 +105,17 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, ...centeredContent },
   scrollContent: { padding: spacing.md, paddingBottom: 40 },
   header: { fontFamily: fonts.bodySemiBold, fontSize: 24, color: colors.onBackground, marginBottom: spacing.lg },
+  supportCard: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: colors.primaryContainer, borderRadius: radii.xl,
+    paddingVertical: spacing.md, paddingHorizontal: spacing.md, marginBottom: spacing.lg,
+  },
+  supportIconWrap: {
+    width: 36, height: 36, borderRadius: radii.full, backgroundColor: colors.primary,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  supportTitle: { fontFamily: fonts.bodySemiBold, fontSize: 15, color: colors.onSurface },
+  supportSubtitle: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
   sectionTitle: {
     fontFamily: fonts.bodySemiBold, fontSize: 13, color: colors.onSurfaceVariant,
     textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: spacing.sm, marginTop: spacing.lg,

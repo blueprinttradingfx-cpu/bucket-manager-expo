@@ -13,8 +13,9 @@ import { useStore } from '../core/StoreProvider';
 import { BucketRow } from '../core/storeApi';
 import { BucketsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
-import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
+import { spacing, radii, fonts, bucketColorFor, BUCKET_COLOR_SWATCHES, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
+import { Ionicons } from '@expo/vector-icons';
 
 type Props = NativeStackScreenProps<BucketsStackParamList, 'EditBucket'>;
 
@@ -29,17 +30,22 @@ export default function EditBucketScreen({ route, navigation }: Props) {
   const [name, setName] = useState('');
   const [low, setLow] = useState('');
   const [high, setHigh] = useState('');
+  const [color, setColor] = useState<string | null>(null);
   const [allBuckets, setAllBuckets] = useState<BucketRow[]>([]);
+  const [bucketIndex, setBucketIndex] = useState(0);
 
   useEffect(() => {
     (async () => {
       const buckets = await store.listBuckets();
       setAllBuckets(buckets);
-      const current = buckets.find((b) => b.id === bucketId);
+      const idx = buckets.findIndex((b) => b.id === bucketId);
+      const current = buckets[idx];
       if (current) {
+        setBucketIndex(idx);
         setName(current.name);
         setLow(current.yield_low != null ? String(current.yield_low) : '');
         setHigh(current.yield_high != null ? String(current.yield_high) : '');
+        setColor(current.color);
       }
       setLoading(false);
     })();
@@ -69,7 +75,7 @@ export default function EditBucketScreen({ route, navigation }: Props) {
 
     setSaving(true);
     try {
-      await store.updateBucket(bucketId, { name: trimmedName, yieldLow: lowNum, yieldHigh: highNum });
+      await store.updateBucket(bucketId, { name: trimmedName, yieldLow: lowNum, yieldHigh: highNum, color });
       navigation.goBack();
     } catch (e: any) {
       Alert.alert('Could not save', e.message ?? String(e));
@@ -97,6 +103,29 @@ export default function EditBucketScreen({ route, navigation }: Props) {
       </View>
       <Text style={styles.hint}>Leave both blank if this bucket isn't yield-based.</Text>
 
+      <Text style={styles.label}>Color</Text>
+      <Text style={styles.hint}>Used for this bucket's dot, chips, and legend everywhere it appears in the app.</Text>
+      <View style={styles.swatchGrid}>
+        <Pressable
+          style={[styles.swatchDefault, color === null && styles.swatchSelected]}
+          onPress={() => setColor(null)}
+          accessibilityLabel="Use default color"
+        >
+          <View style={[styles.swatchDefaultDot, { backgroundColor: bucketColorFor(name || 'bucket', bucketIndex) }]} />
+          {color === null && <Ionicons name="checkmark" size={14} color={colors.onSurface} style={styles.swatchCheck} />}
+        </Pressable>
+        {BUCKET_COLOR_SWATCHES.map((swatch) => (
+          <Pressable
+            key={swatch}
+            style={[styles.swatch, { backgroundColor: swatch }, color === swatch && styles.swatchSelected]}
+            onPress={() => setColor(swatch)}
+            accessibilityLabel={`Color ${swatch}`}
+          >
+            {color === swatch && <Ionicons name="checkmark" size={14} color="#FFFFFF" style={styles.swatchCheck} />}
+          </Pressable>
+        ))}
+      </View>
+
       <Pressable style={[styles.button, saving && styles.buttonDisabled]} onPress={save} disabled={saving}>
         {saving ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.buttonText}>Save Changes</Text>}
       </Pressable>
@@ -115,6 +144,18 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.sm },
   half: { flex: 1 },
   hint: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant, marginTop: 6 },
+  swatchGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  swatch: {
+    width: 32, height: 32, borderRadius: radii.full,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  swatchDefault: {
+    width: 32, height: 32, borderRadius: radii.full, borderWidth: 1, borderColor: colors.outlineVariant,
+    backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center',
+  },
+  swatchDefaultDot: { width: 16, height: 16, borderRadius: 8 },
+  swatchSelected: { borderWidth: 2, borderColor: colors.onSurface },
+  swatchCheck: { position: 'absolute' },
   button: { backgroundColor: colors.primary, borderRadius: radii.lg, padding: spacing.md, alignItems: 'center', marginTop: spacing.lg },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { fontFamily: fonts.bodyBold, color: colors.onPrimary, fontSize: 15 },

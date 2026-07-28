@@ -9,11 +9,17 @@ import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { spacing, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
-import { APP_NAME } from '../core/branding';
+import { APP_NAME, SUPPORT_EMAIL } from '../core/branding';
 
-const EFFECTIVE_DATE = '[EFFECTIVE_DATE]';
-const GOVERNING_LAW = '[GOVERNING_LAW / JURISDICTION]';
-const SUPPORT_EMAIL = '[SUPPORT_EMAIL]';
+// PLACEHOLDER (2026-07-26 pre-launch pass) - set to the day this was filled
+// in, not an actual launch date. Bump to the real submission/launch date
+// before shipping, and again any time the terms themselves change.
+const EFFECTIVE_DATE = 'July 26, 2026';
+// Defaulted to the Philippines since that's where the app, its target
+// users, and (per available context) the developer are based - confirm
+// this is actually correct for how the app/developer entity is set up
+// before shipping; change if you're incorporating or operating elsewhere.
+const GOVERNING_LAW = 'the Republic of the Philippines';
 
 type Styles = ReturnType<typeof createStyles>;
 

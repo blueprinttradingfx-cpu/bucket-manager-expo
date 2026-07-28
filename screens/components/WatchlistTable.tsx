@@ -9,9 +9,32 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { YieldBracket, suggestBucketForYield } from '../../core/bucketLogic';
+import { PORTFOLIO_CATALOG, Portfolio } from '../../core/portfolioCatalog';
 import { spacing, radii, fonts, bucketColorFor, ThemeColors } from '../../core/theme';
 import { useThemeColors } from '../../core/ThemeContext';
 import WatchlistBuyBelowEditor from './WatchlistBuyBelowEditor';
+import TickerLogo from './TickerLogo';
+
+// Cross-references a watchlist ticker against the same static "Import
+// Portfolio" catalog used on this screen (see core/portfolioCatalog.ts) -
+// answers "who else is buying this stock" using the named reference
+// portfolios (Kuya Jon's, REIT Buddy's, etc.) as a stand-in for "who",
+// since there's no real multi-user data here, just curated public lists.
+// Computed once at module load - PORTFOLIO_CATALOG is static bundled data,
+// not something that changes while the app is running, so there's no
+// reason to rebuild this map on every render or every row.
+const PORTFOLIOS_BY_TICKER: Map<string, Portfolio[]> = (() => {
+  const map = new Map<string, Portfolio[]>();
+  for (const portfolio of PORTFOLIO_CATALOG) {
+    for (const stock of portfolio.stocks) {
+      const key = stock.ticker.toUpperCase();
+      const list = map.get(key) ?? [];
+      list.push(portfolio);
+      map.set(key, list);
+    }
+  }
+  return map;
+})();
 
 export interface WatchlistRowItem {
   ticker: string;
@@ -59,8 +82,8 @@ export default function WatchlistTable({ items, buckets, onItemPress, onSaveBuyB
               <Pressable hitSlop={10} style={styles.chevronTap} onPress={() => toggleExpanded(item.ticker)}>
                 <Text style={[styles.chevron, isOpen && styles.chevronOpen]}>{isOpen ? '⌄' : '›'}</Text>
               </Pressable>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{item.ticker.slice(0, 2)}</Text>
+              <View style={styles.badgeSlot}>
+                <TickerLogo ticker={item.ticker} fallbackText={item.ticker.slice(0, 2)} size={40} />
               </View>
               <View style={styles.labelCol}>
                 <Text style={styles.label} numberOfLines={1}>{item.ticker}</Text>
@@ -119,6 +142,8 @@ export default function WatchlistTable({ items, buckets, onItemPress, onSaveBuyB
                   )}
                 </View>
 
+                <PortfolioCrossRefs portfolios={PORTFOLIOS_BY_TICKER.get(item.ticker.toUpperCase()) ?? []} ticker={item.ticker} styles={styles} />
+
                 <Pressable style={styles.removeButton} onPress={() => onRemove(item.ticker)}>
                   <Ionicons name="trash-outline" size={14} color={colors.negative} />
                   <Text style={styles.removeButtonText}>Remove from Watch List</Text>
@@ -128,6 +153,33 @@ export default function WatchlistTable({ items, buckets, onItemPress, onSaveBuyB
           </View>
         );
       })}
+    </View>
+  );
+}
+
+function PortfolioCrossRefs({ portfolios, ticker, styles }: { portfolios: Portfolio[]; ticker: string; styles: ReturnType<typeof createStyles> }) {
+  return (
+    <View style={styles.portfolioSection}>
+      <Text style={styles.portfolioSectionLabel}>
+        {portfolios.length > 0
+          ? `Also in ${portfolios.length} reference portfolio${portfolios.length === 1 ? '' : 's'}`
+          : 'Not in any imported reference portfolio'}
+      </Text>
+      {portfolios.length > 0 && (
+        <View style={styles.portfolioChipRow}>
+          {portfolios.map((p) => {
+            const stock = p.stocks.find(s => s.ticker.toUpperCase() === ticker.toUpperCase());
+            const buyBelowPrice = stock?.buyBelowPrice;
+            return (
+              <View key={p.id} style={styles.portfolioChip}>
+                <Text style={styles.portfolioChipText}>
+                  {p.name}{buyBelowPrice != null ? ` (₱${buyBelowPrice})` : ''}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -144,11 +196,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   chevronTap: { width: 20 },
   chevron: { color: colors.onSurfaceVariant, fontSize: 20 },
   chevronOpen: { color: colors.primary },
-  badge: {
-    width: 40, height: 40, borderRadius: radii.full, marginRight: spacing.md,
-    backgroundColor: colors.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center',
+  badgeSlot: {
+    width: 40, height: 40, marginRight: spacing.md,
   },
-  badgeText: { fontFamily: fonts.monoSemiBold, fontSize: 13, color: colors.primary },
   labelCol: { flex: 1 },
   label: { fontFamily: fonts.monoSemiBold, fontSize: 14, color: colors.onSurface },
   buyBelowSubtext: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
@@ -172,6 +222,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   suggestionRow: {},
   suggestionText: { fontFamily: fonts.body, fontSize: 12, color: colors.onSurfaceVariant, lineHeight: 17 },
   suggestionBucketName: { fontFamily: fonts.bodyBold, color: colors.primary },
+  portfolioSection: {},
+  portfolioSectionLabel: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.onSurfaceVariant, marginBottom: 6 },
+  portfolioChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  portfolioChip: {
+    backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.full,
+    paddingHorizontal: spacing.sm, paddingVertical: 4,
+  },
+  portfolioChipText: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurface },
   removeButton: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
   removeButtonText: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.negative },
 });

@@ -6,10 +6,7 @@ import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Linking } from 'react-native';
 import { spacing, fonts, radii, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
-import { APP_NAME } from '../core/branding';
-
-// TODO: replace with the real support inbox before shipping.
-const SUPPORT_EMAIL = '[SUPPORT_EMAIL]';
+import { APP_NAME, SUPPORT_EMAIL } from '../core/branding';
 
 type Styles = ReturnType<typeof createStyles>;
 

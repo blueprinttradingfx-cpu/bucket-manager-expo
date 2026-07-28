@@ -1,14 +1,12 @@
 // core/stockUniverse.ts
 // Powers "search stock": the full list of tickers the price-scraper
 // pipeline knows about, not just the ones you currently hold. Same
-// GitHub repo as the price cache itself, so it's reused via
-// normalizeGithubUrl (the blob URL you'd copy from GitHub's file viewer
-// gets auto-corrected to the raw content URL, same fix as priceCache.ts).
+// GitHub repo as the price cache itself, served through the same Worker
+// proxy - see priceCache.ts's DATA_PROXY_BASE_URL comment.
 
-import { normalizeGithubUrl } from './priceCache';
+import { DATA_PROXY_BASE_URL } from './priceCache';
 
-const DEFAULT_TICKERS_URL =
-  'https://raw.githubusercontent.com/blueprinttradingfx-cpu/bucket-manager-web/refs/heads/master/price-scraper/scripts/tickers.json';
+const DEFAULT_TICKERS_URL = `${DATA_PROXY_BASE_URL}/v1/tickers`;
 
 let cached: string[] | null = null;
 let cachedAt = 0;
@@ -19,10 +17,9 @@ export async function fetchStockUniverse(url: string = DEFAULT_TICKERS_URL, opts
     return cached;
   }
 
-  const fetchUrl = normalizeGithubUrl(url);
-  const res = await fetch(fetchUrl);
+  const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Failed to fetch stock universe: HTTP ${res.status} from ${fetchUrl}`);
+    throw new Error(`Failed to fetch stock universe: HTTP ${res.status} from ${url}`);
   }
   const data = await res.json();
   if (!Array.isArray(data) || !data.every((t) => typeof t === 'string')) {

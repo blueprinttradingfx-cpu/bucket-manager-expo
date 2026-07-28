@@ -191,7 +191,7 @@ export default function BucketsScreen({ navigation }: Props) {
             <Pressable style={styles.bucketCard} onPress={() => navigation.navigate('BucketDetail', { bucket: item.name })}>
               <View style={styles.bucketHeaderRow}>
                 <View style={styles.bucketNameRow}>
-                  <View style={[styles.dot, { backgroundColor: bucketColorFor(item.name, index) }]} />
+                  <View style={[styles.dot, { backgroundColor: bucketColorFor(item.name, index, item.color) }]} />
                   {summary && <GrowthStageMark stage={summary.growthStage} size={18} />}
                   <Text style={styles.bucketName}>{item.name}</Text>
                 </View>

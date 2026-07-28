@@ -21,9 +21,11 @@ import Constants from 'expo-constants';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
   GoogleAuthProvider, signInWithCredential, signOut as firebaseSignOut, onAuthStateChanged, User,
+  deleteUser, reauthenticateWithCredential,
 } from 'firebase/auth';
 import { auth } from './firebaseAuth';
 import { AuthContextValue, AuthUser } from './authTypes';
+import * as crashReporting from './crashReporting';
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
@@ -57,6 +59,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return onAuthStateChanged(auth, (firebaseUser) => {
       setUser(toAuthUser(firebaseUser));
       setInitializing(false);
+      // Crashes after this point get traced to this uid on the Crashlytics
+      // dashboard, without exposing name/email there - null clears it on
+      // sign-out so reports afterward aren't misattributed.
+      crashReporting.setUserId(firebaseUser?.uid ?? null);
     });
   }, []);
 
@@ -84,6 +90,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Also clear the native Google session - otherwise the next signIn()
       // silently reuses the cached account instead of letting the user
       // pick/confirm one, which reads as "sign out didn't work."
+      if (GoogleSignin.hasPreviousSignIn()) {
+        await GoogleSignin.signOut();
+      }
+    },
+    async deleteAccount() {
+      const current = auth.currentUser;
+      if (!current) return;
+      try {
+        await deleteUser(current);
+      } catch (e: any) {
+        // Firebase requires a "recent" login for this specific operation -
+        // a session that's merely valid for normal reads/writes isn't
+        // necessarily recent enough. Re-run the same Google Sign-In flow
+        // signInWithGoogle uses to get a fresh idToken, reauthenticate with
+        // it, then retry the delete once. Any other error (network, etc.)
+        // is rethrown as-is for the caller to surface.
+        if (e?.code !== 'auth/requires-recent-login') throw e;
+        ensureConfigured();
+        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+        const response = await GoogleSignin.signIn();
+        if (response.type !== 'success') throw e; // user cancelled the reauth prompt - surface the original error
+        const { idToken } = response.data;
+        if (!idToken) throw e;
+        await reauthenticateWithCredential(current, GoogleAuthProvider.credential(idToken));
+        await deleteUser(current);
+      }
+      // Same reasoning as signOut() above - clear the native Google session
+      // too, so a fresh sign-in afterward doesn't silently reuse the
+      // just-deleted account's cached credentials.
       if (GoogleSignin.hasPreviousSignIn()) {
         await GoogleSignin.signOut();
       }

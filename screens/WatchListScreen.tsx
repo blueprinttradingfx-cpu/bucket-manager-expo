@@ -27,6 +27,9 @@ import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/the
 import { useThemeColors } from '../core/ThemeContext';
 import WatchlistTable, { WatchlistRowItem } from './components/WatchlistTable';
 import ImportPortfolioModal from './components/ImportPortfolioModal';
+import AskAiModal from './components/AskAiModal';
+import DataDisclaimer from './components/DataDisclaimer';
+import { buildWatchlistPrompt } from '../core/askAiPrompts';
 import { Portfolio } from '../core/portfolioCatalog';
 import { dedupePortfolioStocks } from '../core/watchlistImport';
 import { Ionicons } from '@expo/vector-icons';
@@ -50,6 +53,7 @@ export default function WatchListScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<TabKey>('within_range');
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showAskAi, setShowAskAi] = useState(false);
 
   const load = useCallback(async (forcePrices = false) => {
     const [watchlist, bucketRows] = await Promise.all([store.getWatchlist(), store.listBuckets()]);
@@ -167,17 +171,37 @@ export default function WatchListScreen({ navigation }: Props) {
     >
       <Text style={styles.subtitle}>
         {items.length === 0
-          ? 'Curate tickers to keep an eye on - tap the search icon above to add one.'
+          ? 'Curate tickers to keep an eye on.'
           : `Watching ${items.length} ticker${items.length === 1 ? '' : 's'}${withinRangeRows.length > 0 ? ` · ${withinRangeRows.length} within buy range` : ''}`}
       </Text>
       {priceError && (
         <Text style={styles.priceWarning}>Live prices unavailable right now - buy-range and yield may be out of date.</Text>
       )}
 
-      <Pressable style={styles.importPortfolioButton} onPress={() => setShowImportModal(true)}>
-        <Ionicons name="download-outline" size={16} color={colors.primary} />
-        <Text style={styles.importPortfolioButtonText}>Import Portfolio</Text>
-      </Pressable>
+      {/* Always visible, not just in the empty state (that used to be the
+          only place this was explained, and it disappeared after your
+          first add) - the search icon is the way to add ONE ticker; Import
+          Portfolio below is the bulk alternative. Both need explaining
+          since neither is otherwise labeled "add". */}
+      <View style={styles.howToAddCard}>
+        <Ionicons name="information-circle-outline" size={15} color={colors.onSurfaceVariant} />
+        <Text style={styles.howToAddText}>
+          To add a stock manually, tap the search icon above, open its page, and tap "Add to Watch List". Or import several at once below.
+        </Text>
+      </View>
+
+      <View style={styles.actionRow}>
+        <Pressable style={styles.importPortfolioButton} onPress={() => setShowImportModal(true)}>
+          <Ionicons name="download-outline" size={16} color={colors.primary} />
+          <Text style={styles.importPortfolioButtonText}>Import Portfolio</Text>
+        </Pressable>
+        {items.length > 0 && (
+          <Pressable style={styles.askAiButton} onPress={() => setShowAskAi(true)}>
+            <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
+            <Text style={styles.importPortfolioButtonText}>Ask AI</Text>
+          </Pressable>
+        )}
+      </View>
 
       {items.length > 0 && (
         <View style={styles.tabTrack}>
@@ -216,6 +240,16 @@ export default function WatchListScreen({ navigation }: Props) {
         onClose={() => setShowImportModal(false)}
         onImport={handleImportPortfolios}
       />
+
+      <AskAiModal
+        visible={showAskAi}
+        onClose={() => setShowAskAi(false)}
+        title="Ask AI About My Watchlist"
+        subtitle={`${items.length} ticker${items.length === 1 ? '' : 's'}`}
+        loadPrompt={() => buildWatchlistPrompt(items, priceCache)}
+      />
+
+      {items.length > 0 && <DataDisclaimer />}
     </ScrollView>
   );
 }
@@ -238,10 +272,22 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   subtitle: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant, marginBottom: spacing.sm },
   priceWarning: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.negative, marginBottom: spacing.sm },
+  howToAddCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 6,
+    backgroundColor: colors.surfaceContainerHigh, borderRadius: radii.lg,
+    padding: spacing.sm + 2, marginBottom: spacing.sm,
+  },
+  howToAddText: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, lineHeight: 17 },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.md },
   importPortfolioButton: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
     borderWidth: 1, borderColor: colors.primary, borderRadius: radii.lg,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.md,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+  },
+  askAiButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    borderWidth: 1, borderColor: colors.primary, borderRadius: radii.lg,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
   },
   importPortfolioButtonText: { fontFamily: fonts.bodySemiBold, fontSize: 13, color: colors.primary },
   tabTrack: {

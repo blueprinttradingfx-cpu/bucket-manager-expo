@@ -1,40 +1,38 @@
-// screens/StockDetailScreen.tsx
-// Level 3 of the drill-down: one ticker, merged across every bucket that
-// holds it. Restyled to match the Stitch design system (see
-// DashboardScreen for the full rationale). Includes live valuation
-// (market value, unrealized gain, current yield) when the price cache is
-// reachable - degrades gracefully to cost-basis-only otherwise. The
-// "Held In" list uses the same Positions table component as the other two
-// screens, just with rows keyed by bucket instead of ticker.
+// screens/FundDetailScreen.tsx
+// Fund counterpart to StockDetailScreen (see that file's header comment for
+// the full drill-down rationale) - one fund ticker, merged across every
+// bucket that holds it. Split into its own screen/route (/fund/:ticker,
+// vs StockDetail's /stock/:ticker) rather than sharing StockDetailScreen,
+// because a fund's live pricing comes from a different feed (fundCache.ts's
+// NAVPU, not priceCache.ts's stock price) and its "profile" data is
+// fundamentally different too - category/bank/ROI (FundDetailsSection)
+// instead of a PSE company profile with OHLCV/foreign-flow/ownership data
+// (CompanyDetailsSection), which simply doesn't exist for a fund. No
+// BucketSuggestion here either: that card matches a ticker's dividend
+// yield against bucket brackets, and a fund's yieldPct is always null (see
+// fundCacheToPriceLookup) - showing it would just be a permanently-dead
+// "no yield data" message on every fund, not a useful widget.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, ScrollView, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import Alert from '../core/alert';
 import { useStore } from '../core/StoreProvider';
-import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation, YieldBracket } from '../core/bucketLogic';
+import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated } from '../core/bucketLogic';
 import { WatchlistItem } from '../core/storeApi';
-import { fetchPriceCache, PriceEntry } from '../core/priceCache';
+import { fetchFundCache, fundCacheToPriceLookup, FundEntry, getFundPrice } from '../core/fundCache';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
-import BucketSuggestion from './components/BucketSuggestion';
 import WatchlistSection from './components/WatchlistSection';
-import CompanyDetailsSection from './components/CompanyDetailsSection';
-import AskAiModal from './components/AskAiModal';
-import DataDisclaimer from './components/DataDisclaimer';
-import { buildStockDetailPrompt, StockPositionSummary } from '../core/askAiPrompts';
-import { fetchCompanyDetails } from '../core/companyDetailsCache';
-import { Ionicons } from '@expo/vector-icons';
+import FundDetailsSection from './components/FundDetailsSection';
 
-// Minimal structural prop type, not tied to either stack's specific
-// NativeStackScreenProps - this screen is registered in BOTH DashboardStack
-// (via SearchStock) and BucketsStack (via BucketDetail's "Find stocks"
-// finder), reachable through two different drill-down paths. The only
-// navigation call it makes is 'StockInBucket', which both stacks declare
-// identically, so a narrow structural type covers both without needing a
-// union of the two full param lists.
+// Same minimal structural prop type as StockDetailScreen - this screen is
+// only registered in DashboardStack for now (Dashboard > Positions is the
+// only place that currently distinguishes fund rows from stock rows before
+// navigating), and it only ever calls 'StockInBucket', which every stack
+// declares identically.
 interface Props {
   route: { params: { ticker: string } };
   navigation: { navigate: (screen: 'StockInBucket', params: { bucket: string; ticker: string }) => void };
@@ -42,10 +40,6 @@ interface Props {
 
 type BucketPositionRow = ValuedStockPosition | BucketStockPosition;
 
-// The "all transactions of this stock" table below Held In - every bucket's
-// buy/sell history for this one ticker, merged. getTransactionHistory is
-// per-bucket, so `bucket` gets stitched on here by the caller since the
-// store method itself doesn't know which bucket it was called for.
 interface TickerTxnRow {
   bucket: string;
   date: string;
@@ -94,42 +88,34 @@ function toPositionItem(item: BucketPositionRow, colors: ThemeColors): PositionI
   };
 }
 
-export default function StockDetailScreen({ route, navigation }: Props) {
+export default function FundDetailScreen({ route, navigation }: Props) {
   const { ticker } = route.params;
-  useScreenViewLog('StockDetail', { ticker });
+  useScreenViewLog('FundDetail', { ticker });
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
   const [stock, setStock] = useState<AggregatedStock | ValuedAggregatedStock | null>(null);
-  const [buckets, setBuckets] = useState<YieldBracket[]>([]);
-  const [priceEntry, setPriceEntry] = useState<PriceEntry | null>(null);
+  const [fundEntry, setFundEntry] = useState<FundEntry | null>(null);
   const [loading, setLoading] = useState(true);
   const [watchlistItem, setWatchlistItem] = useState<WatchlistItem | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
   const [txnHistory, setTxnHistory] = useState<TickerTxnRow[]>([]);
   const [txnSortKey, setTxnSortKey] = useState<TxnSortKey>('date');
   const [txnSortDir, setTxnSortDir] = useState<'asc' | 'desc'>('desc');
-  const [showAskAi, setShowAskAi] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const [found, bucketRows] = await Promise.all([store.getStockHistory(ticker), store.listBuckets()]);
-      setBuckets(bucketRows);
+      const found = await store.getStockHistory(ticker);
       try {
-        const prices = await fetchPriceCache();
-        setPriceEntry(prices.tickers[ticker] ?? null);
-        const valued = found ? applyPricesToAggregated([found], prices.tickers)[0] : null;
+        const funds = await fetchFundCache();
+        setFundEntry(getFundPrice(funds, ticker));
+        const valued = found ? applyPricesToAggregated([found], fundCacheToPriceLookup(funds))[0] : null;
         setStock(valued);
       } catch (e: any) {
-        console.log('[StockDetail] price cache unavailable:', e.message);
+        console.log('[FundDetail] fund cache unavailable:', e.message);
         setStock(found);
       }
 
-      // Every bucket that's EVER transacted this ticker (found.buckets
-      // includes fully-exited, zero-share ones too - see getStockHistory's
-      // doc comment) - getTransactionHistory is per-bucket, so this is one
-      // call per bucket, same N+1-but-parallelized pattern as the Dashboard/
-      // BucketsScreen growth-stage fetch.
       if (found) {
         try {
           const perBucket = await Promise.all(
@@ -140,7 +126,7 @@ export default function StockDetailScreen({ route, navigation }: Props) {
           );
           setTxnHistory(perBucket.flat());
         } catch (e: any) {
-          console.log('[StockDetail] transaction history unavailable:', e.message);
+          console.log('[FundDetail] transaction history unavailable:', e.message);
           setTxnHistory([]);
         }
       } else {
@@ -151,9 +137,8 @@ export default function StockDetailScreen({ route, navigation }: Props) {
     })();
   }, [store, ticker]);
 
-  // Refresh watchlist status on every focus (not just mount) - so removing
-  // this ticker from the Watch List tab and coming back here reflects it
-  // immediately, same as buckets refresh in BucketsScreen.
+  // Refresh watchlist status on every focus (not just mount) - same
+  // rationale as StockDetailScreen.
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
@@ -193,7 +178,7 @@ export default function StockDetailScreen({ route, navigation }: Props) {
     const rows = [...txnHistory];
     rows.sort((a, b) => {
       const cmp = txnSortKey === 'bucket' ? a.bucket.localeCompare(b.bucket)
-        : txnSortKey === 'date' ? a.date.localeCompare(b.date) // ISO dates - string compare sorts correctly
+        : txnSortKey === 'date' ? a.date.localeCompare(b.date)
         : a.price - b.price;
       return txnSortDir === 'asc' ? cmp : -cmp;
     });
@@ -205,9 +190,6 @@ export default function StockDetailScreen({ route, navigation }: Props) {
       setTxnSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
       setTxnSortKey(key);
-      // Newest-first is the useful default for date (matches every other
-      // transaction feed in the app); bucket/price default to ascending
-      // (A-Z, lowest first) since there's no equivalent "natural" direction.
       setTxnSortDir(key === 'date' ? 'desc' : 'asc');
     }
   }
@@ -220,26 +202,20 @@ export default function StockDetailScreen({ route, navigation }: Props) {
     );
   }
 
-  // Not held in any bucket - still show what's available (price/yield from
-  // the cache, bucket-fit suggestion) rather than a dead end. This used to
-  // bail out entirely here because SearchStockScreen only navigated here for
-  // tickers you already held - now it navigates for any ticker, so this
-  // screen needs to handle "no holdings, and that's fine" as its own state.
+  // Not held in any bucket - still show what's available (NAVPU from the
+  // fund feed) rather than a dead end, same "no holdings, and that's fine"
+  // handling as StockDetailScreen.
   if (!stock) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.ticker}>{ticker}</Text>
         <Text style={styles.subtitle}>Not currently held in any bucket</Text>
 
-        <View style={styles.suggestionCard}>
-          <BucketSuggestion ticker={ticker} yieldPct={priceEntry?.yieldPct ?? null} buckets={buckets} />
-        </View>
-
         <View style={styles.watchlistCard}>
           <WatchlistSection
             inWatchlist={!!watchlistItem}
             buyBelowPrice={watchlistItem?.buyBelowPrice ?? null}
-            currentPrice={priceEntry?.price ?? null}
+            currentPrice={fundEntry?.navpu ?? null}
             busy={watchlistBusy}
             onToggle={toggleWatchlist}
             onSaveBuyBelow={saveWatchlistBuyBelow}
@@ -247,50 +223,23 @@ export default function StockDetailScreen({ route, navigation }: Props) {
         </View>
 
         <View style={styles.statsRow}>
-          <Stat
-            label="Current Price"
-            value={priceEntry ? `₱${priceEntry.price}` : 'N/A'}
-            sublabel={priceEntry?.yieldPct != null ? `yield ${priceEntry.yieldPct}%` : 'no yield data'}
-          />
+          <Stat label="NAVPU" value={fundEntry ? `₱${fundEntry.navpu}` : 'N/A'} />
         </View>
 
-        <Pressable style={styles.askAiButton} onPress={() => setShowAskAi(true)}>
-          <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
-          <Text style={styles.askAiButtonText}>Ask AI About {ticker}</Text>
-        </Pressable>
-
-        <CompanyDetailsSection ticker={ticker} />
+        <FundDetailsSection ticker={ticker} />
 
         <Text style={styles.positionsHeader}>Held In</Text>
         <PositionsTable items={[]} onItemPress={() => {}} emptyText="Not currently held in any bucket." />
-
-        <AskAiModal
-          visible={showAskAi}
-          onClose={() => setShowAskAi(false)}
-          title={`Ask AI About ${ticker}`}
-          loadPrompt={async () => {
-            const details = await fetchCompanyDetails(ticker);
-            return buildStockDetailPrompt({
-              ticker,
-              priceEntry,
-              details,
-              position: null,
-              buyBelowTarget: watchlistItem?.buyBelowPrice ?? null,
-            });
-          }}
-        />
-        <DataDisclaimer />
       </ScrollView>
     );
   }
 
   const valued = 'marketValue' in stock ? (stock as ValuedAggregatedStock) : null;
   const heldIn = stock.buckets.map((b) => toPositionItem(b, colors));
-  const valuation = valued
-    ? computePortfolioValuation(stock.buckets as ValuedStockPosition[], stock.totalDividends, stock.totalCostBasis)
-    : null;
   const activeBucketCount = stock.buckets.filter((b) => b.totalQty > 0 || b.pendingSettlement).length;
   const closedBucketCount = stock.buckets.length - activeBucketCount;
+  const totalRealizedGain = stock.buckets.reduce((s, b) => s + b.realizedGain, 0);
+  const totalUnrealizedGain = valued ? valued.buckets.reduce((s, b) => s + (b.unrealizedGain ?? 0), 0) : null;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -301,28 +250,21 @@ export default function StockDetailScreen({ route, navigation }: Props) {
           : `Fully sold · previously held in ${stock.buckets.length} bucket${stock.buckets.length === 1 ? '' : 's'}`}
       </Text>
 
-      <View style={styles.suggestionCard}>
-        <BucketSuggestion ticker={stock.ticker} yieldPct={valued?.currentYieldPct ?? null} buckets={buckets} />
-      </View>
       <View style={styles.watchlistCard}>
         <WatchlistSection
           inWatchlist={!!watchlistItem}
           buyBelowPrice={watchlistItem?.buyBelowPrice ?? null}
-          currentPrice={valued?.currentPrice ?? null}
+          currentPrice={valued?.currentPrice ?? fundEntry?.navpu ?? null}
           busy={watchlistBusy}
           onToggle={toggleWatchlist}
           onSaveBuyBelow={saveWatchlistBuyBelow}
         />
       </View>
       <View style={styles.statsRow}>
-        <Stat
-          label="Current Price"
-          value={`₱${valued?.currentPrice ?? 'N/A'}`}
-          sublabel={valued?.currentYieldPct != null ? `yield ${valued.currentYieldPct}%` : undefined}
-        />
+        <Stat label="NAVPU" value={`₱${valued?.currentPrice ?? fundEntry?.navpu ?? 'N/A'}`} />
       </View>
       <View style={styles.statsRow}>
-        <Stat label="Total Shares" value={String(stock.totalQty)} />
+        <Stat label="Total Units" value={String(stock.totalQty)} />
         <Stat label="Blended Avg Cost" value={`₱${stock.avgCost}`} />
       </View>
       <View style={styles.statsRow}>
@@ -333,29 +275,22 @@ export default function StockDetailScreen({ route, navigation }: Props) {
         />
         <Stat label="Total Dividends" value={`₱${stock.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} big sign="positive" />
       </View>
-      {valuation && (
-        <View style={styles.statsRow}>
+      <View style={styles.statsRow}>
+        <Stat
+          label="Realized Gain"
+          value={`${totalRealizedGain >= 0 ? '+' : ''}₱${totalRealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+          sign={totalRealizedGain >= 0 ? 'positive' : 'negative'}
+        />
+        {totalUnrealizedGain != null && (
           <Stat
             label="Unrealized Gain"
-            value={`${valuation.totalUnrealizedGain >= 0 ? '+' : ''}₱${valuation.totalUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-            sublabel={`${valuation.totalUnrealizedGainPct >= 0 ? '+' : ''}${valuation.totalUnrealizedGainPct}%`}
-            sign={valuation.totalUnrealizedGain >= 0 ? 'positive' : 'negative'}
+            value={`${totalUnrealizedGain >= 0 ? '+' : ''}₱${totalUnrealizedGain.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
+            sign={totalUnrealizedGain >= 0 ? 'positive' : 'negative'}
           />
-          <Stat
-            label="Total Return"
-            value={`${valuation.totalReturn >= 0 ? '+' : ''}₱${valuation.totalReturn.toLocaleString(undefined, { minimumFractionDigits: 2 })}`}
-            sublabel={`${valuation.totalReturnPct >= 0 ? '+' : ''}${valuation.totalReturnPct}% (div + gain)`}
-            sign={valuation.totalReturn >= 0 ? 'positive' : 'negative'}
-          />
-        </View>
-      )}
+        )}
+      </View>
 
-      <Pressable style={styles.askAiButton} onPress={() => setShowAskAi(true)}>
-        <Ionicons name="sparkles-outline" size={16} color={colors.primary} />
-        <Text style={styles.askAiButtonText}>Ask AI About {stock.ticker}</Text>
-      </Pressable>
-
-      <CompanyDetailsSection ticker={stock.ticker} />
+      <FundDetailsSection ticker={stock.ticker} />
 
       <Text style={styles.positionsHeader}>Held In</Text>
       <PositionsTable
@@ -371,31 +306,6 @@ export default function StockDetailScreen({ route, navigation }: Props) {
         sortDir={txnSortDir}
         onSort={toggleTxnSort}
       />
-
-      <AskAiModal
-        visible={showAskAi}
-        onClose={() => setShowAskAi(false)}
-        title={`Ask AI About ${stock.ticker}`}
-        loadPrompt={async () => {
-          const details = await fetchCompanyDetails(stock.ticker);
-          const position: StockPositionSummary | null = stock.totalQty > 0 ? {
-            qty: stock.totalQty,
-            avgCost: stock.avgCost,
-            marketValue: valued?.marketValue ?? null,
-            unrealizedGainPct: valuation?.totalUnrealizedGainPct ?? null,
-            totalDividends: stock.totalDividends,
-            bucketCount: activeBucketCount,
-          } : null;
-          return buildStockDetailPrompt({
-            ticker: stock.ticker,
-            priceEntry,
-            details,
-            position,
-            buyBelowTarget: watchlistItem?.buyBelowPrice ?? null,
-          });
-        }}
-      />
-      <DataDisclaimer />
     </ScrollView>
   );
 }
@@ -431,7 +341,7 @@ function TickerTransactionsTable({
       <View style={styles.txnTableRow}>
         <HeaderCell label="Bucket" col="bucket" style={styles.txnTableColBucket} />
         <HeaderCell label="Date" col="date" style={styles.txnTableColDate} />
-        <Text style={[styles.txnTableHeaderText, styles.txnTableColShares]}>Shares</Text>
+        <Text style={[styles.txnTableHeaderText, styles.txnTableColShares]}>Units</Text>
         <HeaderCell label="Price" col="price" style={styles.txnTableColPrice} />
       </View>
       {rows.map((r, i) => (
@@ -474,21 +384,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   statSublabel: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant, marginTop: 2 },
   positive: { color: colors.positive },
   negative: { color: colors.negative },
-  priceLine: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginBottom: spacing.md },
-  suggestionCard: {
-    backgroundColor: colors.surfaceContainerHigh, borderWidth: 1, borderColor: colors.outlineVariant,
-    borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,
-  },
   watchlistCard: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
     borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,
   },
-  askAiButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-start',
-    borderWidth: 1, borderColor: colors.primary, borderRadius: radii.lg,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm, marginBottom: spacing.lg,
-  },
-  askAiButtonText: { fontFamily: fonts.bodySemiBold, fontSize: 13, color: colors.primary },
   positionsHeader: { fontFamily: fonts.body, fontSize: 20, color: colors.onBackground, marginTop: spacing.xs, marginBottom: spacing.md },
   empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 },
   txnTable: {

@@ -6,7 +6,7 @@
 // PSE/dividends.ph) - see public/data/funds.json, sibling file to prices.json
 // in the same bucket-manager-web project.
 
-import { normalizeGithubUrl } from './priceCache';
+import { DATA_PROXY_BASE_URL } from './priceCache';
 import { PriceLookup } from './bucketLogic';
 
 export interface FundEntry {
@@ -30,10 +30,8 @@ export interface FundCache {
 }
 
 // Same repo as DEFAULT_PRICE_CACHE_URL (priceCache.ts), sibling file under
-// public/data/ - see that constant's comment for why this must resolve to
-// the raw content URL, not the github.com file-viewer page.
-export const DEFAULT_FUND_CACHE_URL =
-  'https://github.com/blueprinttradingfx-cpu/bucket-manager-web/blob/master/public/data/funds.json';
+// public/data/ - served through the same Worker proxy.
+export const DEFAULT_FUND_CACHE_URL = `${DATA_PROXY_BASE_URL}/v1/funds`;
 
 let memoryCache: FundCache | null = null;
 let memoryCacheAt = 0;
@@ -47,10 +45,9 @@ export async function fetchFundCache(
     return memoryCache;
   }
   console.log('[fundCache] fetching', url);
-  const fetchUrl = normalizeGithubUrl(url);
-  const res = await fetch(fetchUrl);
+  const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Failed to fetch fund cache: HTTP ${res.status} from ${fetchUrl}`);
+    throw new Error(`Failed to fetch fund cache: HTTP ${res.status} from ${url}`);
   }
   const data = (await res.json()) as FundCache;
   console.log('[fundCache] loaded', Object.keys(data.funds ?? {}).length, 'funds, generated', data.generatedAt);

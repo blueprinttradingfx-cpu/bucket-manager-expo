@@ -1,23 +1,27 @@
 // screens/PrivacyPolicyScreen.tsx
-// Static "Privacy Policy" page. This is a generic starting template, not
-// legal advice - review it (ideally with a lawyer) before shipping, and
-// fill in the bracketed placeholders. IMPORTANT: this copy assumes the app
-// stores portfolio data locally on-device (SQLite/IndexedDB) with no user
-// accounts and no server sync. If that changes - e.g. cloud backup, sign-in,
-// analytics, or ads are added later - this page needs a rewrite to disclose
-// that, and Google Play's Data Safety section will need updating too.
+// Static "Privacy Policy" page. Still a starting template, not legal advice
+// - review it (ideally with a lawyer) before shipping. Updated 2026-07-26
+// to reflect that optional Google Sign-In + Firestore cloud sync now exist
+// (core/AuthProvider.*, core/syncEngine.ts) - the previous version of this
+// copy claimed "no accounts, nothing leaves your device," which stopped
+// being true once that shipped. If analytics, crash reporting, or ads are
+// added later, this needs another pass, and Google Play's Data Safety
+// section needs updating too.
 // Also note: Google Play requires a *hosted, public URL* for your privacy
 // policy in the Play Console listing - this in-app screen doesn't replace
-// that requirement.
+// that requirement (see App.tsx's `linking` config for the web route this
+// can live at).
 
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { spacing, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
-import { APP_NAME } from '../core/branding';
+import { APP_NAME, SUPPORT_EMAIL } from '../core/branding';
 
-const EFFECTIVE_DATE = '[EFFECTIVE_DATE]';
-const SUPPORT_EMAIL = '[SUPPORT_EMAIL]';
+// PLACEHOLDER (2026-07-26 pre-launch pass) - set to the day this was filled
+// in, not an actual launch date. Bump before shipping, and again any time
+// this policy's substance changes.
+const EFFECTIVE_DATE = 'July 26, 2026';
 
 type Styles = ReturnType<typeof createStyles>;
 
@@ -45,41 +49,58 @@ export default function PrivacyPolicyScreen() {
       <Section title="Short version" styles={styles}>
         <Body styles={styles}>
           {APP_NAME} stores your portfolio data - holdings, bucket definitions, and anything you import from
-          broker statements - locally on your device. It isn't uploaded to a server, and there's no account or
-          sign-in. The developer doesn't see, collect, or have access to your data.
+          broker statements - locally on your device by default, with no account required. If you choose to sign
+          in with Google, the app can also back up and sync that same data to a private cloud store tied to your
+          account, so it carries over to your other devices. Signing in is optional; the app is fully usable
+          without it. {APP_NAME} does not sell your data, does not show ads, and does not use analytics or
+          crash-reporting tools at this time.
         </Body>
       </Section>
 
       <Section title="What's stored, and where" styles={styles}>
         <Body styles={styles}>
-          The app keeps your buckets, holdings, lot history, and any figures you enter or import in local storage
-          on your device (SQLite / IndexedDB). This data stays on your device and in your own device backups (for
-          example, if you use your phone's built-in cloud backup) - {APP_NAME} itself doesn't transmit it
-          anywhere.
+          The app keeps your buckets, holdings, lot history, watchlist, and any figures you enter or import in
+          local storage on your device (SQLite / IndexedDB). This data stays on your device and in your own
+          device backups (for example, your phone's built-in cloud backup) regardless of whether you sign in.
+        </Body>
+        <Body styles={styles}>
+          If you sign in with Google and use the app's sync feature, that same portfolio data (buckets,
+          transactions, watchlist, and settings - not the underlying broker statement files themselves) is also
+          copied to a private Firestore database (a Google Cloud service used as {APP_NAME}'s cloud backend),
+          scoped so only your signed-in account can read or write it. Signing in also gives the app your Google
+          account's basic profile info - name, email address, and profile photo - to identify you and show your
+          account details on the Account screen. {APP_NAME} doesn't request or see your Google password, and
+          doesn't request access to anything else in your Google account.
         </Body>
       </Section>
 
       <Section title="What the app does not do" styles={styles}>
         <Body styles={styles}>
-          {APP_NAME} does not require you to create an account, does not collect your name, email, or broker
-          login credentials, and does not sell or share your portfolio data with third parties. It doesn't
-          connect to your broker directly - any broker statement data comes from files you choose to import
-          yourself.
+          {APP_NAME} does not require you to create an account - it's fully usable local-only. It does not
+          collect your broker login credentials, does not sell or share your data with third parties for
+          advertising or marketing, and does not connect to your broker directly - any broker statement data
+          comes from files you choose to import yourself. The only outside service involved is Firebase (Google),
+          used solely as {APP_NAME}'s authentication and cloud-sync backend, and only if you choose to sign in.
         </Body>
       </Section>
 
       <Section title="Analytics, crash reporting, and ads" styles={styles}>
         <Body styles={styles}>
-          [Fill in honestly based on what's actually integrated: e.g. "This app does not use any analytics,
-          crash reporting, or advertising SDKs," or, if it does, name the service (such as a crash reporter) and
-          what data it receives.]
+          {APP_NAME} does not use any analytics, crash reporting, or advertising SDKs as of this writing. (If
+          that changes - a crash reporter is a likely future addition - this section will be updated to name the
+          service and what it receives before that ships, not after.)
         </Body>
       </Section>
 
       <Section title="Deleting your data" styles={styles}>
         <Body styles={styles}>
-          Since everything lives on your device, uninstalling the app removes its stored data. If the app offers
-          an in-app reset or clear-data option, using that will do the same without a full uninstall.
+          If you've never signed in, everything lives only on your device - uninstalling the app removes it, and
+          the Settings screen's reset/clear-data option (if present) does the same without a full uninstall.
+        </Body>
+        <Body styles={styles}>
+          If you've signed in and synced, "Delete My Data" on the Account screen removes your synced data from
+          {' '}{APP_NAME}'s cloud store, deletes your account, and clears local data on that device, in one step.
+          This can't be undone. You can also request deletion by emailing {SUPPORT_EMAIL}.
         </Body>
       </Section>
 
@@ -93,8 +114,8 @@ export default function PrivacyPolicyScreen() {
 
       <Section title="Changes to this policy" styles={styles}>
         <Body styles={styles}>
-          If what the app stores or how it handles data changes - for example, if cloud sync or an account
-          system is added later - this page will be updated and the effective date above will change.
+          If what the app stores or how it handles data changes - for example, if analytics or crash reporting
+          is added later - this page will be updated and the effective date above will change.
         </Body>
       </Section>
 

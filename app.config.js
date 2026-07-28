@@ -24,6 +24,12 @@ module.exports = {
     // Store/App Store/Firebase permanent app identity), not an oversight.
     slug: "bucket-portfolio-manager",
     version: "0.1.0",
+    // Pre-launch pass (2026-07-26): enables ani://... deep links on
+    // iOS/Android, paired with core/linking.ts's path config. Doesn't touch
+    // web (that's routed by prefixes' https:// entry instead) and doesn't
+    // affect the slug/package/bundleIdentifier decision above - this is
+    // just the custom URI scheme, unrelated to app store identity.
+    scheme: "ani",
     orientation: "portrait",
     userInterfaceStyle: "automatic",
     // Ani branding plan, Tier 2: real icon/splash assets built around the
@@ -32,6 +38,16 @@ module.exports = {
     icon: "./assets/icon.png",
     android: {
       package: "com.wilzebob.bucketportfoliomanager",
+      // PLACEHOLDER PATH (2026-07-26 pre-launch pass) - download this file
+      // yourself: Firebase Console -> Project settings -> your Android app
+      // ("bucketportfoliomanager" project, package com.wilzebob.bucketportfoliomanager)
+      // -> google-services.json -> save it at this exact path (project
+      // root). Not committed here since it doesn't exist in this checkout -
+      // builds will fail at the Crashlytics config-plugin step until it's
+      // in place. Not a secret in the .env sense (it's a public client
+      // config, same category as the FIREBASE_* values already in .env) -
+      // fine to commit once it's added.
+      googleServicesFile: "./google-services.json",
       adaptiveIcon: {
         // Sprout only, shrunk to fit Android's ~66%-diameter safe zone so it
         // isn't clipped by circle/squircle/rounded-square launcher masks.
@@ -41,10 +57,27 @@ module.exports = {
     },
     ios: {
       bundleIdentifier: "com.wilzebob.bucketportfoliomanager",
-      supportsTablet: false
+      supportsTablet: false,
+      // Same story as android.googleServicesFile above, downloaded for the
+      // iOS app entry in the same Firebase project instead.
+      googleServicesFile: "./GoogleService-Info.plist"
     },
     plugins: [
       "expo-sqlite",
+      // Crashlytics (pre-launch pass, 2026-07-26). @react-native-firebase
+      // is a separate native module from the plain `firebase` JS SDK used
+      // elsewhere (core/firebaseConfig.ts) - the JS SDK doesn't support
+      // Crashlytics on native at all, per Expo's own Firebase docs. Both
+      // point at the same Firebase project. "app" must load before
+      // "crashlytics" - order in this array matters.
+      "@react-native-firebase/app",
+      "@react-native-firebase/crashlytics",
+      [
+        // react-native-firebase requires static frameworks on iOS - without
+        // this the iOS build fails at the pod install step.
+        "expo-build-properties",
+        { ios: { useFrameworks: "static" } }
+      ],
       [
         "@react-native-google-signin/google-signin",
         {

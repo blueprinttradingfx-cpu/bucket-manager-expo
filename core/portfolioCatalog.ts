@@ -37,6 +37,7 @@ export interface Portfolio {
   /** Human-readable name, derived from the filename (see toDisplayName). */
   name: string;
   stocks: PortfolioStockInput[];
+  buyBelowPrice?: number;
 }
 
 const PORTFOLIO_FILES: { id: string; rows: RawPortfolioRow[] }[] = [

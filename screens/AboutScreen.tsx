@@ -5,13 +5,15 @@
 
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import Constants from 'expo-constants';
 import { spacing, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
-import { APP_NAME } from '../core/branding';
+import { APP_NAME, GLOBAL_DATA_DISCLAIMER } from '../core/branding';
 
-// TODO: pull this from app.json / Constants.expoConfig.version instead of
-// hardcoding, so it never drifts from the actual build.
-const APP_VERSION = '[APP_VERSION]';
+// Reads the real build version from app.config.js's `version` field via
+// Constants.expoConfig, so this can never drift out of sync with the
+// actual build the way a hand-typed string could.
+const APP_VERSION = Constants.expoConfig?.version ?? 'dev';
 
 function Section({ title, styles, children }: { title: string; styles: ReturnType<typeof createStyles>; children: React.ReactNode }) {
   return (
@@ -48,6 +50,14 @@ export default function AboutScreen() {
           {APP_NAME} is a personal record-keeping tool. It doesn't recommend, endorse, or execute trades, and
           nothing in the app should be read as investment, tax, or legal advice. Always verify your holdings and
           balances against your official broker statements.
+        </Body>
+      </Section>
+
+      <Section title="Data sources" styles={styles}>
+        <Body styles={styles}>
+          {GLOBAL_DATA_DISCLAIMER} This covers everything beyond your own holdings - live prices,
+          company fundamentals, foreign flow, ownership, and dividend history - all pulled from
+          public PSE EDGE disclosures, not from PSE itself.
         </Body>
       </Section>
 

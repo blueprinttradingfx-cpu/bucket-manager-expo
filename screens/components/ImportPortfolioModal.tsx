@@ -82,9 +82,13 @@ export default function ImportPortfolioModal({ visible, onClose, onImport }: Pro
       <View style={styles.overlay}>
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <View>
-              <Text style={styles.title}>Import Portfolio</Text>
-              <Text style={styles.subtitle}>Copy someone else's ticker list into your Watch List.</Text>
+            <View style={styles.headerText}>
+              <Text style={styles.title}>Import a Portfolio</Text>
+              <Text style={styles.subtitle}>Add a ready-made ticker list to your Watch List in one tap.</Text>
+              <Text style={styles.disclaimer}>
+                These lists are publicly shared by independent finance creators. We aren't affiliated
+                with, partnered with, or endorsed by any of them, and nothing here is investment advice.
+              </Text>
             </View>
             <Pressable onPress={onClose} hitSlop={10}>
               <Ionicons name="close" size={24} color={colors.onSurface} />
@@ -165,9 +169,11 @@ export default function ImportPortfolioModal({ visible, onClose, onImport }: Pro
 const createStyles = (colors: ThemeColors) => StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: colors.surface, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, maxHeight: '85%', paddingTop: spacing.md },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: spacing.md, marginBottom: spacing.sm },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: spacing.md, marginBottom: spacing.sm, gap: spacing.sm },
+  headerText: { flex: 1 },
   title: { fontFamily: fonts.bodySemiBold, fontSize: 18, color: colors.onBackground },
-  subtitle: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2, maxWidth: 260 },
+  subtitle: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant, marginTop: 2 },
+  disclaimer: { fontFamily: fonts.body, fontSize: 11, color: colors.onSurfaceVariant, marginTop: 6, lineHeight: 15, opacity: 0.85 },
   list: { flexGrow: 0 },
   listContent: { paddingHorizontal: spacing.md, paddingBottom: spacing.md, gap: spacing.sm },
   empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', paddingVertical: 30 },

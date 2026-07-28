@@ -66,7 +66,7 @@ export async function pushSnapshotToFirestore(uid: string, snapshot: PushableSna
 
   for (const b of snapshot.buckets) {
     stage(doc(db, 'users', uid, 'buckets', b.uuid), {
-      name: b.name, yieldLow: b.yieldLow, yieldHigh: b.yieldHigh,
+      name: b.name, yieldLow: b.yieldLow, yieldHigh: b.yieldHigh, color: b.color,
       sortOrder: b.sortOrder, updatedAt: b.updatedAt, deletedAt: b.deletedAt,
     });
   }
@@ -149,7 +149,7 @@ export async function pullSnapshotFromFirestore(uid: string): Promise<SyncSnapsh
       const v = d.data();
       return {
         uuid: d.id, name: v.name, yieldLow: v.yieldLow ?? null, yieldHigh: v.yieldHigh ?? null,
-        sortOrder: v.sortOrder ?? 0, updatedAt: v.updatedAt, deletedAt: v.deletedAt ?? null,
+        color: v.color ?? null, sortOrder: v.sortOrder ?? 0, updatedAt: v.updatedAt, deletedAt: v.deletedAt ?? null,
       };
     }),
     transactions: txnsSnap.docs.map((d) => {
@@ -243,4 +243,49 @@ export async function syncNow(store: BucketStoreAPI, uid: string): Promise<SyncR
   ]);
   const plan = mergeSnapshots(local, remote);
   return applyMergePlan(store, uid, plan);
+}
+
+// --- Account deletion (pre-launch pass, 2026-07-26) -----------------------
+// The Firestore client SDK has no recursive-delete - deleting the users/{uid}
+// document itself would NOT delete its subcollections (buckets/transactions/
+// watchlist/settings/meta), leaving orphaned data behind under a uid nobody
+// can read anymore (firestore.rules scopes every doc to its own uid, so
+// even the developer can't clean it up later through the client SDK - it'd
+// need the Admin SDK/console). So this enumerates and deletes every doc in
+// every subcollection explicitly, same batching approach as
+// pushSnapshotToFirestore (450-op headroom under Firestore's 500/batch cap).
+export async function deleteAllRemoteData(uid: string): Promise<void> {
+  const db = firestore;
+
+  const [bucketsSnap, txnsSnap, watchlistSnap] = await Promise.all([
+    getDocs(collection(db, 'users', uid, 'buckets')),
+    getDocs(collection(db, 'users', uid, 'transactions')),
+    getDocs(collection(db, 'users', uid, 'watchlist')),
+  ]);
+
+  let batch = writeBatch(db);
+  let opsInBatch = 0;
+  const commits: Promise<void>[] = [];
+
+  const stageDelete = (ref: ReturnType<typeof doc>) => {
+    batch.delete(ref);
+    opsInBatch++;
+    if (opsInBatch >= BATCH_LIMIT) {
+      commits.push(batch.commit());
+      batch = writeBatch(db);
+      opsInBatch = 0;
+    }
+  };
+
+  for (const d of bucketsSnap.docs) stageDelete(d.ref);
+  for (const d of txnsSnap.docs) stageDelete(d.ref);
+  for (const d of watchlistSnap.docs) stageDelete(d.ref);
+  // Single-doc collections - settings/preferences and meta/sync - staged
+  // the same way rather than a bare deleteDoc, so they ride along in the
+  // batch instead of firing as separate round trips.
+  stageDelete(doc(db, 'users', uid, 'settings', 'preferences'));
+  stageDelete(doc(db, 'users', uid, 'meta', 'sync'));
+
+  if (opsInBatch > 0) commits.push(batch.commit());
+  await Promise.all(commits);
 }

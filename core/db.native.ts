@@ -72,6 +72,12 @@ export async function initSchema(db: SQLiteDatabase) {
   await addColumnIfMissing(db, 'buckets', 'uuid', 'TEXT');
   await addColumnIfMissing(db, 'buckets', 'updated_at', 'TEXT');
   await addColumnIfMissing(db, 'buckets', 'deleted_at', 'TEXT');
+  // User-chosen swatch for identifying this bucket across the app - see
+  // BucketRow.color's doc comment in storeApi.ts. NULL (the default for
+  // every pre-existing row post-ALTER TABLE, and for a newly-created
+  // bucket that hasn't had a color set) means "derive one instead" -
+  // no backfill needed, unlike uuid/updated_at above.
+  await addColumnIfMissing(db, 'buckets', 'color', 'TEXT');
   await addColumnIfMissing(db, 'transactions', 'uuid', 'TEXT');
   await addColumnIfMissing(db, 'transactions', 'updated_at', 'TEXT');
   await addColumnIfMissing(db, 'transactions', 'deleted_at', 'TEXT');
@@ -129,21 +135,22 @@ export class NativeBucketStore implements BucketStoreAPI {
 
   async listBuckets(): Promise<BucketRow[]> {
     return this.db.getAllAsync<BucketRow>(
-      'SELECT id, name, yield_low, yield_high FROM buckets WHERE deleted_at IS NULL ORDER BY sort_order, name'
+      'SELECT id, name, yield_low, yield_high, color FROM buckets WHERE deleted_at IS NULL ORDER BY sort_order, name'
     );
   }
 
-  async updateBucket(id: number, updates: { name?: string; yieldLow?: number | null; yieldHigh?: number | null }): Promise<void> {
+  async updateBucket(id: number, updates: { name?: string; yieldLow?: number | null; yieldHigh?: number | null; color?: string | null }): Promise<void> {
     const current = await this.db.getFirstAsync<BucketRow>(
-      'SELECT id, name, yield_low, yield_high FROM buckets WHERE id = ? AND deleted_at IS NULL', id
+      'SELECT id, name, yield_low, yield_high, color FROM buckets WHERE id = ? AND deleted_at IS NULL', id
     );
     if (!current) throw new Error(`Bucket ${id} not found`);
     const name = updates.name ?? current.name;
     const yieldLow = updates.yieldLow !== undefined ? updates.yieldLow : current.yield_low;
     const yieldHigh = updates.yieldHigh !== undefined ? updates.yieldHigh : current.yield_high;
+    const color = updates.color !== undefined ? updates.color : current.color;
     await this.db.runAsync(
-      'UPDATE buckets SET name = ?, yield_low = ?, yield_high = ?, updated_at = ? WHERE id = ?',
-      name, yieldLow, yieldHigh, new Date().toISOString(), id
+      'UPDATE buckets SET name = ?, yield_low = ?, yield_high = ?, color = ?, updated_at = ? WHERE id = ?',
+      name, yieldLow, yieldHigh, color, new Date().toISOString(), id
     );
   }
 
@@ -594,9 +601,9 @@ export class NativeBucketStore implements BucketStoreAPI {
 
   async getSyncSnapshot(): Promise<SyncSnapshot> {
     const buckets = await this.db.getAllAsync<{
-      uuid: string; name: string; yield_low: number | null; yield_high: number | null;
+      uuid: string; name: string; yield_low: number | null; yield_high: number | null; color: string | null;
       sort_order: number; updated_at: string; deleted_at: string | null;
-    }>('SELECT uuid, name, yield_low, yield_high, sort_order, updated_at, deleted_at FROM buckets');
+    }>('SELECT uuid, name, yield_low, yield_high, color, sort_order, updated_at, deleted_at FROM buckets');
 
     // Transactions carry the owning bucket's UUID (not bucket_id) - joined
     // here since only the uuid is safe to write cross-device.
@@ -625,7 +632,7 @@ export class NativeBucketStore implements BucketStoreAPI {
 
     return {
       buckets: buckets.map((b) => ({
-        uuid: b.uuid, name: b.name, yieldLow: b.yield_low, yieldHigh: b.yield_high,
+        uuid: b.uuid, name: b.name, yieldLow: b.yield_low, yieldHigh: b.yield_high, color: b.color,
         sortOrder: b.sort_order, updatedAt: b.updated_at, deletedAt: b.deleted_at,
       })),
       transactions: txns.map((t) => ({
@@ -692,8 +699,8 @@ export class NativeBucketStore implements BucketStoreAPI {
       for (const b of snapshot.buckets) {
         if (b.deletedAt) continue; // tombstone - not wired into any UI yet (Phase 0), but skip defensively
         const result = await this.db.runAsync(
-          'INSERT INTO buckets (name, yield_low, yield_high, sort_order, uuid, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-          b.name, b.yieldLow, b.yieldHigh, b.sortOrder, b.uuid, b.updatedAt
+          'INSERT INTO buckets (name, yield_low, yield_high, color, sort_order, uuid, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          b.name, b.yieldLow, b.yieldHigh, b.color, b.sortOrder, b.uuid, b.updatedAt
         );
         bucketUuidToId.set(b.uuid, result.lastInsertRowId);
         bucketsWritten++;
@@ -771,8 +778,8 @@ export class NativeBucketStore implements BucketStoreAPI {
     );
     if (existing) {
       await this.db.runAsync(
-        'UPDATE buckets SET name = ?, yield_low = ?, yield_high = ?, sort_order = ?, updated_at = ?, deleted_at = ? WHERE id = ?',
-        record.name, record.yieldLow, record.yieldHigh, record.sortOrder, record.updatedAt, record.deletedAt, existing.id
+        'UPDATE buckets SET name = ?, yield_low = ?, yield_high = ?, color = ?, sort_order = ?, updated_at = ?, deleted_at = ? WHERE id = ?',
+        record.name, record.yieldLow, record.yieldHigh, record.color, record.sortOrder, record.updatedAt, record.deletedAt, existing.id
       );
       return;
     }
@@ -780,8 +787,8 @@ export class NativeBucketStore implements BucketStoreAPI {
     // applySyncedBucket in storeApi.ts for the cross-device name-collision
     // case this doesn't attempt to resolve.
     await this.db.runAsync(
-      'INSERT INTO buckets (name, yield_low, yield_high, sort_order, uuid, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      record.name, record.yieldLow, record.yieldHigh, record.sortOrder, record.uuid, record.updatedAt, record.deletedAt
+      'INSERT INTO buckets (name, yield_low, yield_high, color, sort_order, uuid, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      record.name, record.yieldLow, record.yieldHigh, record.color, record.sortOrder, record.uuid, record.updatedAt, record.deletedAt
     );
   }
 
@@ -850,5 +857,18 @@ export class NativeBucketStore implements BucketStoreAPI {
       "INSERT INTO settings (key, value, updated_at) VALUES ('themeMode', ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
       themeValue, record.updatedAt
     );
+  }
+
+  async wipeAllLocalData(): Promise<void> {
+    // Unlike restoreFromSyncSnapshot (which leaves the settings table's
+    // lastSyncedAt/hasCompletedInitialRestore rows alone on purpose - see
+    // that method's comment), this clears `settings` too: account deletion
+    // should return the app to a genuinely fresh-install state, not one
+    // that still remembers a since-deleted account's sync history.
+    await this.db.withTransactionAsync(async () => {
+      await this.db.execAsync(
+        'DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist; DELETE FROM settings;'
+      );
+    });
   }
 }

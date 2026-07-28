@@ -56,11 +56,17 @@ export const firebaseApp = getApps().length
 // because the client is offline") even when the device has a perfectly good
 // connection. This is a long-standing, well-documented issue specific to the
 // plain `firebase` JS SDK on RN/Expo (as opposed to @react-native-firebase).
-// useFetchStreams: false pairs with experimentalForceLongPolling per the
-// SDK's own guidance - can't mix the streaming fetch path with forced long
-// polling. Safe on web too (same file, no platform split), just a small,
+// Safe on web too (same file, no platform split), just a small,
 // usually-unnoticeable perf cost there.
+//
+// NOTE (2026-07-26 pre-launch pass): this used to also set
+// `useFetchStreams: false` alongside experimentalForceLongPolling, per
+// older SDK guidance that the two options had to be paired. That field no
+// longer exists on FirestoreSettings as of firebase@11.10.0 /
+// @firebase/firestore@4.8.0 (confirmed against the installed .d.ts - it was
+// a genuine `tsc --noEmit` failure, not a lint nit) and has been dropped.
+// experimentalForceLongPolling alone still covers the RN fix this was
+// originally added for.
 export const firestore: Firestore = initializeFirestore(firebaseApp, {
   experimentalForceLongPolling: true,
-  useFetchStreams: false,
 });

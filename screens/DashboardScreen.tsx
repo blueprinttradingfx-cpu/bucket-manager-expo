@@ -30,6 +30,7 @@ import PositionsTable, { PositionItem, ExpandedRow } from './components/Position
 import BucketSuggestion from './components/BucketSuggestion';
 import MonthlyDividendChart from './components/MonthlyDividendChart';
 import PassiveIncomeGoalCard from './components/PassiveIncomeGoalCard';
+import MarketPulseCard from './components/MarketPulseCard';
 
 type Props = NativeStackScreenProps<DashboardStackParamList, 'DashboardHome'>;
 
@@ -39,13 +40,14 @@ function isValued(s: StockRow): s is ValuedAggregatedStock {
   return 'marketValue' in s;
 }
 
-function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[], colors: ThemeColors, styles: ReturnType<typeof createStyles>): PositionItem {
+function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[], bucketColorMap: Map<string, string | null>, colors: ThemeColors, styles: ReturnType<typeof createStyles>): PositionItem {
   const valued = isValued(item) ? item : null;
   return {
     key: item.ticker,
     label: item.ticker,
     badgeText: item.ticker.slice(0, 2),
     badgeVariant: item.assetType,
+    logoTicker: item.ticker,
     assetType: item.assetType,
     qty: item.totalQty,
     avgCost: item.avgCost,
@@ -68,7 +70,7 @@ function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[], colors: Th
         <View style={styles.bucketChipsGrid}>
           {item.buckets.map((b, i) => (
             <View key={b.bucket} style={styles.bucketChip}>
-              <Text style={[styles.bucketChipLabel, { color: bucketColorFor(b.bucket, i) }]}>{b.bucket}</Text>
+              <Text style={[styles.bucketChipLabel, { color: bucketColorFor(b.bucket, i, bucketColorMap.get(b.bucket)) }]}>{b.bucket}</Text>
               <Text style={styles.bucketChipValue}>{b.totalQty.toLocaleString()} sh · ₱{b.totalCostBasis.toLocaleString(undefined, { minimumFractionDigits: 0 })}</Text>
             </View>
           ))}
@@ -220,9 +222,17 @@ export default function DashboardScreen({ navigation }: Props) {
       .flatMap((s) => s.buckets);
     return computePortfolioValuation(valuedFundBuckets, 0, summary.fundsCostBasis, 0);
   }, [stocks, valuation, summary]);
+  // Built once per yieldBuckets change (not once per stock/position row) -
+  // bucketColorFor's customColor param wants a single bucket's color, but
+  // the per-position/legend renders below only have a bucket NAME string at
+  // that point (AggregatedStock.buckets, PortfolioSummary.byBucket), not
+  // the full BucketRow - this bridges name -> stored color so those call
+  // sites can pass it through, same as BucketsScreen.tsx already does
+  // directly off its own BucketRow[] state.
+  const bucketColorMap = useMemo(() => new Map(yieldBuckets.map((b) => [b.name, b.color ?? null])), [yieldBuckets]);
   const visible = useMemo(
-    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map((item) => toPositionItem(item, yieldBuckets, colors, styles)),
-    [stocks, activeTab, yieldBuckets, colors, styles]
+    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map((item) => toPositionItem(item, yieldBuckets, bucketColorMap, colors, styles)),
+    [stocks, activeTab, yieldBuckets, bucketColorMap, colors, styles]
   );
   const currentYear = new Date().getFullYear();
   const monthlyDividends = useMemo(() => monthlyDividendTotals(dividendFeed, currentYear), [dividendFeed, currentYear]);
@@ -265,6 +275,16 @@ export default function DashboardScreen({ navigation }: Props) {
             )}
             {priceError && <Text style={styles.priceWarning}>Live prices unavailable - can't show unrealized gain/loss right now.</Text>}
           </View>
+
+          {/* Market-wide context (PSEi, sentiment, movers) - a different
+              concern from the portfolio stat cards below, so it gets its
+              own card rather than being folded into the stats row. Fetches
+              independently and renders nothing if the feed's unreachable,
+              so it never blocks or clutters the rest of Dashboard. */}
+          <MarketPulseCard
+            onPress={() => navigation.navigate('MarketPulse')}
+            onTickerPress={(ticker) => navigation.navigate('StockDetail', { ticker })}
+          />
 
           {(() => {
             const statCards = (
@@ -333,13 +353,13 @@ export default function DashboardScreen({ navigation }: Props) {
               </View>
               <View style={styles.allocationBar}>
                 {summary.byBucket.map((b, i) => (
-                  <View key={b.bucket} style={{ flex: b.percentage, backgroundColor: bucketColorFor(b.bucket, i), height: '100%' }} />
+                  <View key={b.bucket} style={{ flex: b.percentage, backgroundColor: bucketColorFor(b.bucket, i, bucketColorMap.get(b.bucket)), height: '100%' }} />
                 ))}
               </View>
               <View style={styles.legendGrid}>
                 {summary.byBucket.map((b, i) => (
                   <View key={b.bucket} style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: bucketColorFor(b.bucket, i) }]} />
+                    <View style={[styles.legendDot, { backgroundColor: bucketColorFor(b.bucket, i, bucketColorMap.get(b.bucket)) }]} />
                     <Text style={styles.legendText}>{b.bucket} {b.percentage}%</Text>
                   </View>
                 ))}
@@ -359,7 +379,20 @@ export default function DashboardScreen({ navigation }: Props) {
 
       <PositionsTable
         items={visible}
-        onItemPress={(ticker) => navigation.navigate('StockDetail', { ticker })}
+        onItemPress={(ticker) => {
+          // onItemPress only hands back the row's key (ticker) - look the
+          // row back up in `stocks` (not `visible`, which is filtered by
+          // the active tab and could miss it in an edge case) to route
+          // funds to FundDetail and everything else to StockDetail. See
+          // FundDetailScreen.tsx's header comment for why funds need a
+          // separate screen/route rather than sharing StockDetailScreen.
+          const item = stocks.find((s) => s.ticker === ticker);
+          if (item?.assetType === 'fund') {
+            navigation.navigate('FundDetail', { ticker });
+          } else {
+            navigation.navigate('StockDetail', { ticker });
+          }
+        }}
         tabs={[
           { key: 'all', label: 'All', count: stocks.length },
           { key: 'stock', label: 'Stocks', count: stockCount },

@@ -12,6 +12,11 @@ export interface BucketRow {
   name: string;
   yield_low: number | null;
   yield_high: number | null;
+  /** User-chosen swatch (hex string, e.g. '#3B82F6') for identifying this
+   *  bucket across the app - chips, dots, legends, etc. null means "no
+   *  custom color set", which falls back to core/theme.ts's bucketColorFor
+   *  deriving one from the bucket's name/position instead. */
+  color: string | null;
 }
 
 export interface WatchlistItem {
@@ -25,9 +30,11 @@ export interface WatchlistItem {
 export interface BucketStoreAPI {
   listBuckets(): Promise<BucketRow[]>;
   getOrCreateBucket(name: string, yieldLow?: number, yieldHigh?: number): Promise<number>;
-  /** Rename a bucket and/or adjust its yield bracket. Only fields present
-   *  in `updates` are changed - omit a field to leave it as-is. */
-  updateBucket(id: number, updates: { name?: string; yieldLow?: number | null; yieldHigh?: number | null }): Promise<void>;
+  /** Rename a bucket, adjust its yield bracket, and/or set its color. Only
+   *  fields present in `updates` are changed - omit a field to leave it
+   *  as-is; pass color: null to explicitly clear a previously-set color
+   *  back to the derived default. */
+  updateBucket(id: number, updates: { name?: string; yieldLow?: number | null; yieldHigh?: number | null; color?: string | null }): Promise<void>;
   /** Delete a bucket by ID. Only works if the bucket is empty (no holdings). */
   deleteBucket(id: number): Promise<void>;
   importIntoBucket(
@@ -209,6 +216,17 @@ export interface BucketStoreAPI {
    *  collection, so unlike the three methods above there's no per-key
    *  union; the caller decides push-vs-pull for the whole record. */
   applySyncedSettings(record: SyncSettingsRecord): Promise<void>;
+
+  // --- Account deletion (pre-launch pass, 2026-07-26) -------------------
+  /** Full local wipe: every bucket, transaction, watchlist entry, AND
+   *  settings/sync bookkeeping (monthlyIncomeGoal, themeMode, lastSyncedAt,
+   *  hasCompletedInitialRestore) - unlike restoreFromSyncSnapshot, which
+   *  deliberately preserves this device's own sync history, this is meant
+   *  to return the app to a truly fresh-install state. Used by
+   *  AccountScreen's "Delete My Data" alongside syncEngine.ts's
+   *  deleteAllRemoteData(uid) and AuthContextValue.deleteAccount() - all
+   *  three run together, but each is independently safe to call. */
+  wipeAllLocalData(): Promise<void>;
 }
 
 /** Result of applying a pulled snapshot locally - see restoreFromSyncSnapshot. */
@@ -242,6 +260,7 @@ export interface SyncBucketRecord {
   name: string;
   yieldLow: number | null;
   yieldHigh: number | null;
+  color: string | null;
   sortOrder: number;
   updatedAt: string;
   deletedAt: string | null;

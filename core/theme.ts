@@ -132,12 +132,18 @@ export interface ThemeColors {
 // not this static export.
 export const colors = lightColors;
 
-/** Maps a bucket name to its design-system color by looking for a trailing
- *  digit 1-5 (matches this app's real "B2", "B3", "B4", "B5" bucket
- *  naming). Falls back to a neutral gray for any bucket that doesn't
- *  follow that convention, rather than guessing. Bucket colors are the
- *  same in light and dark themes, so no ThemeColors param is needed. */
-export function bucketColorFor(bucketName: string, fallbackIndex = 0): string {
+/** Maps a bucket name to a color for chips/dots/legends across the app.
+ *  `customColor` - a bucket's own stored `color` field (BucketRow.color) -
+ *  wins outright when set, so a person's chosen color is what's shown
+ *  everywhere a bucket appears, not just on the Buckets screen itself.
+ *  Falls back to the pre-existing derived scheme when there's no custom
+ *  color: looks for a trailing digit 1-5 (matches this app's real "B2",
+ *  "B3", "B4", "B5" bucket naming), then a neutral gray keyed off
+ *  fallbackIndex for anything else, rather than guessing. Bucket colors
+ *  are the same in light and dark themes, so no ThemeColors param is
+ *  needed. */
+export function bucketColorFor(bucketName: string, fallbackIndex = 0, customColor?: string | null): string {
+  if (customColor) return customColor;
   const match = bucketName.match(/([1-5])(?!.*[1-5])/);
   if (match) {
     const n = match[1] as '1' | '2' | '3' | '4' | '5';
@@ -146,6 +152,18 @@ export function bucketColorFor(bucketName: string, fallbackIndex = 0): string {
   const fallbackPalette = [colors.bucket5, colors.bucket4, colors.bucket3, colors.bucket2, colors.bucket1];
   return fallbackPalette[fallbackIndex % fallbackPalette.length];
 }
+
+// Curated options for the bucket color picker (EditBucketScreen) - a small,
+// visually distinct set rather than an open-ended color wheel, so any two
+// buckets a person picks stay easy to tell apart at chip/dot size. Deliberately
+// a separate list from bucket1-5 above (the *default*, name-derived palette):
+// this is what a person can deliberately choose to override that default.
+export const BUCKET_COLOR_SWATCHES = [
+  '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16',
+  '#22C55E', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9',
+  '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7', '#D946EF',
+  '#EC4899', '#F43F5E', '#78716C',
+] as const;
 
 // Responsive layout tokens. `wideBreakpoint` is the window width (px) at
 // which web switches from the mobile-style bottom tab bar to a persistent

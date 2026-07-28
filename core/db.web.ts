@@ -29,6 +29,10 @@ const DB_VERSION = 6;
 // path yet; that's Phase 4 work.
 interface StoredBucket {
   id: number; name: string; yield_low: number | null; yield_high: number | null;
+  // User-chosen swatch - see BucketRow.color's doc comment in storeApi.ts.
+  // Optional/undefined on rows written before this field existed, treated
+  // identically to explicit null (no custom color) everywhere it's read.
+  color?: string | null;
   uuid?: string; updated_at?: string; deleted_at?: string | null;
 }
 interface StoredWebTxn extends StoredTxn {
@@ -141,10 +145,15 @@ export class WebBucketStore implements BucketStoreAPI {
 
   async listBuckets(): Promise<BucketRow[]> {
     const all = await this.db.getAll('buckets') as StoredBucket[];
-    return all.filter((b) => !b.deleted_at).sort((a, b) => a.name.localeCompare(b.name));
+    return all.filter((b) => !b.deleted_at).sort((a, b) => a.name.localeCompare(b.name))
+      // Normalize undefined -> null: rows written before `color` existed
+      // have no such key at all (IndexedDB is schemaless, no migration
+      // step like native's ALTER TABLE) - BucketRow.color is a required
+      // `string | null`, not optional, so every row needs an explicit value.
+      .map((b) => ({ ...b, color: b.color ?? null }));
   }
 
-  async updateBucket(id: number, updates: { name?: string; yieldLow?: number | null; yieldHigh?: number | null }): Promise<void> {
+  async updateBucket(id: number, updates: { name?: string; yieldLow?: number | null; yieldHigh?: number | null; color?: string | null }): Promise<void> {
     const current = await this.db.get('buckets', id) as StoredBucket | undefined;
     if (!current || current.deleted_at) throw new Error(`Bucket ${id} not found`);
     const updated: StoredBucket = {
@@ -153,6 +162,7 @@ export class WebBucketStore implements BucketStoreAPI {
       name: updates.name ?? current.name,
       yield_low: updates.yieldLow !== undefined ? updates.yieldLow : current.yield_low,
       yield_high: updates.yieldHigh !== undefined ? updates.yieldHigh : current.yield_high,
+      color: updates.color !== undefined ? updates.color : (current.color ?? null),
       updated_at: new Date().toISOString(),
     };
     await this.db.put('buckets', updated);
@@ -561,7 +571,7 @@ export class WebBucketStore implements BucketStoreAPI {
       // Hardcoding 0 here matches native's actual current value rather than
       // adding a real column for a feature that doesn't exist yet.
       buckets: buckets.map((b) => ({
-        uuid: b.uuid!, name: b.name, yieldLow: b.yield_low, yieldHigh: b.yield_high,
+        uuid: b.uuid!, name: b.name, yieldLow: b.yield_low, yieldHigh: b.yield_high, color: b.color ?? null,
         sortOrder: 0, updatedAt: b.updated_at!, deletedAt: b.deleted_at ?? null,
       })),
       transactions: allTxns.map((t) => ({
@@ -632,7 +642,7 @@ export class WebBucketStore implements BucketStoreAPI {
     for (const b of snapshot.buckets) {
       if (b.deletedAt) continue; // tombstone - not wired into any UI yet (Phase 0), but skip defensively
       const id = (await bucketsStore.add({
-        name: b.name, yield_low: b.yieldLow, yield_high: b.yieldHigh,
+        name: b.name, yield_low: b.yieldLow, yield_high: b.yieldHigh, color: b.color,
         uuid: b.uuid, updated_at: b.updatedAt,
       } as any)) as number;
       bucketUuidToId.set(b.uuid, id);
@@ -710,6 +720,7 @@ export class WebBucketStore implements BucketStoreAPI {
       existing.name = record.name;
       existing.yield_low = record.yieldLow;
       existing.yield_high = record.yieldHigh;
+      existing.color = record.color;
       existing.updated_at = record.updatedAt;
       existing.deleted_at = record.deletedAt;
       await this.db.put('buckets', existing);
@@ -723,7 +734,7 @@ export class WebBucketStore implements BucketStoreAPI {
     // getSyncSnapshot's comment on why bucket ordering isn't implemented
     // on either platform yet).
     await this.db.add('buckets', {
-      name: record.name, yield_low: record.yieldLow, yield_high: record.yieldHigh,
+      name: record.name, yield_low: record.yieldLow, yield_high: record.yieldHigh, color: record.color,
       uuid: record.uuid, updated_at: record.updatedAt, deleted_at: record.deletedAt,
     } as any);
   }
@@ -773,5 +784,22 @@ export class WebBucketStore implements BucketStoreAPI {
     }
     const themeValue = { system: 0, light: 1, dark: 2 }[record.themeMode];
     await this.db.put('settings', { key: 'themeMode', value: themeValue, updated_at: record.updatedAt });
+  }
+
+  async wipeAllLocalData(): Promise<void> {
+    // Unlike restoreFromSyncSnapshot (which leaves 'settings' rows like
+    // lastSyncedAt/hasCompletedInitialRestore alone on purpose), this clears
+    // it too - account deletion should return the app to a genuinely
+    // fresh-install state, not one that still remembers a since-deleted
+    // account's sync history. Same all-in-one-transaction shape as
+    // restoreFromSyncSnapshot for the same atomicity reason.
+    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'settings'], 'readwrite');
+    await Promise.all([
+      tx.objectStore('buckets').clear(),
+      tx.objectStore('transactions').clear(),
+      tx.objectStore('watchlist').clear(),
+      tx.objectStore('settings').clear(),
+      tx.done,
+    ]);
   }
 }

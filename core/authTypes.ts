@@ -20,4 +20,13 @@ export interface AuthContextValue {
   initializing: boolean;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Deletes the signed-in Firebase Auth account itself (pre-launch pass,
+   *  2026-07-26). Firestore data is NOT this method's job - callers should
+   *  run core/syncEngine.ts's deleteAllRemoteData(uid) and
+   *  store.wipeAllLocalData() alongside this, since deleting the auth
+   *  account doesn't touch either. Firebase requires a "recent" login for
+   *  this operation (throws `auth/requires-recent-login` otherwise) -
+   *  implementations transparently re-prompt sign-in and retry once rather
+   *  than surfacing that as an error the caller has to handle itself. */
+  deleteAccount: () => Promise<void>;
 }

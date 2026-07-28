@@ -3,7 +3,7 @@
 // StoreProvider.native.tsx on iOS/Android and StoreProvider.web.tsx on web.
 //
 // Navigation: each tab now has its own Stack, supporting drill-down -
-// Dashboard: DashboardHome -> StockDetail -> StockInBucket
+// Dashboard: DashboardHome -> StockDetail / FundDetail -> StockInBucket
 // Buckets:   BucketsHome -> BucketDetail -> StockInBucket
 // Settings:  SettingsHome -> About / Contact / TermsOfUse / PrivacyPolicy / BucketStrategyInfo
 // StockInBucketScreen (and BucketStrategyInfoScreen) are shared, registered
@@ -27,7 +27,9 @@ import { JetBrainsMono_500Medium, JetBrainsMono_600SemiBold, JetBrainsMono_700Bo
 import { StoreProvider } from './core/StoreProvider';
 import { ThemeProvider, useTheme } from './core/ThemeContext';
 import { AuthProvider } from './core/AuthProvider';
+import { ErrorBoundary } from './core/ErrorBoundary';
 import { AlertHost } from './core/alert';
+import { linking } from './core/linking';
 import { lightColors, darkColors, fonts, layout, ThemeColors } from './core/theme';
 import SidebarNav, { SidebarItem } from './screens/components/SidebarNav';
 import DashboardScreen from './screens/DashboardScreen';
@@ -37,15 +39,18 @@ import SettingsScreen from './screens/SettingsScreen';
 import AccountScreen from './screens/AccountScreen';
 import BucketDetailScreen from './screens/BucketDetailScreen';
 import StockDetailScreen from './screens/StockDetailScreen';
+import FundDetailScreen from './screens/FundDetailScreen';
 import StockInBucketScreen from './screens/StockInBucketScreen';
 import SearchStockScreen from './screens/SearchStockScreen';
 import EditBucketScreen from './screens/EditBucketScreen';
 import BucketStrategyInfoScreen from './screens/BucketStrategyInfoScreen';
 import AboutScreen from './screens/AboutScreen';
+import SupportScreen from './screens/SupportScreen';
 import ContactScreen from './screens/ContactScreen';
 import TermsOfUseScreen from './screens/TermsOfUseScreen';
 import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import MonthlyDividendIncomeScreen from './screens/MonthlyDividendIncomeScreen';
+import MarketPulseScreen from './screens/MarketPulseScreen';
 import WatchListScreen from './screens/WatchListScreen';
 import { DashboardStackParamList, BucketsStackParamList, SettingsStackParamList, WatchListStackParamList } from './core/navigationTypes';
 
@@ -58,6 +63,17 @@ const TAB_ITEMS: SidebarItem[] = [
   { key: 'Import', label: 'Import', icon: 'cloud-upload-outline' },
   { key: 'Settings', label: 'Settings', icon: 'settings-outline' },
 ];
+
+// Maps each tab to the initial screen inside its nested stack - see
+// handleTabNavigate's comment in AppShell for why re-navigating to a tab
+// needs this instead of just the bare tab name.
+const TAB_HOME_SCREEN: Record<string, string | undefined> = {
+  Dashboard: 'DashboardHome',
+  Buckets: 'BucketsHome',
+  WatchList: 'WatchListHome',
+  Settings: 'SettingsHome',
+  // Import has no nested stack - there's no "home screen" to reset to.
+};
 
 const Tab = createBottomTabNavigator();
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
@@ -86,6 +102,11 @@ function DashboardStackNavigator({ stackScreenOptions, colors }: { stackScreenOp
         options={({ route }: any) => ({ title: route.params?.ticker ?? 'Stock' })}
       />
       <DashboardStack.Screen
+        name="FundDetail"
+        component={FundDetailScreen}
+        options={({ route }: any) => ({ title: route.params?.ticker ?? 'Fund' })}
+      />
+      <DashboardStack.Screen
         name="StockInBucket"
         component={StockInBucketScreen}
         options={({ route }: any) => ({ title: `${route.params?.ticker} · ${route.params?.bucket}` })}
@@ -99,6 +120,11 @@ function DashboardStackNavigator({ stackScreenOptions, colors }: { stackScreenOp
         name="MonthlyDividendIncome"
         component={MonthlyDividendIncomeScreen}
         options={({ route }: any) => ({ title: route.params?.bucket ? `Dividends · ${route.params.bucket}` : 'Monthly Dividend Income' })}
+      />
+      <DashboardStack.Screen
+        name="MarketPulse"
+        component={MarketPulseScreen}
+        options={{ title: 'Market Pulse' }}
       />
     </DashboardStack.Navigator>
   );
@@ -181,6 +207,7 @@ function SettingsStackNavigator({ stackScreenOptions }: { stackScreenOptions: ob
     <SettingsStack.Navigator screenOptions={stackScreenOptions}>
       <SettingsStack.Screen name="SettingsHome" component={SettingsScreen} options={{ title: 'Settings' }} />
       <SettingsStack.Screen name="Account" component={AccountScreen} options={{ title: 'Account' }} />
+      <SettingsStack.Screen name="Support" component={SupportScreen} options={{ title: 'Support the Developer' }} />
       <SettingsStack.Screen name="BucketStrategyInfo" component={BucketStrategyInfoScreen} options={{ title: 'Bucket Strategy' }} />
       <SettingsStack.Screen name="About" component={AboutScreen} options={{ title: 'About' }} />
       <SettingsStack.Screen name="Contact" component={ContactScreen} options={{ title: 'Contact' }} />
@@ -209,11 +236,41 @@ function AppShell() {
     if (topRoute) setActiveRoute(topRoute.name);
   }, [navigationRef]);
 
-  const handleSidebarNavigate = useCallback((key: string) => {
-    if (navigationRef.isReady()) {
+  // Bug this fixes: from e.g. /stock/WLCON (Dashboard tab > StockDetail,
+  // several screens deep), clicking "Dashboard" in the sidebar - or tapping
+  // the Dashboard icon in the bottom tab bar - did nothing, because
+  // Dashboard was already the focused tab. A bare navigate('Dashboard')
+  // is a documented no-op in that case (React Navigation only switches
+  // tabs / doesn't reset an already-focused tab's nested stack), which is
+  // why only the header's back button could get back to DashboardHome.
+  //
+  // Fix: always navigate to the tab's nested home screen explicitly
+  // (`{ screen: 'DashboardHome' }` etc.) instead of just the tab name.
+  // Passing the nested screen forces a reset into it every time, whether
+  // the tab is currently focused or not - unlike the bare tab-name form,
+  // which only switches tabs and is a no-op when you're already on one.
+  const handleTabNavigate = useCallback((key: string) => {
+    if (!navigationRef.isReady()) return;
+    const homeScreen = TAB_HOME_SCREEN[key];
+    if (homeScreen) {
+      (navigationRef.navigate as any)(key, { screen: homeScreen });
+    } else {
       navigationRef.navigate(key as never);
     }
   }, [navigationRef]);
+
+  // Same bug, second entry point: the real bottom tab bar (phone/narrow
+  // web) has the identical "re-tapping the already-focused tab does
+  // nothing" default behavior as the sidebar did. Overriding tabPress to
+  // go through handleTabNavigate instead of the default action keeps both
+  // nav UIs behaving identically - switch tabs normally, but reset to the
+  // home screen when re-pressing the one you're already on.
+  const tabPressReset = useCallback((key: string) => ({
+    tabPress: (e: { preventDefault: () => void }) => {
+      e.preventDefault();
+      handleTabNavigate(key);
+    },
+  }), [handleTabNavigate]);
 
   const navTheme = useMemo(() => ({
     ...DefaultTheme,
@@ -239,13 +296,14 @@ function AppShell() {
     <NavigationContainer
       ref={navigationRef}
       theme={navTheme}
+      linking={linking}
       onReady={syncActiveRoute}
       onStateChange={syncActiveRoute}
     >
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <View style={{ flex: 1, flexDirection: isWideWeb ? 'row' : 'column', backgroundColor: colors.background }}>
         {isWideWeb && (
-          <SidebarNav items={TAB_ITEMS} activeKey={activeRoute} onNavigate={handleSidebarNavigate} />
+          <SidebarNav items={TAB_ITEMS} activeKey={activeRoute} onNavigate={handleTabNavigate} />
         )}
         <View style={{ flex: 1 }}>
           <Tab.Navigator
@@ -266,17 +324,17 @@ function AppShell() {
               },
             })}
           >
-            <Tab.Screen name="Dashboard">
+            <Tab.Screen name="Dashboard" listeners={tabPressReset('Dashboard')}>
               {() => <DashboardStackNavigator stackScreenOptions={stackScreenOptions} colors={colors} />}
             </Tab.Screen>
-            <Tab.Screen name="Buckets">
+            <Tab.Screen name="Buckets" listeners={tabPressReset('Buckets')}>
               {() => <BucketsStackNavigator stackScreenOptions={stackScreenOptions} />}
             </Tab.Screen>
-            <Tab.Screen name="WatchList">
+            <Tab.Screen name="WatchList" listeners={tabPressReset('WatchList')}>
               {() => <WatchListStackNavigator stackScreenOptions={stackScreenOptions} colors={colors} />}
             </Tab.Screen>
             <Tab.Screen name="Import" component={ImportScreen} />
-            <Tab.Screen name="Settings">
+            <Tab.Screen name="Settings" listeners={tabPressReset('Settings')}>
               {() => <SettingsStackNavigator stackScreenOptions={stackScreenOptions} />}
             </Tab.Screen>
           </Tab.Navigator>
@@ -299,19 +357,23 @@ export default function App() {
     // doesn't flash light before settling into a saved dark preference.
     const splash = Appearance.getColorScheme() === 'dark' ? darkColors : lightColors;
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: splash.background }}>
-        <ActivityIndicator color={splash.primary} />
-      </View>
+      <ErrorBoundary>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: splash.background }}>
+          <ActivityIndicator color={splash.primary} />
+        </View>
+      </ErrorBoundary>
     );
   }
 
   return (
-    <StoreProvider>
-      <ThemeProvider>
-        <AuthProvider>
-          <AppShell />
-        </AuthProvider>
-      </ThemeProvider>
-    </StoreProvider>
+    <ErrorBoundary>
+      <StoreProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppShell />
+          </AuthProvider>
+        </ThemeProvider>
+      </StoreProvider>
+    </ErrorBoundary>
   );
 }

@@ -28,7 +28,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Alert from '../core/alert';
 import { useAuth } from '../core/AuthProvider';
 import { useStore } from '../core/StoreProvider';
-import { pullSnapshotFromFirestore, syncNow, SyncResult } from '../core/syncEngine';
+import { pullSnapshotFromFirestore, syncNow, deleteAllRemoteData, SyncResult } from '../core/syncEngine';
 import { SyncSnapshot } from '../core/storeApi';
 import { useThemeColors } from '../core/ThemeContext';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
@@ -42,11 +42,12 @@ export default function AccountScreen() {
   useScreenViewLog('Account');
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const { user, initializing, signInWithGoogle, signOut } = useAuth();
+  const { user, initializing, signInWithGoogle, signOut, deleteAccount } = useAuth();
   const store = useStore();
   const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
   // Guards against the manual button and the AppState auto-trigger firing
   // at the same time - not a full queue, just "don't start a second sync
@@ -200,6 +201,47 @@ export default function AccountScreen() {
     }
   };
 
+  // Pre-launch pass (2026-07-26): remote-then-local-then-account, in that
+  // specific order, so a failure partway through can never leave local data
+  // wiped while a remote copy (or the account itself) still exists -
+  // there's always something left to retry against. deleteAccount() runs
+  // last on purpose: once it succeeds the Firebase session is gone, so any
+  // step that still needs auth (deleteAllRemoteData, which Firestore rules
+  // scope to request.auth.uid) has to happen before it, not after.
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    Alert.alert(
+      'Delete your data?',
+      "This permanently deletes your synced data, your account, and this device's local data. " +
+      "This can't be undone.",
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Everything',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAllRemoteData(user.uid);
+              await store.wipeAllLocalData();
+              await deleteAccount();
+              Alert.alert('Deleted', 'Your data and account have been deleted.');
+            } catch (e: any) {
+              console.warn('[AccountScreen] delete account failed', e);
+              Alert.alert(
+                'Delete failed',
+                e?.message ?? "Something went wrong partway through. It's safe to try again - Delete Everything " +
+                'can be retried and will pick up wherever it left off.'
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // Phase 4 (sync-plan.md §10): bidirectional merge, replacing Phase 2's
   // push-only "Back Up Now" - fetches both sides, resolves per-record via
   // last-write-wins, pushes what's locally newer and pulls what's remotely
@@ -283,9 +325,9 @@ export default function AccountScreen() {
           )}
 
           <Pressable
-            style={[styles.button, (busy || syncing || restoring) && styles.buttonDisabled]}
+            style={[styles.button, (busy || syncing || restoring || deleting) && styles.buttonDisabled]}
             onPress={handleSyncNow}
-            disabled={busy || syncing || restoring}
+            disabled={busy || syncing || restoring || deleting}
           >
             {syncing
               ? <ActivityIndicator color={colors.onPrimary} />
@@ -298,13 +340,24 @@ export default function AccountScreen() {
           </Pressable>
 
           <Pressable
-            style={[styles.button, styles.buttonSecondary, styles.buttonSpaced, (busy || syncing || restoring) && styles.buttonDisabled]}
+            style={[styles.button, styles.buttonSecondary, styles.buttonSpaced, (busy || syncing || restoring || deleting) && styles.buttonDisabled]}
             onPress={handleSignOut}
-            disabled={busy || syncing || restoring}
+            disabled={busy || syncing || restoring || deleting}
           >
             {busy
               ? <ActivityIndicator color={colors.onSurface} />
               : <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Sign Out</Text>}
+          </Pressable>
+
+          <Text style={styles.dangerZoneLabel}>Danger zone</Text>
+          <Pressable
+            style={[styles.button, styles.buttonDanger, (busy || syncing || restoring || deleting) && styles.buttonDisabled]}
+            onPress={handleDeleteAccount}
+            disabled={busy || syncing || restoring || deleting}
+          >
+            {deleting
+              ? <ActivityIndicator color={colors.error} />
+              : <Text style={[styles.buttonText, styles.buttonTextDanger]}>Delete My Data</Text>}
           </Pressable>
         </View>
       ) : (
@@ -354,4 +407,10 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   buttonText: { fontFamily: fonts.bodyBold, color: colors.onPrimary, fontSize: 15 },
   buttonTextSecondary: { color: colors.onSurface },
+  dangerZoneLabel: {
+    fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginTop: spacing.lg, marginBottom: spacing.sm,
+  },
+  buttonDanger: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.error },
+  buttonTextDanger: { color: colors.error },
 });

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "79296586603",
+    "project_id": "bucketportfoliomanager",
+    "storage_bucket": "bucketportfoliomanager.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:79296586603:android:4f4756f408205b7d75222e",
+        "android_client_info": {
+          "package_name": "com.wilzebob.bucketportfoliomanager"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "79296586603-k05cfpah0k021vmoikbn1tu2qfdjbpeh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.wilzebob.bucketportfoliomanager",
+            "certificate_hash": "97a18f59cead22e2b36576112dce4ca65c48f365"
+          }
+        },
+        {
+          "client_id": "79296586603-18l7td38dn5bjo5pnisfvrduus66u93j.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAne5oNY_zuAuutfLVw9dFRycGB8x4Nztg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "79296586603-18l7td38dn5bjo5pnisfvrduus66u93j.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

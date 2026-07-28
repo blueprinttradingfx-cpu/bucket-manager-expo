@@ -702,6 +702,13 @@ export interface YieldBracket {
   name: string;
   yield_low: number | null;
   yield_high: number | null;
+  /** Optional - real BucketRow objects carry this (see storeApi.ts), but
+   *  it's optional here rather than required so callers building a
+   *  lightweight/sample YieldBracket (e.g. BucketStrategyInfoScreen's
+   *  illustrative buckets) aren't forced to supply one. Consumers should
+   *  treat a missing field the same as null: fall back to
+   *  core/theme.ts's bucketColorFor deriving a color instead. */
+  color?: string | null;
 }
 
 export interface BucketSuggestion {

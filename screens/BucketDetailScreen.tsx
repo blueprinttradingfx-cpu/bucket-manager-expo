@@ -36,6 +36,7 @@ function toPositionItem(item: PositionRow, colors: ThemeColors): PositionItem {
     badgeText: item.ticker.slice(0, 2),
     badgeVariant: item.assetType,
     assetType: item.assetType,
+    logoTicker: item.ticker,
     qty: item.totalQty,
     avgCost: item.avgCost,
     costBasis: item.totalCostBasis,

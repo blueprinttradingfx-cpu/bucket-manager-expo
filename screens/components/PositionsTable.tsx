@@ -14,6 +14,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { AssetType } from '../../core/bucketLogic';
 import { spacing, radii, fonts, ThemeColors } from '../../core/theme';
 import { useThemeColors } from '../../core/ThemeContext';
+import TickerLogo from './TickerLogo';
 
 export type SortKey = 'value' | 'gain' | 'dividends' | 'name' | 'qty';
 
@@ -27,6 +28,11 @@ export interface PositionItem {
   label: string;
   badgeText: string;
   badgeVariant: AssetType | 'neutral';
+  /** When set, this row represents a real market ticker (as opposed to,
+   *  say, a bucket name in StockDetailScreen's "Held In" table) and its
+   *  badge should render that ticker's logo image (see TickerLogo) instead
+   *  of the generic 2-letter text badge. */
+  logoTicker?: string;
   qty: number;
   avgCost: number;
   costBasis: number;
@@ -139,9 +145,15 @@ export default function PositionsTable({ items, onItemPress, tabs, activeTab, on
                 <Pressable hitSlop={10} style={styles.chevronTap} onPress={() => toggleExpanded(item.key)}>
                   <Text style={[styles.chevron, isOpen && styles.chevronOpen]}>{isOpen ? '⌄' : '›'}</Text>
                 </Pressable>
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{item.badgeText}</Text>
-                </View>
+                {item.logoTicker ? (
+                  <View style={styles.badgeSlot}>
+                    <TickerLogo ticker={item.logoTicker} fallbackText={item.badgeText} size={40} />
+                  </View>
+                ) : (
+                  <View style={[styles.badge, styles.badgeSlot]}>
+                    <Text style={styles.badgeText}>{item.badgeText}</Text>
+                  </View>
+                )}
                 <Text style={styles.label} numberOfLines={1}>{item.label}</Text>
 
                 <View style={styles.priceCol}>
@@ -230,8 +242,9 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   chevronTap: { width: 20 },
   chevron: { color: colors.onSurfaceVariant, fontSize: 20 },
   chevronOpen: { color: colors.primary },
+  badgeSlot: { marginRight: spacing.md },
   badge: {
-    width: 40, height: 40, borderRadius: radii.full, marginRight: spacing.md,
+    width: 40, height: 40, borderRadius: radii.full,
     backgroundColor: colors.surfaceContainerHighest, alignItems: 'center', justifyContent: 'center',
   },
   badgeText: { fontFamily: fonts.monoSemiBold, fontSize: 13, color: colors.primary },

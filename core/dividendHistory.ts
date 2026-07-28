@@ -6,7 +6,7 @@
 // those otherwise only ever earn dividends if you type each payment in by
 // hand, which nobody actually does for years of history.
 
-import { normalizeGithubUrl } from './priceCache';
+import { DATA_PROXY_BASE_URL } from './priceCache';
 
 export interface DividendHistoryEntry {
   amount: number;      // per-share amount
@@ -22,8 +22,7 @@ export interface DividendHistoryCache {
   tickers: Record<string, { history: DividendHistoryEntry[] }>;
 }
 
-const DEFAULT_DIVIDEND_HISTORY_URL =
-  'https://github.com/blueprinttradingfx-cpu/bucket-manager-web/blob/master/public/data/dividend-history.json';
+const DEFAULT_DIVIDEND_HISTORY_URL = `${DATA_PROXY_BASE_URL}/v1/dividends`;
 
 let memoryCache: DividendHistoryCache | null = null;
 let memoryCacheAt = 0;
@@ -36,10 +35,9 @@ export async function fetchDividendHistory(
   if (!opts.force && memoryCache && Date.now() - memoryCacheAt < MEMORY_TTL_MS) {
     return memoryCache;
   }
-  const fetchUrl = normalizeGithubUrl(url);
-  const res = await fetch(fetchUrl);
+  const res = await fetch(url);
   if (!res.ok) {
-    throw new Error(`Failed to fetch dividend history: HTTP ${res.status} from ${fetchUrl}`);
+    throw new Error(`Failed to fetch dividend history: HTTP ${res.status} from ${url}`);
   }
   const data = (await res.json()) as DividendHistoryCache;
   memoryCache = data;

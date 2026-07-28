@@ -85,7 +85,7 @@ console.log('\n=== Scenario 4: mergeSnapshots (Phase 4, sync-plan.md §10b) ==='
   const NEW = '2026-01-02T00:00:00.000Z';
 
   const bucket = (uuid: string, updatedAt: string, overrides: Partial<SyncSnapshot['buckets'][number]> = {}) => ({
-    uuid, name: uuid, yieldLow: null, yieldHigh: null, sortOrder: 0, updatedAt, deletedAt: null, ...overrides,
+    uuid, name: uuid, yieldLow: null, yieldHigh: null, color: null, sortOrder: 0, updatedAt, deletedAt: null, ...overrides,
   });
   const emptySnapshot = (settingsUpdatedAt: string): SyncSnapshot => ({
     buckets: [], transactions: [], watchlist: [],

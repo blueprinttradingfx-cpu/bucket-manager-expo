@@ -139,8 +139,8 @@ async function main() {
   const now = new Date().toISOString();
   const synthetic: SyncSnapshot = {
     buckets: [
-      { uuid: 'b-live', name: 'Synthetic Live', yieldLow: null, yieldHigh: null, sortOrder: 0, updatedAt: now, deletedAt: null },
-      { uuid: 'b-deleted', name: 'Synthetic Deleted', yieldLow: null, yieldHigh: null, sortOrder: 0, updatedAt: now, deletedAt: now },
+      { uuid: 'b-live', name: 'Synthetic Live', yieldLow: null, yieldHigh: null, color: null, sortOrder: 0, updatedAt: now, deletedAt: null },
+      { uuid: 'b-deleted', name: 'Synthetic Deleted', yieldLow: null, yieldHigh: null, color: null, sortOrder: 0, updatedAt: now, deletedAt: now },
     ],
     transactions: [
       { uuid: 't-live', bucketUuid: 'b-live', date: '2026-01-01', type: 'BUY', stock: 'TEST', description: null, quantity: 10, price: 1, fees: null, currency: 'PHP', amount: -10, rowHash: 'synthetic1', isManual: true, updatedAt: now, deletedAt: null },
@@ -240,7 +240,7 @@ async function main() {
 
   // 11a: applySyncedBucket insert - a uuid brand new to this device.
   await store.applySyncedBucket({
-    uuid: 'synced-bucket-1', name: 'Synced Bucket', yieldLow: 4, yieldHigh: 5,
+    uuid: 'synced-bucket-1', name: 'Synced Bucket', yieldLow: 4, yieldHigh: 5, color: null,
     sortOrder: 0, updatedAt: now11, deletedAt: null,
   });
   let bucketsAfter11a = await store.listBuckets();
@@ -250,7 +250,7 @@ async function main() {
 
   // 11b: applySyncedBucket update - same uuid, new name -> same local id, no duplicate row.
   await store.applySyncedBucket({
-    uuid: 'synced-bucket-1', name: 'Synced Bucket Renamed', yieldLow: 4, yieldHigh: 5,
+    uuid: 'synced-bucket-1', name: 'Synced Bucket Renamed', yieldLow: 4, yieldHigh: 5, color: null,
     sortOrder: 0, updatedAt: later11, deletedAt: null,
   });
   const bucketsAfter11b = await store.listBuckets();
