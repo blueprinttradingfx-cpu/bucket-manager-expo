@@ -10,6 +10,12 @@ import { DATA_PROXY_BASE_URL } from './priceCache';
 import { PriceLookup } from './bucketLogic';
 
 export interface FundEntry {
+  /** Human-readable fund name, e.g. "ATRAM Peso Money Market Fund" - added
+   *  alongside the raw ticker code (the object's key in FundCache.funds) so
+   *  UI can show something more meaningful than the code. Optional because
+   *  a cache fetched before this field existed (or a stale cached copy)
+   *  won't have it - callers should fall back to the ticker in that case. */
+  name?: string;
   navpu: number;
   roiYoyPct: number | null;
   roiYtdPct: number | null;

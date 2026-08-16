@@ -17,6 +17,7 @@ import { useScreenViewLog } from '../core/useScreenViewLog';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
 import { MonthlyDividendBars } from './components/MonthlyDividendChart';
+import TickerLogo from './components/TickerLogo';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -40,6 +41,7 @@ export default function MonthlyDividendIncomeScreen({ route }: Props) {
   const [loading, setLoading] = useState(true);
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [viewMode, setViewMode] = useState<'list' | 'gallery'>('list');
 
   useEffect(() => {
     (async () => {
@@ -66,6 +68,19 @@ export default function MonthlyDividendIncomeScreen({ route }: Props) {
     return byMonth;
   }, [payments, selectedYear]);
 
+  // Gallery view only needs "which tickers paid this month", not the full
+  // itemized entries paymentsByMonth carries (amounts/dates/buckets) - a
+  // stock that paid into multiple buckets in the same month should still
+  // show just one logo, not one per bucket.
+  const tickersByMonth = useMemo(() => {
+    const byMonth = new Map<number, string[]>();
+    for (let month = 1; month <= 12; month++) {
+      const entries = paymentsByMonth.get(month) ?? [];
+      byMonth.set(month, Array.from(new Set(entries.map((e) => e.ticker))).sort());
+    }
+    return byMonth;
+  }, [paymentsByMonth]);
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -91,10 +106,45 @@ export default function MonthlyDividendIncomeScreen({ route }: Props) {
         <MonthlyDividendBars year={selectedYear} monthlyTotals={monthlyTotals} />
       </View>
 
-      <Text style={styles.sectionHeader}>Declared Payouts</Text>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionHeader}>Declared Payouts</Text>
+        <View style={styles.viewModeTrack}>
+          <Pressable style={[styles.viewModeButton, viewMode === 'list' && styles.viewModeButtonActive]} onPress={() => setViewMode('list')}>
+            <Text style={[styles.viewModeButtonText, viewMode === 'list' && styles.viewModeButtonTextActive]}>List</Text>
+          </Pressable>
+          <Pressable style={[styles.viewModeButton, viewMode === 'gallery' && styles.viewModeButtonActive]} onPress={() => setViewMode('gallery')}>
+            <Text style={[styles.viewModeButtonText, viewMode === 'gallery' && styles.viewModeButtonTextActive]}>Gallery</Text>
+          </Pressable>
+        </View>
+      </View>
 
       {monthlyTotals.every((v) => v === 0) ? (
         <Text style={styles.emptyText}>No dividends declared in {selectedYear}.</Text>
+      ) : viewMode === 'gallery' ? (
+        // Calendar-style overview: all 12 months always shown (unlike list
+        // view, which skips empty ones) so you can see at a glance which
+        // months are quiet vs busy - each month's logos are the tickers
+        // that declared a payout then, deduped across buckets.
+        <View style={styles.galleryGrid}>
+          {MONTH_NAMES.map((name, i) => {
+            const month = i + 1;
+            const tickers = tickersByMonth.get(month) ?? [];
+            return (
+              <View key={month} style={styles.galleryCell}>
+                <Text style={styles.galleryMonthLabel}>{name.slice(0, 3).toUpperCase()}</Text>
+                {tickers.length === 0 ? (
+                  <Text style={styles.galleryEmpty}>—</Text>
+                ) : (
+                  <View style={styles.galleryLogos}>
+                    {tickers.map((ticker) => (
+                      <TickerLogo key={ticker} ticker={ticker} fallbackText={ticker.slice(0, 2)} size={26} />
+                    ))}
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </View>
       ) : (
         MONTH_NAMES.map((name, i) => {
           const month = i + 1;
@@ -145,7 +195,25 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
     borderRadius: radii.xl, padding: spacing.md, marginBottom: spacing.lg,
   },
-  sectionHeader: { fontFamily: fonts.bodySemiBold, fontSize: 16, color: colors.onSurface, marginBottom: spacing.sm },
+  sectionHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
+  sectionHeader: { fontFamily: fonts.bodySemiBold, fontSize: 16, color: colors.onSurface },
+  viewModeTrack: { flexDirection: 'row', backgroundColor: colors.surfaceContainerHighest, borderRadius: radii.lg, padding: 2 },
+  viewModeButton: { paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radii.lg - 1 },
+  viewModeButtonActive: { backgroundColor: colors.surface, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 2, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
+  viewModeButtonText: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant },
+  viewModeButtonTextActive: { fontFamily: fonts.bodyBold, color: colors.primary },
+  galleryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  galleryCell: {
+    width: '31%', marginBottom: spacing.sm,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,
+    borderRadius: radii.xl, padding: spacing.sm, minHeight: 92,
+  },
+  galleryMonthLabel: {
+    fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant,
+    textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: spacing.xs,
+  },
+  galleryLogos: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  galleryEmpty: { fontFamily: fonts.body, fontSize: 13, color: colors.outline },
   emptyText: { fontFamily: fonts.body, fontSize: 13, color: colors.onSurfaceVariant, paddingVertical: spacing.sm },
   monthCard: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,

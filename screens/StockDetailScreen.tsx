@@ -13,7 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Alert from '../core/alert';
 import { useStore } from '../core/StoreProvider';
 import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation, YieldBracket } from '../core/bucketLogic';
-import { WatchlistItem } from '../core/storeApi';
+import { WatchlistItem, StockNote } from '../core/storeApi';
 import { fetchPriceCache, PriceEntry } from '../core/priceCache';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
@@ -21,6 +21,7 @@ import { useThemeColors } from '../core/ThemeContext';
 import PositionsTable, { PositionItem, ExpandedRow } from './components/PositionsTable';
 import BucketSuggestion from './components/BucketSuggestion';
 import WatchlistSection from './components/WatchlistSection';
+import StockNotesSection from './components/StockNotesSection';
 import CompanyDetailsSection from './components/CompanyDetailsSection';
 import AskAiModal from './components/AskAiModal';
 import DataDisclaimer from './components/DataDisclaimer';
@@ -106,6 +107,8 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [watchlistItem, setWatchlistItem] = useState<WatchlistItem | null>(null);
   const [watchlistBusy, setWatchlistBusy] = useState(false);
+  const [notes, setNotes] = useState<StockNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(true);
   const [txnHistory, setTxnHistory] = useState<TickerTxnRow[]>([]);
   const [txnSortKey, setTxnSortKey] = useState<TxnSortKey>('date');
   const [txnSortDir, setTxnSortDir] = useState<'asc' | 'desc'>('desc');
@@ -164,6 +167,21 @@ export default function StockDetailScreen({ route, navigation }: Props) {
     }, [store, ticker])
   );
 
+  // Notes are only ever added/edited/deleted from this screen (unlike
+  // watchlist status, which can also change from the Watch List tab), so a
+  // plain mount/ticker-change effect is enough - no useFocusEffect needed.
+  useEffect(() => {
+    let cancelled = false;
+    setNotesLoading(true);
+    store.getStockNotes(ticker).then((list) => {
+      if (!cancelled) {
+        setNotes(list);
+        setNotesLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [store, ticker]);
+
   async function toggleWatchlist() {
     setWatchlistBusy(true);
     try {
@@ -186,6 +204,34 @@ export default function StockDetailScreen({ route, navigation }: Props) {
       setWatchlistItem((prev) => (prev ? { ...prev, buyBelowPrice: price } : prev));
     } catch (e: any) {
       Alert.alert('Could not save price', e.message ?? String(e));
+    }
+  }
+
+  async function handleAddNote(html: string) {
+    try {
+      const note = await store.addStockNote(ticker, html);
+      setNotes((prev) => [note, ...prev]);
+    } catch (e: any) {
+      Alert.alert('Could not save note', e.message ?? String(e));
+    }
+  }
+
+  async function handleUpdateNote(id: string, html: string) {
+    try {
+      await store.updateStockNote(id, html);
+      const updatedAt = new Date().toISOString();
+      setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, contentHtml: html, updatedAt } : n)));
+    } catch (e: any) {
+      Alert.alert('Could not save note', e.message ?? String(e));
+    }
+  }
+
+  async function handleDeleteNote(id: string) {
+    try {
+      await store.deleteStockNote(id);
+      setNotes((prev) => prev.filter((n) => n.id !== id));
+    } catch (e: any) {
+      Alert.alert('Could not delete note', e.message ?? String(e));
     }
   }
 
@@ -263,6 +309,16 @@ export default function StockDetailScreen({ route, navigation }: Props) {
 
         <Text style={styles.positionsHeader}>Held In</Text>
         <PositionsTable items={[]} onItemPress={() => {}} emptyText="Not currently held in any bucket." />
+
+        <View style={styles.notesCard}>
+          <StockNotesSection
+            notes={notes}
+            loading={notesLoading}
+            onAdd={handleAddNote}
+            onUpdate={handleUpdateNote}
+            onDelete={handleDeleteNote}
+          />
+        </View>
 
         <AskAiModal
           visible={showAskAi}
@@ -371,6 +427,16 @@ export default function StockDetailScreen({ route, navigation }: Props) {
         sortDir={txnSortDir}
         onSort={toggleTxnSort}
       />
+
+      <View style={styles.notesCard}>
+        <StockNotesSection
+          notes={notes}
+          loading={notesLoading}
+          onAdd={handleAddNote}
+          onUpdate={handleUpdateNote}
+          onDelete={handleDeleteNote}
+        />
+      </View>
 
       <AskAiModal
         visible={showAskAi}
@@ -490,6 +556,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   askAiButtonText: { fontFamily: fonts.bodySemiBold, fontSize: 13, color: colors.primary },
   positionsHeader: { fontFamily: fonts.body, fontSize: 20, color: colors.onBackground, marginTop: spacing.xs, marginBottom: spacing.md },
+  notesCard: { marginTop: spacing.lg },
   empty: { fontFamily: fonts.body, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: 24 },
   txnTable: {
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant,

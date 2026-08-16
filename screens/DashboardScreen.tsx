@@ -40,11 +40,18 @@ function isValued(s: StockRow): s is ValuedAggregatedStock {
   return 'marketValue' in s;
 }
 
-function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[], bucketColorMap: Map<string, string | null>, colors: ThemeColors, styles: ReturnType<typeof createStyles>): PositionItem {
+function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[], bucketColorMap: Map<string, string | null>, colors: ThemeColors, styles: ReturnType<typeof createStyles>, fundCache: FundCache | null): PositionItem {
   const valued = isValued(item) ? item : null;
+  // Funds: show the human-readable name (from fundCache.ts's funds.json,
+  // e.g. "ATRAM Peso Money Market Fund") instead of the raw code investors
+  // never memorize. Falls back to the ticker code itself when the fund
+  // isn't in the live feed yet (unpublished fund, or feed unavailable) -
+  // same graceful-degradation convention as everywhere else this cache is
+  // used. Stocks are unaffected - ticker IS the right label for those.
+  const label = item.assetType === 'fund' ? (fundCache?.funds?.[item.ticker]?.name ?? item.ticker) : item.ticker;
   return {
     key: item.ticker,
-    label: item.ticker,
+    label,
     badgeText: item.ticker.slice(0, 2),
     badgeVariant: item.assetType,
     logoTicker: item.ticker,
@@ -231,8 +238,8 @@ export default function DashboardScreen({ navigation }: Props) {
   // directly off its own BucketRow[] state.
   const bucketColorMap = useMemo(() => new Map(yieldBuckets.map((b) => [b.name, b.color ?? null])), [yieldBuckets]);
   const visible = useMemo(
-    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map((item) => toPositionItem(item, yieldBuckets, bucketColorMap, colors, styles)),
-    [stocks, activeTab, yieldBuckets, bucketColorMap, colors, styles]
+    () => (activeTab === 'all' ? stocks : stocks.filter((s) => s.assetType === activeTab)).map((item) => toPositionItem(item, yieldBuckets, bucketColorMap, colors, styles, fundCache)),
+    [stocks, activeTab, yieldBuckets, bucketColorMap, colors, styles, fundCache]
   );
   const currentYear = new Date().getFullYear();
   const monthlyDividends = useMemo(() => monthlyDividendTotals(dividendFeed, currentYear), [dividendFeed, currentYear]);

@@ -88,7 +88,8 @@ export default function AccountScreen() {
           'Restore complete',
           `${result.bucketsWritten} bucket${result.bucketsWritten === 1 ? '' : 's'} · ` +
           `${result.transactionsWritten} transaction${result.transactionsWritten === 1 ? '' : 's'} · ` +
-          `${result.watchlistWritten} watchlist ticker${result.watchlistWritten === 1 ? '' : 's'} restored.`
+          `${result.watchlistWritten} watchlist ticker${result.watchlistWritten === 1 ? '' : 's'} · ` +
+          `${result.stockNotesWritten} note${result.stockNotesWritten === 1 ? '' : 's'} restored.`
         );
       } catch (e: any) {
         console.warn('[AccountScreen] initial restore failed', e);
@@ -250,10 +251,12 @@ export default function AccountScreen() {
   const summarizeResult = (result: SyncResult) => {
     const sent = `${result.pushed.bucketsWritten} bucket${result.pushed.bucketsWritten === 1 ? '' : 's'} · ` +
       `${result.pushed.transactionsWritten} transaction${result.pushed.transactionsWritten === 1 ? '' : 's'} · ` +
-      `${result.pushed.watchlistWritten} watchlist ticker${result.pushed.watchlistWritten === 1 ? '' : 's'}`;
+      `${result.pushed.watchlistWritten} watchlist ticker${result.pushed.watchlistWritten === 1 ? '' : 's'} · ` +
+      `${result.pushed.stockNotesWritten} note${result.pushed.stockNotesWritten === 1 ? '' : 's'}`;
     const received = `${result.pulled.buckets} bucket${result.pulled.buckets === 1 ? '' : 's'} · ` +
       `${result.pulled.transactions} transaction${result.pulled.transactions === 1 ? '' : 's'} · ` +
-      `${result.pulled.watchlist} watchlist ticker${result.pulled.watchlist === 1 ? '' : 's'}`;
+      `${result.pulled.watchlist} watchlist ticker${result.pulled.watchlist === 1 ? '' : 's'} · ` +
+      `${result.pulled.stockNotes} note${result.pulled.stockNotes === 1 ? '' : 's'}`;
     const failureNote = result.pulled.failures > 0
       ? `\n\n${result.pulled.failures} record${result.pulled.failures === 1 ? '' : 's'} couldn't be applied - will retry next sync.`
       : '';

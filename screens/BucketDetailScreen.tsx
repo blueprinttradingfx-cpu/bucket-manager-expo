@@ -10,6 +10,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
 import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions, computePortfolioValuation, PortfolioValuation, sumMarketValue, monthlyDividendTotals, computeBucketGrowthStage } from '../core/bucketLogic';
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
+import { fetchFundCache, FundCache } from '../core/fundCache';
 import { fetchStockUniverse } from '../core/stockUniverse';
 import { BucketRow } from '../core/storeApi';
 import { BucketsStackParamList } from '../core/navigationTypes';
@@ -28,11 +29,16 @@ function isValued(p: PositionRow): p is ValuedStockPosition {
   return 'marketValue' in p;
 }
 
-function toPositionItem(item: PositionRow, colors: ThemeColors): PositionItem {
+function toPositionItem(item: PositionRow, colors: ThemeColors, fundCache: FundCache | null): PositionItem {
   const valued = isValued(item) ? item : null;
+  // Same name-over-code treatment as DashboardScreen.tsx's toPositionItem -
+  // see that file's comment. This screen has no live fund price feed (see
+  // fundsCostBasis's comment below), but the name lookup is independent of
+  // pricing, so it's worth having even without that.
+  const label = item.assetType === 'fund' ? (fundCache?.funds?.[item.ticker]?.name ?? item.ticker) : item.ticker;
   return {
     key: item.ticker,
-    label: item.ticker,
+    label,
     badgeText: item.ticker.slice(0, 2),
     badgeVariant: item.assetType,
     assetType: item.assetType,
@@ -68,6 +74,7 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
   const store = useStore();
   const [positions, setPositions] = useState<PositionRow[]>([]);
   const [priceCache, setPriceCache] = useState<PriceCache | null>(null);
+  const [fundCache, setFundCache] = useState<FundCache | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [pricesAvailable, setPricesAvailable] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,6 +107,13 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
     setTotalDividends(lifetime.totalDividends);
     setTransactionFeed(feed);
     setBucketBracket(buckets.find((b) => b.name === bucket) ?? null);
+    // Independent of the price-cache fetch below: this is only used for
+    // fund display names (see toPositionItem), not valuation, so a failure
+    // here shouldn't touch priceError/pricesAvailable - it just leaves
+    // fundCache null and labels fall back to the ticker code.
+    fetchFundCache(undefined, { force: forcePrices })
+      .then(setFundCache)
+      .catch((e: any) => console.log('[BucketDetail] fund cache unavailable:', e.message));
     try {
       const prices = await fetchPriceCache(undefined, { force: forcePrices });
       setPriceCache(prices);
@@ -209,8 +223,8 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
   const stockCount = useMemo(() => positions.filter((p) => p.assetType === 'stock').length, [positions]);
   const fundCount = useMemo(() => positions.filter((p) => p.assetType === 'fund').length, [positions]);
   const visible = useMemo(
-    () => (activeTab === 'all' ? positions : positions.filter((p) => p.assetType === activeTab)).map((p) => toPositionItem(p, colors)),
-    [positions, activeTab, colors]
+    () => (activeTab === 'all' ? positions : positions.filter((p) => p.assetType === activeTab)).map((p) => toPositionItem(p, colors, fundCache)),
+    [positions, activeTab, colors, fundCache]
   );
   const currentYear = new Date().getFullYear();
   // Reuses the already-loaded transaction feed rather than a second

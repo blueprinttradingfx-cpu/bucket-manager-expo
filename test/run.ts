@@ -88,7 +88,7 @@ console.log('\n=== Scenario 4: mergeSnapshots (Phase 4, sync-plan.md §10b) ==='
     uuid, name: uuid, yieldLow: null, yieldHigh: null, color: null, sortOrder: 0, updatedAt, deletedAt: null, ...overrides,
   });
   const emptySnapshot = (settingsUpdatedAt: string): SyncSnapshot => ({
-    buckets: [], transactions: [], watchlist: [],
+    buckets: [], transactions: [], watchlist: [], stockNotes: [],
     settings: { monthlyIncomeGoal: null, themeMode: 'system', updatedAt: settingsUpdatedAt },
   });
 

@@ -36,6 +36,7 @@ export interface PushResult {
   bucketsWritten: number;
   transactionsWritten: number;
   watchlistWritten: number;
+  stockNotesWritten: number;
   settingsWritten: boolean;
   pushedAt: string;
 }
@@ -84,6 +85,12 @@ export async function pushSnapshotToFirestore(uid: string, snapshot: PushableSna
       updatedAt: w.updatedAt, deletedAt: w.deletedAt,
     });
   }
+  for (const n of snapshot.stockNotes) {
+    stage(doc(db, 'users', uid, 'stockNotes', n.uuid), {
+      ticker: n.ticker, contentHtml: n.contentHtml, createdAt: n.createdAt,
+      updatedAt: n.updatedAt, deletedAt: n.deletedAt,
+    });
+  }
   if (snapshot.settings) {
     stage(doc(db, 'users', uid, 'settings', 'preferences'), {
       monthlyIncomeGoal: snapshot.settings.monthlyIncomeGoal,
@@ -111,6 +118,7 @@ export async function pushSnapshotToFirestore(uid: string, snapshot: PushableSna
     bucketsWritten: snapshot.buckets.length,
     transactionsWritten: snapshot.transactions.length,
     watchlistWritten: snapshot.watchlist.length,
+    stockNotesWritten: snapshot.stockNotes.length,
     settingsWritten: snapshot.settings != null,
     pushedAt,
   };
@@ -138,10 +146,11 @@ export async function pullSnapshotFromFirestore(uid: string): Promise<SyncSnapsh
   if (!settingsSnap.exists()) return null;
   const settingsData = settingsSnap.data() as SyncSettingsRecord;
 
-  const [bucketsSnap, txnsSnap, watchlistSnap] = await Promise.all([
+  const [bucketsSnap, txnsSnap, watchlistSnap, stockNotesSnap] = await Promise.all([
     getDocs(collection(db, 'users', uid, 'buckets')),
     getDocs(collection(db, 'users', uid, 'transactions')),
     getDocs(collection(db, 'users', uid, 'watchlist')),
+    getDocs(collection(db, 'users', uid, 'stockNotes')),
   ]);
 
   return {
@@ -168,6 +177,13 @@ export async function pullSnapshotFromFirestore(uid: string): Promise<SyncSnapsh
         updatedAt: v.updatedAt, deletedAt: v.deletedAt ?? null,
       };
     }),
+    stockNotes: stockNotesSnap.docs.map((d) => {
+      const v = d.data();
+      return {
+        uuid: d.id, ticker: v.ticker, contentHtml: v.contentHtml ?? '',
+        createdAt: v.createdAt, updatedAt: v.updatedAt, deletedAt: v.deletedAt ?? null,
+      };
+    }),
     settings: {
       monthlyIncomeGoal: settingsData.monthlyIncomeGoal ?? null,
       themeMode: settingsData.themeMode ?? 'system',
@@ -184,7 +200,7 @@ export async function pullSnapshotFromFirestore(uid: string): Promise<SyncSnapsh
 
 export interface SyncResult {
   pushed: PushResult;
-  pulled: { buckets: number; transactions: number; watchlist: number; settingsApplied: boolean; failures: number };
+  pulled: { buckets: number; transactions: number; watchlist: number; stockNotes: number; settingsApplied: boolean; failures: number };
   syncedAt: string;
 }
 
@@ -213,6 +229,9 @@ export async function applyMergePlan(store: BucketStoreAPI, uid: string, plan: M
   for (const w of plan.toPull.watchlist) {
     try { await store.applySyncedWatchlistItem(w); } catch (e) { failures++; console.warn('[syncEngine] applySyncedWatchlistItem failed', w.ticker, e); }
   }
+  for (const n of plan.toPull.stockNotes) {
+    try { await store.applySyncedStockNote(n); } catch (e) { failures++; console.warn('[syncEngine] applySyncedStockNote failed', n.uuid, e); }
+  }
   if (plan.toPull.settings) {
     try { await store.applySyncedSettings(plan.toPull.settings); } catch (e) { failures++; console.warn('[syncEngine] applySyncedSettings failed', e); }
   }
@@ -223,6 +242,7 @@ export async function applyMergePlan(store: BucketStoreAPI, uid: string, plan: M
       buckets: plan.toPull.buckets.length,
       transactions: plan.toPull.transactions.length,
       watchlist: plan.toPull.watchlist.length,
+      stockNotes: plan.toPull.stockNotes.length,
       settingsApplied: !!plan.toPull.settings,
       failures,
     },
@@ -248,19 +268,20 @@ export async function syncNow(store: BucketStoreAPI, uid: string): Promise<SyncR
 // --- Account deletion (pre-launch pass, 2026-07-26) -----------------------
 // The Firestore client SDK has no recursive-delete - deleting the users/{uid}
 // document itself would NOT delete its subcollections (buckets/transactions/
-// watchlist/settings/meta), leaving orphaned data behind under a uid nobody
-// can read anymore (firestore.rules scopes every doc to its own uid, so
-// even the developer can't clean it up later through the client SDK - it'd
-// need the Admin SDK/console). So this enumerates and deletes every doc in
-// every subcollection explicitly, same batching approach as
+// watchlist/stockNotes/settings/meta), leaving orphaned data behind under a
+// uid nobody can read anymore (firestore.rules scopes every doc to its own
+// uid, so even the developer can't clean it up later through the client SDK
+// - it'd need the Admin SDK/console). So this enumerates and deletes every
+// doc in every subcollection explicitly, same batching approach as
 // pushSnapshotToFirestore (450-op headroom under Firestore's 500/batch cap).
 export async function deleteAllRemoteData(uid: string): Promise<void> {
   const db = firestore;
 
-  const [bucketsSnap, txnsSnap, watchlistSnap] = await Promise.all([
+  const [bucketsSnap, txnsSnap, watchlistSnap, stockNotesSnap] = await Promise.all([
     getDocs(collection(db, 'users', uid, 'buckets')),
     getDocs(collection(db, 'users', uid, 'transactions')),
     getDocs(collection(db, 'users', uid, 'watchlist')),
+    getDocs(collection(db, 'users', uid, 'stockNotes')),
   ]);
 
   let batch = writeBatch(db);
@@ -280,6 +301,7 @@ export async function deleteAllRemoteData(uid: string): Promise<void> {
   for (const d of bucketsSnap.docs) stageDelete(d.ref);
   for (const d of txnsSnap.docs) stageDelete(d.ref);
   for (const d of watchlistSnap.docs) stageDelete(d.ref);
+  for (const d of stockNotesSnap.docs) stageDelete(d.ref);
   // Single-doc collections - settings/preferences and meta/sync - staged
   // the same way rather than a bare deleteDoc, so they ride along in the
   // batch instead of firing as separate round trips.

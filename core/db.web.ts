@@ -13,13 +13,14 @@ import {
 } from './bucketLogic';
 import {
   BucketRow, BucketStoreAPI, WatchlistItem, WatchlistImportResult, SyncSnapshot, RestoreResult,
-  SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord,
+  SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord, SyncStockNoteRecord,
+  StockNote,
 } from './storeApi';
 import { PortfolioStockInput, dedupePortfolioStocks, mergeBuyBelowPrice } from './watchlistImport';
 import { generateUuid } from './uuid';
 
 const DB_NAME = 'bucket_portfolio';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 // Sync-prep fields (sync-plan.md §1, §4 Phase 0). Named to match the SQLite
 // column names in db.native.ts (uuid / updated_at / deleted_at) rather than
@@ -42,6 +43,10 @@ interface StoredWebTxn extends StoredTxn {
 interface StoredWatchlistItem {
   ticker: string; buyBelowPrice: number | null; addedAt: string;
   updated_at?: string; deleted_at?: string | null;
+}
+interface StoredStockNote {
+  id: string; ticker: string; contentHtml: string; createdAt: string;
+  updated_at: string; deleted_at?: string | null;
 }
 
 async function openBucketDB(): Promise<IDBPDatabase> {
@@ -111,6 +116,15 @@ async function openBucketDB(): Promise<IDBPDatabase> {
         backfillStore('transactions', true);
         backfillStore('watchlist', false);
         backfillStore('settings', false);
+      }
+
+      // Migration (version 6 -> 7): stock notes store, keyed by id (a uuid
+      // string - IndexedDB accepts string keys directly, no autoIncrement
+      // needed) with a by_ticker index so a ticker's feed is a single
+      // indexed lookup rather than a full-store scan.
+      if (!db.objectStoreNames.contains('stock_notes')) {
+        const notes = db.createObjectStore('stock_notes', { keyPath: 'id' });
+        notes.createIndex('by_ticker', 'ticker');
       }
     },
   });
@@ -552,12 +566,47 @@ export class WebBucketStore implements BucketStoreAPI {
     return { added, loweredPrice, unchanged };
   }
 
+  async getStockNotes(ticker: string): Promise<StockNote[]> {
+    const all = await this.db.getAllFromIndex('stock_notes', 'by_ticker', ticker) as StoredStockNote[];
+    return all
+      .filter((n) => !n.deleted_at)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((n) => ({ id: n.id, ticker: n.ticker, contentHtml: n.contentHtml, createdAt: n.createdAt, updatedAt: n.updated_at }));
+  }
+
+  async addStockNote(ticker: string, contentHtml: string): Promise<StockNote> {
+    const id = generateUuid();
+    const now = new Date().toISOString();
+    await this.db.add('stock_notes', { id, ticker, contentHtml, createdAt: now, updated_at: now } as StoredStockNote);
+    return { id, ticker, contentHtml, createdAt: now, updatedAt: now };
+  }
+
+  async updateStockNote(id: string, contentHtml: string): Promise<void> {
+    const existing = await this.db.get('stock_notes', id) as StoredStockNote | undefined;
+    if (!existing || existing.deleted_at) throw new Error('This note no longer exists.');
+    existing.contentHtml = contentHtml;
+    existing.updated_at = new Date().toISOString();
+    await this.db.put('stock_notes', existing);
+  }
+
+  async deleteStockNote(id: string): Promise<void> {
+    // Soft delete (same tombstone convention as buckets/watchlist) - see
+    // SyncStockNoteRecord's doc comment.
+    const existing = await this.db.get('stock_notes', id) as StoredStockNote | undefined;
+    if (!existing) return;
+    const now = new Date().toISOString();
+    existing.deleted_at = now;
+    existing.updated_at = now;
+    await this.db.put('stock_notes', existing);
+  }
+
   async getSyncSnapshot(): Promise<SyncSnapshot> {
     const buckets = await this.db.getAll('buckets') as StoredBucket[];
     const bucketUuidById = new Map(buckets.map((b) => [b.id, b.uuid]));
 
     const allTxns = await this.db.getAll('transactions') as StoredWebTxn[];
     const watchlist = await this.db.getAll('watchlist') as StoredWatchlistItem[];
+    const stockNotes = await this.db.getAll('stock_notes') as StoredStockNote[];
     const settingsRows = await this.db.getAll('settings') as { key: string; value: number; updated_at?: string }[];
     const goalRow = settingsRows.find((r) => r.key === 'monthlyIncomeGoal');
     const themeRow = settingsRows.find((r) => r.key === 'themeMode');
@@ -584,6 +633,10 @@ export class WebBucketStore implements BucketStoreAPI {
       watchlist: watchlist.map((w) => ({
         ticker: w.ticker, buyBelowPrice: w.buyBelowPrice, addedAt: w.addedAt,
         updatedAt: w.updated_at!, deletedAt: w.deleted_at ?? null,
+      })),
+      stockNotes: stockNotes.map((n) => ({
+        uuid: n.id, ticker: n.ticker, contentHtml: n.contentHtml,
+        createdAt: n.createdAt, updatedAt: n.updated_at, deletedAt: n.deleted_at ?? null,
       })),
       settings: {
         monthlyIncomeGoal: goalRow?.value ?? null,
@@ -615,7 +668,9 @@ export class WebBucketStore implements BucketStoreAPI {
     const buckets = await this.db.getAll('buckets') as StoredBucket[];
     if (buckets.some((b) => !b.deleted_at)) return true;
     const watchlist = await this.db.getAll('watchlist') as StoredWatchlistItem[];
-    return watchlist.some((w) => !w.deleted_at);
+    if (watchlist.some((w) => !w.deleted_at)) return true;
+    const notes = await this.db.getAll('stock_notes') as StoredStockNote[];
+    return notes.some((n) => !n.deleted_at);
   }
 
   // Phase 3 (sync-plan.md §5/§8): one-way pull, clean overwrite rather than
@@ -625,15 +680,17 @@ export class WebBucketStore implements BucketStoreAPI {
   // rolls back everything, including the .clear() calls, rather than
   // leaving local data half-overwritten.
   async restoreFromSyncSnapshot(snapshot: SyncSnapshot): Promise<RestoreResult> {
-    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'settings'], 'readwrite');
+    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'stock_notes', 'settings'], 'readwrite');
     const bucketsStore = tx.objectStore('buckets');
     const txnsStore = tx.objectStore('transactions');
     const watchlistStore = tx.objectStore('watchlist');
+    const notesStore = tx.objectStore('stock_notes');
     const settingsStore = tx.objectStore('settings');
 
     await bucketsStore.clear();
     await txnsStore.clear();
     await watchlistStore.clear();
+    await notesStore.clear();
 
     // Buckets first, so bucketUuid -> local id resolves before transactions
     // (which reference bucketId, not bucketUuid) are inserted.
@@ -675,6 +732,15 @@ export class WebBucketStore implements BucketStoreAPI {
       watchlistWritten++;
     }
 
+    let stockNotesWritten = 0;
+    for (const n of snapshot.stockNotes) {
+      if (n.deletedAt) continue;
+      await notesStore.add({
+        id: n.uuid, ticker: n.ticker, contentHtml: n.contentHtml, createdAt: n.createdAt, updated_at: n.updatedAt,
+      } as StoredStockNote);
+      stockNotesWritten++;
+    }
+
     // Only the two settings keys that are actually part of a synced
     // snapshot - lastSyncedAt and hasCompletedInitialRestore live in this
     // same store but describe THIS device's own sync history, not synced
@@ -691,7 +757,7 @@ export class WebBucketStore implements BucketStoreAPI {
 
     await tx.done;
 
-    return { bucketsWritten, transactionsWritten, watchlistWritten, settingsRestored: true };
+    return { bucketsWritten, transactionsWritten, watchlistWritten, stockNotesWritten, settingsRestored: true };
   }
 
   async getHasCompletedInitialRestore(): Promise<boolean> {
@@ -774,6 +840,15 @@ export class WebBucketStore implements BucketStoreAPI {
     } as StoredWatchlistItem);
   }
 
+  async applySyncedStockNote(record: SyncStockNoteRecord): Promise<void> {
+    // id IS the keyPath here (unlike buckets/transactions' scan-by-uuid), so
+    // put() is a genuine insert-or-replace with no lookup needed.
+    await this.db.put('stock_notes', {
+      id: record.uuid, ticker: record.ticker, contentHtml: record.contentHtml,
+      createdAt: record.createdAt, updated_at: record.updatedAt, deleted_at: record.deletedAt,
+    } as StoredStockNote);
+  }
+
   async applySyncedSettings(record: SyncSettingsRecord): Promise<void> {
     // Same (key, value) settings store + null-means-delete convention as
     // setMonthlyIncomeGoal above.
@@ -793,11 +868,12 @@ export class WebBucketStore implements BucketStoreAPI {
     // fresh-install state, not one that still remembers a since-deleted
     // account's sync history. Same all-in-one-transaction shape as
     // restoreFromSyncSnapshot for the same atomicity reason.
-    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'settings'], 'readwrite');
+    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'stock_notes', 'settings'], 'readwrite');
     await Promise.all([
       tx.objectStore('buckets').clear(),
       tx.objectStore('transactions').clear(),
       tx.objectStore('watchlist').clear(),
+      tx.objectStore('stock_notes').clear(),
       tx.objectStore('settings').clear(),
       tx.done,
     ]);

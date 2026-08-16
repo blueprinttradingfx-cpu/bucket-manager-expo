@@ -27,6 +27,22 @@ export interface WatchlistItem {
   addedAt: string;
 }
 
+/** A freeform journal entry attached to a ticker (not scoped to any one
+ *  bucket - a note about SM stays a note about SM regardless of which
+ *  bucket(s) hold it). Content is arbitrary user-authored HTML, rendered
+ *  (not displayed as raw markup) by screens/components/SimpleHtml.tsx -
+ *  see that file for which tags are actually supported. Powers the notes
+ *  feed on StockDetailScreen. */
+export interface StockNote {
+  /** Stable cross-device id (a uuid, same convention as bucket/transaction
+   *  uuids) - this IS the identifier, there's no separate local integer id. */
+  id: string;
+  ticker: string;
+  contentHtml: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BucketStoreAPI {
   listBuckets(): Promise<BucketRow[]>;
   getOrCreateBucket(name: string, yieldLow?: number, yieldHigh?: number): Promise<number>;
@@ -149,6 +165,21 @@ export interface BucketStoreAPI {
    *  overwritten - so importing never loosens a target that's already set. */
   importPortfolioIntoWatchlist(stocks: PortfolioStockInput[]): Promise<WatchlistImportResult>;
 
+  /** A ticker's note feed, newest first - every note ever added, regardless
+   *  of which bucket(s) currently hold the ticker (or whether any do). */
+  getStockNotes(ticker: string): Promise<StockNote[]>;
+  /** Adds a new note to a ticker's feed. Returns the created note (with its
+   *  generated id/timestamps) so the caller can render it immediately
+   *  without a round-trip re-fetch. */
+  addStockNote(ticker: string, contentHtml: string): Promise<StockNote>;
+  /** Edits an existing note's content in place (updatedAt bumps; createdAt
+   *  is untouched, so the feed's chronological position doesn't jump). */
+  updateStockNote(id: string, contentHtml: string): Promise<void>;
+  /** Removes a note (soft delete - same tombstone convention as buckets/
+   *  watchlist, see SyncStockNoteRecord - so a delete on one device
+   *  correctly propagates as a delete on every other synced device). */
+  deleteStockNote(id: string): Promise<void>;
+
   /** Full local dataset shaped for core/syncEngine.ts to push to Firestore -
    *  see sync-plan.md. Includes soft-deleted rows. */
   getSyncSnapshot(): Promise<SyncSnapshot>;
@@ -211,6 +242,10 @@ export interface BucketStoreAPI {
   /** Insert or update a watchlist entry by its ticker (the natural key -
    *  see sync-plan.md §1, no collision case exists here). */
   applySyncedWatchlistItem(record: SyncWatchlistRecord): Promise<void>;
+  /** Insert or update a stock note by its uuid - same shape as
+   *  applySyncedWatchlistItem, just keyed by id instead of ticker (a ticker
+   *  can have many notes). */
+  applySyncedStockNote(record: SyncStockNoteRecord): Promise<void>;
   /** Overwrite local settings (monthlyIncomeGoal + themeMode) with the
    *  winning side's record - settings is a single record, not a uuid-keyed
    *  collection, so unlike the three methods above there's no per-key
@@ -234,6 +269,7 @@ export interface RestoreResult {
   bucketsWritten: number;
   transactionsWritten: number;
   watchlistWritten: number;
+  stockNotesWritten: number;
   settingsRestored: boolean;
 }
 
@@ -293,6 +329,15 @@ export interface SyncWatchlistRecord {
   deletedAt: string | null;
 }
 
+export interface SyncStockNoteRecord {
+  uuid: string;
+  ticker: string;
+  contentHtml: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
 export interface SyncSettingsRecord {
   monthlyIncomeGoal: number | null;
   themeMode: 'system' | 'light' | 'dark';
@@ -303,5 +348,6 @@ export interface SyncSnapshot {
   buckets: SyncBucketRecord[];
   transactions: SyncTransactionRecord[];
   watchlist: SyncWatchlistRecord[];
+  stockNotes: SyncStockNoteRecord[];
   settings: SyncSettingsRecord;
 }

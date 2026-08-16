@@ -147,6 +147,7 @@ async function main() {
       { uuid: 't-orphan', bucketUuid: 'b-does-not-exist', date: '2026-01-02', type: 'BUY', stock: 'TEST2', description: null, quantity: 5, price: 1, fees: null, currency: 'PHP', amount: -5, rowHash: 'synthetic2', isManual: true, updatedAt: now, deletedAt: null },
     ],
     watchlist: [],
+    stockNotes: [],
     settings: { monthlyIncomeGoal: null, themeMode: 'system', updatedAt: now },
   };
   const syntheticResult = await store.restoreFromSyncSnapshot(synthetic);
@@ -308,6 +309,54 @@ async function main() {
   const themeAfter11h = await store.getThemeMode();
   console.log('11h: applySyncedSettings applied ->', { goalAfter11h, themeAfter11h });
   if (goalAfter11h !== 42000 || themeAfter11h !== 'dark') throw new Error('11h failed: applySyncedSettings should overwrite monthlyIncomeGoal and themeMode');
+
+  console.log('\n=== Scenario 12: stock notes CRUD, soft-delete, and sync upsert ===');
+  // Mirrors the watchlist coverage above (Scenario 10/11f-g), just keyed by
+  // id instead of ticker, and a ticker can have many notes instead of one row.
+  const addedNote = await store.addStockNote('SYNCNOTE', '<p>Bought the dip <b>again</b></p>');
+  console.log('12a: note added:', addedNote);
+  if (addedNote.ticker !== 'SYNCNOTE' || !addedNote.id) throw new Error('12a failed: addStockNote should return the created note with an id');
+
+  const notesAfterAdd = await store.getStockNotes('SYNCNOTE');
+  console.log('12b: feed after add:', notesAfterAdd);
+  if (notesAfterAdd.length !== 1 || notesAfterAdd[0].id !== addedNote.id) throw new Error('12b failed: getStockNotes should return the just-added note');
+
+  await store.updateStockNote(addedNote.id, '<p>Bought the dip <b>again</b>, edited</p>');
+  const notesAfterUpdate = await store.getStockNotes('SYNCNOTE');
+  console.log('12c: feed after edit:', notesAfterUpdate);
+  if (notesAfterUpdate.length !== 1 || !notesAfterUpdate[0].contentHtml.includes('edited')) throw new Error('12c failed: updateStockNote should edit content in place, not add a row');
+  if (notesAfterUpdate[0].createdAt !== addedNote.createdAt) throw new Error('12c failed: updateStockNote should leave createdAt untouched');
+
+  await store.deleteStockNote(addedNote.id);
+  const notesAfterDelete = await store.getStockNotes('SYNCNOTE');
+  console.log('12d: feed after soft-delete:', notesAfterDelete);
+  if (notesAfterDelete.length !== 0) throw new Error('12d failed: deleteStockNote should hide the note from getStockNotes');
+
+  // 12e: applySyncedStockNote insert - a uuid brand new to this device.
+  await store.applySyncedStockNote({
+    uuid: 'synced-note-1', ticker: 'SYNCNOTE2', contentHtml: '<p>From another device</p>',
+    createdAt: now11, updatedAt: now11, deletedAt: null,
+  });
+  const notesAfter12e = await store.getStockNotes('SYNCNOTE2');
+  console.log('12e: note inserted via applySyncedStockNote:', notesAfter12e);
+  if (notesAfter12e.length !== 1 || notesAfter12e[0].id !== 'synced-note-1') throw new Error('12e failed: applySyncedStockNote should have inserted a new note');
+
+  // 12f: applySyncedStockNote update - same uuid, new content -> updates in place, no duplicate.
+  await store.applySyncedStockNote({
+    uuid: 'synced-note-1', ticker: 'SYNCNOTE2', contentHtml: '<p>Edited from another device</p>',
+    createdAt: now11, updatedAt: later11, deletedAt: null,
+  });
+  const notesAfter12f = await store.getStockNotes('SYNCNOTE2');
+  console.log('12f: note updated in place, row count:', notesAfter12f.length, notesAfter12f[0]?.contentHtml);
+  if (notesAfter12f.length !== 1 || !notesAfter12f[0].contentHtml.includes('Edited')) throw new Error('12f failed: applySyncedStockNote should update the existing row by uuid, not duplicate it');
+
+  // 12g: restoreFromSyncSnapshot round-trips stockNotes too (Scenario 7 only checked buckets/transactions/watchlist counts).
+  const snapshotWithNotes = await store.getSyncSnapshot();
+  console.log('12g: snapshot includes notes:', snapshotWithNotes.stockNotes.length);
+  if (!snapshotWithNotes.stockNotes.some((n) => n.uuid === 'synced-note-1')) throw new Error('12g failed: getSyncSnapshot should include stock notes');
+  const restoreWithNotes = await store.restoreFromSyncSnapshot(snapshotWithNotes);
+  console.log('12g: restore result includes stockNotesWritten:', restoreWithNotes.stockNotesWritten);
+  if (restoreWithNotes.stockNotesWritten !== snapshotWithNotes.stockNotes.length) throw new Error('12g failed: restoreFromSyncSnapshot should reinsert every note in the snapshot');
 }
 
 main().catch((e) => { console.error('TEST FAILED:', e); process.exit(1); });

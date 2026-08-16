@@ -13,7 +13,8 @@ import {
 } from './bucketLogic';
 import {
   BucketRow, BucketStoreAPI, WatchlistItem, WatchlistImportResult, SyncSnapshot, RestoreResult,
-  SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord,
+  SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord, SyncStockNoteRecord,
+  StockNote,
 } from './storeApi';
 import { PortfolioStockInput, dedupePortfolioStocks, mergeBuyBelowPrice } from './watchlistImport';
 import { generateUuid } from './uuid';
@@ -57,6 +58,15 @@ export async function initSchema(db: SQLiteDatabase) {
       buy_below_price REAL,
       added_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS stock_notes (
+      id TEXT PRIMARY KEY,
+      ticker TEXT NOT NULL,
+      content_html TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_stock_notes_ticker ON stock_notes(ticker);
   `);
 
   // Migration: add is_manual column if it doesn't exist (for existing databases)
@@ -599,6 +609,42 @@ export class NativeBucketStore implements BucketStoreAPI {
     return { added, loweredPrice, unchanged };
   }
 
+  async getStockNotes(ticker: string): Promise<StockNote[]> {
+    const rows = await this.db.getAllAsync<{ id: string; ticker: string; content_html: string; created_at: string; updated_at: string }>(
+      'SELECT id, ticker, content_html, created_at, updated_at FROM stock_notes WHERE ticker = ? AND deleted_at IS NULL ORDER BY created_at DESC',
+      ticker
+    );
+    return rows.map((r) => ({ id: r.id, ticker: r.ticker, contentHtml: r.content_html, createdAt: r.created_at, updatedAt: r.updated_at }));
+  }
+
+  async addStockNote(ticker: string, contentHtml: string): Promise<StockNote> {
+    const id = generateUuid();
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      'INSERT INTO stock_notes (id, ticker, content_html, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      id, ticker, contentHtml, now, now
+    );
+    return { id, ticker, contentHtml, createdAt: now, updatedAt: now };
+  }
+
+  async updateStockNote(id: string, contentHtml: string): Promise<void> {
+    const existing = await this.db.getFirstAsync<{ id: string }>(
+      'SELECT id FROM stock_notes WHERE id = ? AND deleted_at IS NULL', id
+    );
+    if (!existing) throw new Error('This note no longer exists.');
+    await this.db.runAsync(
+      'UPDATE stock_notes SET content_html = ?, updated_at = ? WHERE id = ?',
+      contentHtml, new Date().toISOString(), id
+    );
+  }
+
+  async deleteStockNote(id: string): Promise<void> {
+    // Soft delete (same tombstone convention as buckets/watchlist) - see
+    // SyncStockNoteRecord's doc comment.
+    const now = new Date().toISOString();
+    await this.db.runAsync('UPDATE stock_notes SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);
+  }
+
   async getSyncSnapshot(): Promise<SyncSnapshot> {
     const buckets = await this.db.getAllAsync<{
       uuid: string; name: string; yield_low: number | null; yield_high: number | null; color: string | null;
@@ -622,6 +668,10 @@ export class NativeBucketStore implements BucketStoreAPI {
       updated_at: string; deleted_at: string | null;
     }>('SELECT ticker, buy_below_price, added_at, updated_at, deleted_at FROM watchlist');
 
+    const stockNotes = await this.db.getAllAsync<{
+      id: string; ticker: string; content_html: string; created_at: string; updated_at: string; deleted_at: string | null;
+    }>('SELECT id, ticker, content_html, created_at, updated_at, deleted_at FROM stock_notes');
+
     const settingsRows = await this.db.getAllAsync<{ key: string; value: number; updated_at: string | null }>(
       'SELECT key, value, updated_at FROM settings'
     );
@@ -644,6 +694,10 @@ export class NativeBucketStore implements BucketStoreAPI {
       watchlist: watchlist.map((w) => ({
         ticker: w.ticker, buyBelowPrice: w.buy_below_price, addedAt: w.added_at,
         updatedAt: w.updated_at, deletedAt: w.deleted_at,
+      })),
+      stockNotes: stockNotes.map((n) => ({
+        uuid: n.id, ticker: n.ticker, contentHtml: n.content_html,
+        createdAt: n.created_at, updatedAt: n.updated_at, deletedAt: n.deleted_at,
       })),
       settings: {
         monthlyIncomeGoal: goalRow?.value ?? null,
@@ -678,7 +732,9 @@ export class NativeBucketStore implements BucketStoreAPI {
     const bucket = await this.db.getFirstAsync<{ id: number }>('SELECT id FROM buckets WHERE deleted_at IS NULL LIMIT 1');
     if (bucket) return true;
     const watchlistItem = await this.db.getFirstAsync<{ ticker: string }>('SELECT ticker FROM watchlist WHERE deleted_at IS NULL LIMIT 1');
-    return !!watchlistItem;
+    if (watchlistItem) return true;
+    const note = await this.db.getFirstAsync<{ id: string }>('SELECT id FROM stock_notes WHERE deleted_at IS NULL LIMIT 1');
+    return !!note;
   }
 
   // Phase 3 (sync-plan.md §5/§8): one-way pull, clean overwrite rather than
@@ -688,10 +744,10 @@ export class NativeBucketStore implements BucketStoreAPI {
   // including the DELETEs at the top, leaving local data exactly as it was
   // before the restore was attempted rather than half-overwritten.
   async restoreFromSyncSnapshot(snapshot: SyncSnapshot): Promise<RestoreResult> {
-    let bucketsWritten = 0, transactionsWritten = 0, watchlistWritten = 0;
+    let bucketsWritten = 0, transactionsWritten = 0, watchlistWritten = 0, stockNotesWritten = 0;
 
     await this.db.withTransactionAsync(async () => {
-      await this.db.execAsync('DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist;');
+      await this.db.execAsync('DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist; DELETE FROM stock_notes;');
 
       // Buckets first, so bucketUuid -> local integer id resolves before
       // transactions (which reference bucket_id, not bucketUuid) are inserted.
@@ -729,6 +785,15 @@ export class NativeBucketStore implements BucketStoreAPI {
         watchlistWritten++;
       }
 
+      for (const n of snapshot.stockNotes) {
+        if (n.deletedAt) continue;
+        await this.db.runAsync(
+          'INSERT INTO stock_notes (id, ticker, content_html, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+          n.uuid, n.ticker, n.contentHtml, n.createdAt, n.updatedAt
+        );
+        stockNotesWritten++;
+      }
+
       // Only the two settings keys that are actually part of a synced
       // snapshot - lastSyncedAt and hasCompletedInitialRestore live in this
       // same (key, value) table but describe THIS device's own sync
@@ -748,7 +813,7 @@ export class NativeBucketStore implements BucketStoreAPI {
       );
     });
 
-    return { bucketsWritten, transactionsWritten, watchlistWritten, settingsRestored: true };
+    return { bucketsWritten, transactionsWritten, watchlistWritten, stockNotesWritten, settingsRestored: true };
   }
 
   async getHasCompletedInitialRestore(): Promise<boolean> {
@@ -839,6 +904,23 @@ export class NativeBucketStore implements BucketStoreAPI {
     );
   }
 
+  async applySyncedStockNote(record: SyncStockNoteRecord): Promise<void> {
+    const existing = await this.db.getFirstAsync<{ id: string }>(
+      'SELECT id FROM stock_notes WHERE id = ?', record.uuid
+    );
+    if (existing) {
+      await this.db.runAsync(
+        'UPDATE stock_notes SET ticker = ?, content_html = ?, created_at = ?, updated_at = ?, deleted_at = ? WHERE id = ?',
+        record.ticker, record.contentHtml, record.createdAt, record.updatedAt, record.deletedAt, record.uuid
+      );
+      return;
+    }
+    await this.db.runAsync(
+      'INSERT INTO stock_notes (id, ticker, content_html, created_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, ?, ?)',
+      record.uuid, record.ticker, record.contentHtml, record.createdAt, record.updatedAt, record.deletedAt
+    );
+  }
+
   async applySyncedSettings(record: SyncSettingsRecord): Promise<void> {
     // Same (key, value) settings table + ON CONFLICT upsert pattern as
     // setMonthlyIncomeGoal/setThemeMode above - a null goal means "cleared,"
@@ -867,7 +949,7 @@ export class NativeBucketStore implements BucketStoreAPI {
     // that still remembers a since-deleted account's sync history.
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(
-        'DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist; DELETE FROM settings;'
+        'DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist; DELETE FROM stock_notes; DELETE FROM settings;'
       );
     });
   }

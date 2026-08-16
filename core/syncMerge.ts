@@ -15,7 +15,7 @@
 // etc. still import everything Phase 2-4 needs from just './syncEngine'.
 
 import {
-  SyncSnapshot, SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord,
+  SyncSnapshot, SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncStockNoteRecord, SyncSettingsRecord,
 } from './storeApi';
 
 /** Shape pushSnapshotToFirestore actually needs - a full SyncSnapshot
@@ -30,6 +30,7 @@ export interface PushableSnapshot {
   buckets: SyncBucketRecord[];
   transactions: SyncTransactionRecord[];
   watchlist: SyncWatchlistRecord[];
+  stockNotes: SyncStockNoteRecord[];
   settings: SyncSettingsRecord | null;
 }
 
@@ -77,8 +78,8 @@ function diffByKey<T extends { updatedAt: string }>(
 export function mergeSnapshots(local: SyncSnapshot, remote: SyncSnapshot | null): MergePlan {
   if (!remote) {
     return {
-      toPush: { buckets: local.buckets, transactions: local.transactions, watchlist: local.watchlist, settings: local.settings },
-      toPull: { buckets: [], transactions: [], watchlist: [], settings: null },
+      toPush: { buckets: local.buckets, transactions: local.transactions, watchlist: local.watchlist, stockNotes: local.stockNotes, settings: local.settings },
+      toPull: { buckets: [], transactions: [], watchlist: [], stockNotes: [], settings: null },
     };
   }
 
@@ -94,6 +95,10 @@ export function mergeSnapshots(local: SyncSnapshot, remote: SyncSnapshot | null)
     new Map(local.watchlist.map((w) => [w.ticker, w])),
     new Map(remote.watchlist.map((w) => [w.ticker, w]))
   );
+  const stockNotes = diffByKey(
+    new Map(local.stockNotes.map((n) => [n.uuid, n])),
+    new Map(remote.stockNotes.map((n) => [n.uuid, n]))
+  );
 
   // Settings is a single record, not a uuid-keyed collection (sync-plan.md
   // §10b) - whole-record LWW compare, same rule as everything else, just
@@ -104,7 +109,7 @@ export function mergeSnapshots(local: SyncSnapshot, remote: SyncSnapshot | null)
   else if (remote.settings.updatedAt > local.settings.updatedAt) pullSettings = remote.settings;
 
   return {
-    toPush: { buckets: buckets.toPush, transactions: transactions.toPush, watchlist: watchlist.toPush, settings: pushSettings },
-    toPull: { buckets: buckets.toPull, transactions: transactions.toPull, watchlist: watchlist.toPull, settings: pullSettings },
+    toPush: { buckets: buckets.toPush, transactions: transactions.toPush, watchlist: watchlist.toPush, stockNotes: stockNotes.toPush, settings: pushSettings },
+    toPull: { buckets: buckets.toPull, transactions: transactions.toPull, watchlist: watchlist.toPull, stockNotes: stockNotes.toPull, settings: pullSettings },
   };
 }
