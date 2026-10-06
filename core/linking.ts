@@ -59,6 +59,14 @@ export const linking: LinkingOptions<RootTabParamList> = {
           MonthlyDividendIncome: 'dividends/:bucket?',
         },
       },
+      StockTracker: {
+        path: 'tracker',
+        screens: {
+          StockTrackerHome: '',
+          StockDetail: 'stock/:ticker',
+          SearchStock: 'search',
+        },
+      },
       WatchList: {
         path: 'watchlist',
         screens: {
@@ -75,6 +83,11 @@ export const linking: LinkingOptions<RootTabParamList> = {
           Account: 'settings/account',
           Support: 'settings/support',
           BucketStrategyInfo: 'settings/why-multiple-buckets',
+          AllNotes: 'settings/notes',
+          AllTags: 'settings/tags',
+          AllAlerts: 'settings/alerts',
+          ImportStatement: 'settings/import',
+          StockTracker: 'settings/tracker',
           // Deliberately top-level rather than nested under settings/ - the
           // Play Console privacy-policy URL should be short and shareable,
           // not implementation detail about which tab it lives under.

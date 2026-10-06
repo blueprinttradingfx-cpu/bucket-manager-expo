@@ -37,6 +37,9 @@ export interface PushResult {
   transactionsWritten: number;
   watchlistWritten: number;
   stockNotesWritten: number;
+  stockTagsWritten: number;
+  stockAlertsWritten: number;
+  stockTrackerEntriesWritten: number;
   settingsWritten: boolean;
   pushedAt: string;
 }
@@ -91,6 +94,42 @@ export async function pushSnapshotToFirestore(uid: string, snapshot: PushableSna
       updatedAt: n.updatedAt, deletedAt: n.deletedAt,
     });
   }
+  for (const t of snapshot.stockTags) {
+    // Firestore doc id: ticker and tag joined by pipe. Neither component
+    // contains a pipe (tags are always ASCII label-text), so this is a safe
+    // composite key that stays human-readable in the console.
+    const docId = `${t.ticker}|${t.tag.replace(/[/]/g, '_')}`;
+    stage(doc(db, 'users', uid, 'stockTags', docId), {
+      ticker: t.ticker, tag: t.tag,
+      assignedAt: t.assignedAt, updatedAt: t.updatedAt, deletedAt: t.deletedAt,
+    });
+  }
+  for (const a of (snapshot.stockAlerts ?? [])) {
+    stage(doc(db, 'users', uid, 'stockAlerts', a.id), {
+      ticker: a.ticker, type: a.type, title: a.title,
+      eventDate: a.eventDate ?? null, eventTime: a.eventTime ?? null,
+      reminderTiming: a.reminderTiming ?? null,
+      priceDirection: a.priceDirection ?? null, priceThreshold: a.priceThreshold ?? null,
+      email: a.email, status: a.status,
+      createdAt: a.createdAt, updatedAt: a.updatedAt, deletedAt: a.deletedAt ?? null,
+      lastTriggeredAt: a.lastTriggeredAt ?? null,
+      lastTriggeredValue: a.lastTriggeredValue != null ? String(a.lastTriggeredValue) : null,
+      lastCheckedAt: a.lastCheckedAt ?? null,
+    });
+  }
+  for (const e of (snapshot.stockTrackerEntries ?? [])) {
+    stage(doc(db, 'users', uid, 'stockTracker', e.id), {
+      ticker: e.ticker, areaPriceOfInterest: e.areaPriceOfInterest ?? '',
+      weeklyMacdTrend: e.weeklyMacdTrend ?? 'none',
+      weeklyMacdTrendCustom: e.weeklyMacdTrendCustom ?? null,
+      foreignFlowSentiment: e.foreignFlowSentiment ?? 'unknown',
+      eventCatalyst: e.eventCatalyst ?? '',
+      projection: e.projection ?? '',
+      notes: e.notes ?? null,
+      priceAlertId: e.priceAlertId ?? null,
+      createdAt: e.createdAt, updatedAt: e.updatedAt, deletedAt: e.deletedAt ?? null,
+    });
+  }
   if (snapshot.settings) {
     stage(doc(db, 'users', uid, 'settings', 'preferences'), {
       monthlyIncomeGoal: snapshot.settings.monthlyIncomeGoal,
@@ -119,6 +158,9 @@ export async function pushSnapshotToFirestore(uid: string, snapshot: PushableSna
     transactionsWritten: snapshot.transactions.length,
     watchlistWritten: snapshot.watchlist.length,
     stockNotesWritten: snapshot.stockNotes.length,
+    stockTagsWritten: snapshot.stockTags.length,
+    stockAlertsWritten: (snapshot.stockAlerts ?? []).length,
+    stockTrackerEntriesWritten: (snapshot.stockTrackerEntries ?? []).length,
     settingsWritten: snapshot.settings != null,
     pushedAt,
   };
@@ -146,11 +188,14 @@ export async function pullSnapshotFromFirestore(uid: string): Promise<SyncSnapsh
   if (!settingsSnap.exists()) return null;
   const settingsData = settingsSnap.data() as SyncSettingsRecord;
 
-  const [bucketsSnap, txnsSnap, watchlistSnap, stockNotesSnap] = await Promise.all([
+  const [bucketsSnap, txnsSnap, watchlistSnap, stockNotesSnap, stockTagsSnap, stockAlertsSnap, stockTrackerSnap] = await Promise.all([
     getDocs(collection(db, 'users', uid, 'buckets')),
     getDocs(collection(db, 'users', uid, 'transactions')),
     getDocs(collection(db, 'users', uid, 'watchlist')),
     getDocs(collection(db, 'users', uid, 'stockNotes')),
+    getDocs(collection(db, 'users', uid, 'stockTags')),
+    getDocs(collection(db, 'users', uid, 'stockAlerts')),
+    getDocs(collection(db, 'users', uid, 'stockTracker')),
   ]);
 
   return {
@@ -184,6 +229,42 @@ export async function pullSnapshotFromFirestore(uid: string): Promise<SyncSnapsh
         createdAt: v.createdAt, updatedAt: v.updatedAt, deletedAt: v.deletedAt ?? null,
       };
     }),
+    stockTags: stockTagsSnap.docs.map((d) => {
+      const v = d.data();
+      return {
+        ticker: v.ticker, tag: v.tag,
+        assignedAt: v.assignedAt ?? null,
+        updatedAt: v.updatedAt, deletedAt: v.deletedAt ?? null,
+      };
+    }),
+    stockAlerts: stockAlertsSnap.docs.map((d) => {
+      const v = d.data();
+      return {
+        id: d.id, ticker: v.ticker, type: v.type, title: v.title ?? '',
+        eventDate: v.eventDate ?? null, eventTime: v.eventTime ?? null,
+        reminderTiming: v.reminderTiming ?? null,
+        priceDirection: v.priceDirection ?? null, priceThreshold: v.priceThreshold ?? null,
+        email: v.email ?? '', status: v.status ?? 'active',
+        createdAt: v.createdAt, updatedAt: v.updatedAt, deletedAt: v.deletedAt ?? null,
+        lastTriggeredAt: v.lastTriggeredAt ?? null,
+        lastTriggeredValue: v.lastTriggeredValue ?? null,
+        lastCheckedAt: v.lastCheckedAt ?? null,
+      };
+    }),
+    stockTrackerEntries: stockTrackerSnap.docs.map((d) => {
+      const v = d.data();
+      return {
+        id: d.id, ticker: v.ticker, areaPriceOfInterest: v.areaPriceOfInterest ?? '',
+        weeklyMacdTrend: v.weeklyMacdTrend ?? 'none',
+        weeklyMacdTrendCustom: v.weeklyMacdTrendCustom ?? null,
+        foreignFlowSentiment: v.foreignFlowSentiment ?? 'unknown',
+        eventCatalyst: v.eventCatalyst ?? '',
+        projection: v.projection ?? '',
+        notes: v.notes ?? null,
+        priceAlertId: v.priceAlertId ?? null,
+        createdAt: v.createdAt, updatedAt: v.updatedAt, deletedAt: v.deletedAt ?? null,
+      };
+    }),
     settings: {
       monthlyIncomeGoal: settingsData.monthlyIncomeGoal ?? null,
       themeMode: settingsData.themeMode ?? 'system',
@@ -200,7 +281,7 @@ export async function pullSnapshotFromFirestore(uid: string): Promise<SyncSnapsh
 
 export interface SyncResult {
   pushed: PushResult;
-  pulled: { buckets: number; transactions: number; watchlist: number; stockNotes: number; settingsApplied: boolean; failures: number };
+  pulled: { buckets: number; transactions: number; watchlist: number; stockNotes: number; stockTags: number; stockAlerts: number; stockTrackerEntries: number; settingsApplied: boolean; failures: number };
   syncedAt: string;
 }
 
@@ -232,6 +313,15 @@ export async function applyMergePlan(store: BucketStoreAPI, uid: string, plan: M
   for (const n of plan.toPull.stockNotes) {
     try { await store.applySyncedStockNote(n); } catch (e) { failures++; console.warn('[syncEngine] applySyncedStockNote failed', n.uuid, e); }
   }
+  for (const t of plan.toPull.stockTags) {
+    try { await store.applySyncedTag(t); } catch (e) { failures++; console.warn('[syncEngine] applySyncedTag failed', t.ticker, t.tag, e); }
+  }
+  for (const a of (plan.toPull.stockAlerts ?? [])) {
+    try { await store.applySyncedStockAlert(a); } catch (e) { failures++; console.warn('[syncEngine] applySyncedStockAlert failed', a.id, e); }
+  }
+  for (const e of (plan.toPull.stockTrackerEntries ?? [])) {
+    try { await store.applySyncedStockTrackerEntry(e); } catch (err) { failures++; console.warn('[syncEngine] applySyncedStockTrackerEntry failed', e.id, err); }
+  }
   if (plan.toPull.settings) {
     try { await store.applySyncedSettings(plan.toPull.settings); } catch (e) { failures++; console.warn('[syncEngine] applySyncedSettings failed', e); }
   }
@@ -243,6 +333,9 @@ export async function applyMergePlan(store: BucketStoreAPI, uid: string, plan: M
       transactions: plan.toPull.transactions.length,
       watchlist: plan.toPull.watchlist.length,
       stockNotes: plan.toPull.stockNotes.length,
+      stockTags: plan.toPull.stockTags.length,
+      stockAlerts: (plan.toPull.stockAlerts ?? []).length,
+      stockTrackerEntries: (plan.toPull.stockTrackerEntries ?? []).length,
       settingsApplied: !!plan.toPull.settings,
       failures,
     },
@@ -277,11 +370,13 @@ export async function syncNow(store: BucketStoreAPI, uid: string): Promise<SyncR
 export async function deleteAllRemoteData(uid: string): Promise<void> {
   const db = firestore;
 
-  const [bucketsSnap, txnsSnap, watchlistSnap, stockNotesSnap] = await Promise.all([
+  const [bucketsSnap, txnsSnap, watchlistSnap, stockNotesSnap, stockTagsSnap, stockAlertsSnap] = await Promise.all([
     getDocs(collection(db, 'users', uid, 'buckets')),
     getDocs(collection(db, 'users', uid, 'transactions')),
     getDocs(collection(db, 'users', uid, 'watchlist')),
     getDocs(collection(db, 'users', uid, 'stockNotes')),
+    getDocs(collection(db, 'users', uid, 'stockTags')),
+    getDocs(collection(db, 'users', uid, 'stockAlerts')),
   ]);
 
   let batch = writeBatch(db);
@@ -302,6 +397,8 @@ export async function deleteAllRemoteData(uid: string): Promise<void> {
   for (const d of txnsSnap.docs) stageDelete(d.ref);
   for (const d of watchlistSnap.docs) stageDelete(d.ref);
   for (const d of stockNotesSnap.docs) stageDelete(d.ref);
+  for (const d of stockTagsSnap.docs) stageDelete(d.ref);
+  for (const d of stockAlertsSnap.docs) stageDelete(d.ref);
   // Single-doc collections - settings/preferences and meta/sync - staged
   // the same way rather than a bare deleteDoc, so they ride along in the
   // batch instead of firing as separate round trips.

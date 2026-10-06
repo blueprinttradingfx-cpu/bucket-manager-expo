@@ -17,7 +17,8 @@
 // as everything else on this screen.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, RefreshControl, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, RefreshControl, ActivityIndicator, StyleSheet, Platform, Linking } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import {
   fetchMarketPulse, fetchDividendsMacroCalendar, isMarketPulseStale,
@@ -28,6 +29,8 @@ import { DashboardStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useThemeColors } from '../core/ThemeContext';
+import { useAuth } from '../core/AuthProvider';
+import { ADMIN_USER_UIDS } from '../core/adminConfig';
 import TickerLogo from './components/TickerLogo';
 
 type Props = NativeStackScreenProps<DashboardStackParamList, 'MarketPulse'>;
@@ -36,6 +39,8 @@ export default function MarketPulseScreen({ navigation }: Props) {
   useScreenViewLog('MarketPulse');
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { user } = useAuth();
+  const isAdmin = Boolean(user?.uid && ADMIN_USER_UIDS.includes(user.uid));
 
   const [pulse, setPulse] = useState<MarketPulseData | null>(null);
   const [divMacro, setDivMacro] = useState<DividendsMacroData | null>(null);
@@ -44,6 +49,15 @@ export default function MarketPulseScreen({ navigation }: Props) {
   const [moversTab, setMoversTab] = useState<'gainers' | 'losers'>('gainers');
   const [activeTab, setActiveTab] = useState<'value' | 'volume'>('value');
   const [weekTab, setWeekTab] = useState<'nearHigh' | 'nearLow' | 'crossedHigh' | 'crossedLow'>('nearHigh');
+
+  const handleOpenMarketShackSectors = useCallback(() => {
+    const url = 'https://marketshack.ph/market/sectors';
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank', 'noopener');
+    } else {
+      Linking.openURL(url);
+    }
+  }, []);
 
   const load = useCallback(async (force = false) => {
     const [pulseResult, divMacroResult] = await Promise.allSettled([
@@ -97,6 +111,24 @@ export default function MarketPulseScreen({ navigation }: Props) {
       contentContainerStyle={styles.scrollContent}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
     >
+      {isAdmin && (
+        <Pressable style={styles.adminCard} onPress={handleOpenMarketShackSectors}>
+          <View style={styles.adminIconWrap}>
+            <Ionicons name="pie-chart-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={styles.adminTitleRow}>
+              <Text style={styles.adminTitle}>Sector Performance</Text>
+              <View style={styles.adminBadge}>
+                <Text style={styles.adminBadgeText}>Wilbert</Text>
+              </View>
+            </View>
+            <Text style={styles.adminSubtitle}>View sector breakdown on MarketShack</Text>
+          </View>
+          <Ionicons name="open-outline" size={18} color={colors.onSurfaceVariant} />
+        </Pressable>
+      )}
+
       {pulse && <PulseHeader pulse={pulse} colors={colors} styles={styles} />}
 
       {pulse && (
@@ -365,4 +397,51 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   macroDateText: { fontFamily: fonts.monoSemiBold, fontSize: 12, color: colors.onSurface },
 
   generatedAt: { fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.onSurfaceVariant, textAlign: 'center', marginTop: spacing.sm },
+
+  adminCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: colors.primary + '50',
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  adminIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: radii.full,
+    backgroundColor: colors.primary + '15',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adminTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  adminTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+    color: colors.onSurface,
+  },
+  adminSubtitle: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  adminBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 1,
+    borderRadius: radii.full,
+  },
+  adminBadgeText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 10,
+    color: colors.onPrimary,
+  },
 });

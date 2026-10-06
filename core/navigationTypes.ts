@@ -42,6 +42,12 @@ export type WatchListStackParamList = {
   SearchStock: undefined;
 };
 
+export type TrackerStackParamList = {
+  StockTrackerHome: undefined;
+  StockDetail: { ticker: string };
+  SearchStock: undefined;
+};
+
 export type SettingsStackParamList = {
   SettingsHome: undefined;
   Account: undefined;
@@ -51,6 +57,12 @@ export type SettingsStackParamList = {
   TermsOfUse: undefined;
   PrivacyPolicy: undefined;
   BucketStrategyInfo: undefined;
+  AllNotes: { tickerFilter?: string };
+  AllTags: { tagFilter?: string } | undefined;
+  AllAlerts: { tickerFilter?: string } | undefined;
+  ImportStatement: undefined;
+  StockTracker: undefined;
+  StockDetail: { ticker: string };
 };
 
 // The Tab.Navigator itself (App.tsx) - each tab screen is registered via a
@@ -61,6 +73,7 @@ export type SettingsStackParamList = {
 export type RootTabParamList = {
   Dashboard: undefined;
   Buckets: undefined;
+  StockTracker: undefined;
   WatchList: undefined;
   Import: undefined;
   Settings: undefined;

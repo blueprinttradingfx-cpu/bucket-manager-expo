@@ -15,7 +15,7 @@
 // etc. still import everything Phase 2-4 needs from just './syncEngine'.
 
 import {
-  SyncSnapshot, SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncStockNoteRecord, SyncSettingsRecord,
+  SyncSnapshot, SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncStockNoteRecord, SyncStockTagRecord, SyncSettingsRecord, StockAlert, StockTrackerEntry,
 } from './storeApi';
 
 /** Shape pushSnapshotToFirestore actually needs - a full SyncSnapshot
@@ -31,6 +31,9 @@ export interface PushableSnapshot {
   transactions: SyncTransactionRecord[];
   watchlist: SyncWatchlistRecord[];
   stockNotes: SyncStockNoteRecord[];
+  stockTags: SyncStockTagRecord[];
+  stockAlerts: StockAlert[];
+  stockTrackerEntries?: StockTrackerEntry[];
   settings: SyncSettingsRecord | null;
 }
 
@@ -78,8 +81,8 @@ function diffByKey<T extends { updatedAt: string }>(
 export function mergeSnapshots(local: SyncSnapshot, remote: SyncSnapshot | null): MergePlan {
   if (!remote) {
     return {
-      toPush: { buckets: local.buckets, transactions: local.transactions, watchlist: local.watchlist, stockNotes: local.stockNotes, settings: local.settings },
-      toPull: { buckets: [], transactions: [], watchlist: [], stockNotes: [], settings: null },
+      toPush: { buckets: local.buckets, transactions: local.transactions, watchlist: local.watchlist, stockNotes: local.stockNotes, stockTags: local.stockTags, stockAlerts: local.stockAlerts ?? [], stockTrackerEntries: local.stockTrackerEntries ?? [], settings: local.settings },
+      toPull: { buckets: [], transactions: [], watchlist: [], stockNotes: [], stockTags: [], stockAlerts: [], stockTrackerEntries: [], settings: null },
     };
   }
 
@@ -99,6 +102,23 @@ export function mergeSnapshots(local: SyncSnapshot, remote: SyncSnapshot | null)
     new Map(local.stockNotes.map((n) => [n.uuid, n])),
     new Map(remote.stockNotes.map((n) => [n.uuid, n]))
   );
+  // stockTags compound key: ticker + "\x00" + tag (null byte is safe since
+  // neither component ever contains one, and this key is only used as a
+  // Map key here, never stored or sent to any external system).
+  const stockTags = diffByKey(
+    new Map((local.stockTags ?? []).map((t) => [`${t.ticker}\x00${t.tag}`, t])),
+    new Map((remote.stockTags ?? []).map((t) => [`${t.ticker}\x00${t.tag}`, t]))
+  );
+  // stockAlerts keyed by id (uuid).
+  const stockAlerts = diffByKey(
+    new Map((local.stockAlerts ?? []).map((a) => [a.id, a])),
+    new Map((remote.stockAlerts ?? []).map((a) => [a.id, a]))
+  );
+  // stockTrackerEntries keyed by id (uuid).
+  const stockTrackerEntries = diffByKey(
+    new Map((local.stockTrackerEntries ?? []).map((e) => [e.id, e])),
+    new Map((remote.stockTrackerEntries ?? []).map((e) => [e.id, e]))
+  );
 
   // Settings is a single record, not a uuid-keyed collection (sync-plan.md
   // §10b) - whole-record LWW compare, same rule as everything else, just
@@ -109,7 +129,7 @@ export function mergeSnapshots(local: SyncSnapshot, remote: SyncSnapshot | null)
   else if (remote.settings.updatedAt > local.settings.updatedAt) pullSettings = remote.settings;
 
   return {
-    toPush: { buckets: buckets.toPush, transactions: transactions.toPush, watchlist: watchlist.toPush, stockNotes: stockNotes.toPush, settings: pushSettings },
-    toPull: { buckets: buckets.toPull, transactions: transactions.toPull, watchlist: watchlist.toPull, stockNotes: stockNotes.toPull, settings: pullSettings },
+    toPush: { buckets: buckets.toPush, transactions: transactions.toPush, watchlist: watchlist.toPush, stockNotes: stockNotes.toPush, stockTags: stockTags.toPush, stockAlerts: stockAlerts.toPush, stockTrackerEntries: stockTrackerEntries.toPush, settings: pushSettings },
+    toPull: { buckets: buckets.toPull, transactions: transactions.toPull, watchlist: watchlist.toPull, stockNotes: stockNotes.toPull, stockTags: stockTags.toPull, stockAlerts: stockAlerts.toPull, stockTrackerEntries: stockTrackerEntries.toPull, settings: pullSettings },
   };
 }

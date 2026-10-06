@@ -43,6 +43,89 @@ export interface StockNote {
   updatedAt: string;
 }
 
+/** A single freeform text tag applied to one ticker. Tags are global per
+ *  ticker (not per-bucket, not per-position), so a tag on AREIT shows up
+ *  everywhere AREIT appears: StockDetail, Watchlist, All Notes filter,
+ *  future dashboard filters. The user creates tag values inline by
+ *  typing — there is no separate pre-defined tag dictionary table; typeahead
+ *  suggestions come from the existing set of (distinct tag) rows in this
+ *  store. Max 10 tags per ticker is enforced in the UI layer (the store
+ *  itself has no hard cap, so an import-style caller can write more if it
+ *  really needs to). */
+export interface StockTagAssignment {
+  ticker: string;
+  /** User-typed tag text, case-sensitive as written. Usually starts with
+   *  "#" but the store doesn't require it; the UI will normalize by
+   *  trimming, collapsing whitespace, and prepending "#" if missing. */
+  tag: string;
+  /** ISO timestamp of when this (ticker, tag) pair was first created -
+   *  used for newest-first ordering in the "add tag" dialog's suggestions. */
+  assignedAt: string;
+  /** LWW timestamp for cross-device sync, same convention as every other
+   *  synced store (updatedAt of the latest write to this compound key). */
+  updatedAt: string;
+  /** Soft-delete tombstone. null means the assignment is live; non-null
+   *  means a device unassigned this tag from this ticker, and that delete
+   *  needs to propagate to other devices via sync. The (ticker, tag)
+   *  compound key is retained on the tombstone row so a future assign-
+   *  on-device-A vs. unassign-on-device-B conflict resolves correctly by
+   *  LWW compare instead of turning into two separate rows. */
+  deletedAt: string | null;
+}
+
+export interface StockAlert {
+  id: string;
+  ticker: string;
+  type: 'event' | 'price';
+  title: string;
+  eventDate: string | null;
+  eventTime: string | null;
+  reminderTiming: 'day-before' | 'day-of' | 'both' | null;
+  priceDirection: 'above' | 'below' | null;
+  priceThreshold: number | null;
+  email: string;
+  status: 'active' | 'paused';
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  lastTriggeredAt: string | null;
+  lastTriggeredValue: number | string | null;
+  lastCheckedAt: string | null;
+}
+
+export type WeeklyMacdTrend =
+  | 'bullish-converging'
+  | 'bullish-diverging'
+  | 'bearish-converging'
+  | 'bearish-diverging'
+  | 'sideways'
+  | 'none'
+  | 'custom';
+
+export type ForeignFlowSentiment =
+  | 'strong-buying'
+  | 'buying'
+  | 'neutral'
+  | 'selling'
+  | 'strong-selling'
+  | 'unknown';
+
+export interface StockTrackerEntry {
+  id: string;
+  ticker: string;
+  areaPriceOfInterest: string;
+  weeklyMacdTrend: WeeklyMacdTrend;
+  weeklyMacdTrendCustom?: string | null;
+  foreignFlowSentiment: ForeignFlowSentiment;
+  eventCatalyst: string;
+  projection: string;
+  notes?: string | null;
+  priceAlertId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
 export interface BucketStoreAPI {
   listBuckets(): Promise<BucketRow[]>;
   getOrCreateBucket(name: string, yieldLow?: number, yieldHigh?: number): Promise<number>;
@@ -168,6 +251,12 @@ export interface BucketStoreAPI {
   /** A ticker's note feed, newest first - every note ever added, regardless
    *  of which bucket(s) currently hold the ticker (or whether any do). */
   getStockNotes(ticker: string): Promise<StockNote[]>;
+  /** All notes across every ticker combined, newest first. If `ticker` is
+   *  supplied the result is filtered to that ticker only (equivalent to
+   *  getStockNotes but exists so callers can pass a param dynamically
+   *  without branching at the callsite). Soft-deleted notes are excluded.
+   *  Powers the "All Notes" entry under Settings → My Data. */
+  listAllStockNotes(ticker?: string): Promise<StockNote[]>;
   /** Adds a new note to a ticker's feed. Returns the created note (with its
    *  generated id/timestamps) so the caller can render it immediately
    *  without a round-trip re-fetch. */
@@ -179,6 +268,63 @@ export interface BucketStoreAPI {
    *  watchlist, see SyncStockNoteRecord - so a delete on one device
    *  correctly propagates as a delete on every other synced device). */
   deleteStockNote(id: string): Promise<void>;
+
+  /** List of live tags currently assigned to a ticker, assignedAt-newest first.
+   *  Soft-deleted (ticker, tag) pairs are excluded from the return. The
+   *  caller (StockDetailScreen) renders these as chip UI below the ticker
+   *  name, newest-added first. */
+  getTagsForTicker(ticker: string): Promise<StockTagAssignment[]>;
+  /** Bulk-set the tag set for a ticker to exactly `tags`. Any (ticker, tag) in
+   *  the incoming set that is NOT already present is INSERTED (with assignedAt
+   *  = updatedAt = now); any already there is left alone EXCEPT its deletedAt
+   *  tombstone is revived if it was tombstoned; any currently-live (ticker, tag)
+   *  NOT in the incoming set is soft-DELETED (deletedAt = now, updatedAt =
+   *  now). This is the UI-friendly "user edited chips in the dialog → whole set
+   *  changed" semantics rather than forcing the caller to do a per-chip diff
+   *  for every chip add/remove separately; the store itself still produces per-row LWW
+   *  records at the storage layer, so a setTagsForTicker({A,B}) then setTagsForTicker({A})
+   *  still merges correctly across devices via the individual pair's per-record timestamps. */
+  setTagsForTicker(ticker: string, tags: string[]): Promise<void>;
+  /** Distinct-tag rollup: one entry per unique tag value currently applied to any
+   *  ticker with a count of how many live tickers have it. ordered by count desc.
+   *  Excludes tags whose every (ticker, tag) pairs are ALL tombstoned.
+   *  Powers the AllTagsScreen Settings entry (Settings → My Data → Stock Tags). */
+  getAllTagsWithCounts(): Promise<{ tag: string; tickerCount: number; mostRecentAssignedAt: string }[]>;
+  /** Reverse lookup: every live ticker that has an entry tagged `tag`, newest-assigned first.
+   *  AllTagsScreen drill-down: tap a tag → this list → each ticker links
+   *  navigates to StockDetail(ticker). Tombstoned pairs are filtered out here. */
+  getTickersForTag(tag: string): Promise<(StockTagAssignment & { ticker: string })[]>;
+
+  /** List of live alerts currently set for a ticker, newest-created first. */
+  getAlertsForTicker(ticker: string): Promise<StockAlert[]>;
+  /** Add a new event or price alert for a ticker. */
+  addStockAlert(alert: Omit<StockAlert, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<StockAlert>;
+  /** Update properties of an existing alert. */
+  updateStockAlert(
+    id: string,
+    updates: Partial<Pick<StockAlert, 'title' | 'eventDate' | 'eventTime' | 'reminderTiming' | 'priceDirection' | 'priceThreshold' | 'email' | 'status'>>
+  ): Promise<void>;
+  /** Soft-delete an alert by id. */
+  deleteStockAlert(id: string): Promise<void>;
+  /** List all live stock alerts across the portfolio, newest-created first. */
+  listAllStockAlerts(): Promise<StockAlert[]>;
+
+  /** List all live (non-deleted) stock tracker entries across the portfolio. */
+  listAllStockTrackerEntries(): Promise<StockTrackerEntry[]>;
+  /** Get a single stock tracker entry by its unique ID. */
+  getStockTrackerEntry(id: string): Promise<StockTrackerEntry | null>;
+  /** Get the stock tracker entry for a specific ticker (if any). */
+  getStockTrackerForTicker(ticker: string): Promise<StockTrackerEntry | null>;
+  /** Create or update a stock tracker entry. */
+  upsertStockTrackerEntry(
+    entry: Omit<StockTrackerEntry, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & {
+      id?: string;
+      createdAt?: string;
+      updatedAt?: string;
+    }
+  ): Promise<StockTrackerEntry>;
+  /** Soft-delete a stock tracker entry by ID. */
+  deleteStockTrackerEntry(id: string): Promise<void>;
 
   /** Full local dataset shaped for core/syncEngine.ts to push to Firestore -
    *  see sync-plan.md. Includes soft-deleted rows. */
@@ -246,6 +392,15 @@ export interface BucketStoreAPI {
    *  applySyncedWatchlistItem, just keyed by id instead of ticker (a ticker
    *  can have many notes). */
   applySyncedStockNote(record: SyncStockNoteRecord): Promise<void>;
+  /** Insert or update a single (ticker, tag) pair from an incoming sync
+   *  merge. Natural compound key is `ticker + tag`; a row where deletedAt
+   *  is non-null applies the tombstone semantics the same way setTagsForTicker's
+   *  set-removal path does locally. */
+  applySyncedTag(record: SyncStockTagRecord): Promise<void>;
+  /** Apply a single pulled stock alert record locally via LWW by updatedAt. */
+  applySyncedStockAlert(record: StockAlert): Promise<void>;
+  /** Apply a single pulled stock tracker entry locally via LWW by updatedAt. */
+  applySyncedStockTrackerEntry(record: StockTrackerEntry): Promise<void>;
   /** Overwrite local settings (monthlyIncomeGoal + themeMode) with the
    *  winning side's record - settings is a single record, not a uuid-keyed
    *  collection, so unlike the three methods above there's no per-key
@@ -270,6 +425,9 @@ export interface RestoreResult {
   transactionsWritten: number;
   watchlistWritten: number;
   stockNotesWritten: number;
+  stockTagsWritten: number;
+  stockAlertsWritten: number;
+  stockTrackerEntriesWritten: number;
   settingsRestored: boolean;
 }
 
@@ -338,6 +496,19 @@ export interface SyncStockNoteRecord {
   deletedAt: string | null;
 }
 
+/** Cross-device sync shape for a single (ticker, tag) pair. Compound key is
+ *  `ticker + tag`; merge uses last-write-wins by updatedAt exactly like
+ *  watchlist/stockNotes above. AssignedAt is informational display/ordering,
+ *  not conflict resolution (a revival of a tombstoned pair keeps the original
+ *  assignedAt if one is available; a brand new pair sets it to now). */
+export interface SyncStockTagRecord {
+  ticker: string;
+  tag: string;
+  assignedAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+}
+
 export interface SyncSettingsRecord {
   monthlyIncomeGoal: number | null;
   themeMode: 'system' | 'light' | 'dark';
@@ -349,5 +520,8 @@ export interface SyncSnapshot {
   transactions: SyncTransactionRecord[];
   watchlist: SyncWatchlistRecord[];
   stockNotes: SyncStockNoteRecord[];
+  stockTags: SyncStockTagRecord[];
+  stockAlerts: StockAlert[];
+  stockTrackerEntries: StockTrackerEntry[];
   settings: SyncSettingsRecord;
 }

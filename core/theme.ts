@@ -36,6 +36,7 @@ export const lightColors = {
   primary: '#0052FF',
   onPrimary: '#FFFFFF',
   primaryContainer: '#F0F3FA',
+  onPrimaryContainer: '#050F19',
   secondary: '#0052FF',
   onSecondary: '#FFFFFF',
   positive: '#05B169',
@@ -82,6 +83,7 @@ export const darkColors = {
   primary: '#4C8DFF',
   onPrimary: '#04101F',
   primaryContainer: '#1B2A46',
+  onPrimaryContainer: '#EAECEF',
   secondary: '#4C8DFF',
   onSecondary: '#04101F',
   positive: '#2ED47F',
@@ -114,6 +116,7 @@ export interface ThemeColors {
   primary: string;
   onPrimary: string;
   primaryContainer: string;
+  onPrimaryContainer: string;
   secondary: string;
   onSecondary: string;
   positive: string;
@@ -193,6 +196,7 @@ export const spacing = {
   md: 16,
   lg: 24,
   xl: 48,
+  xxl: 96,
   gutter: 20,
 } as const;
 

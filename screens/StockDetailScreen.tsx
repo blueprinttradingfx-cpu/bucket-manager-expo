@@ -13,7 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import Alert from '../core/alert';
 import { useStore } from '../core/StoreProvider';
 import { AggregatedStock, ValuedAggregatedStock, ValuedStockPosition, BucketStockPosition, applyPricesToAggregated, computePortfolioValuation, YieldBracket } from '../core/bucketLogic';
-import { WatchlistItem, StockNote } from '../core/storeApi';
+import { WatchlistItem, StockNote, StockAlert, StockTrackerEntry } from '../core/storeApi';
 import { fetchPriceCache, PriceEntry } from '../core/priceCache';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
@@ -28,6 +28,9 @@ import DataDisclaimer from './components/DataDisclaimer';
 import { buildStockDetailPrompt, StockPositionSummary } from '../core/askAiPrompts';
 import { fetchCompanyDetails } from '../core/companyDetailsCache';
 import { Ionicons } from '@expo/vector-icons';
+import TagEditorDialog from './components/TagEditorDialog';
+import AlertsSection from './components/AlertsSection';
+import { useNavigation } from '@react-navigation/native';
 
 // Minimal structural prop type, not tied to either stack's specific
 // NativeStackScreenProps - this screen is registered in BOTH DashboardStack
@@ -101,6 +104,8 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const store = useStore();
+  // T-07: used for cross-tab navigate back to Tracker screen from alert chip
+  const rootNav = useNavigation<any>();
   const [stock, setStock] = useState<AggregatedStock | ValuedAggregatedStock | null>(null);
   const [buckets, setBuckets] = useState<YieldBracket[]>([]);
   const [priceEntry, setPriceEntry] = useState<PriceEntry | null>(null);
@@ -113,6 +118,78 @@ export default function StockDetailScreen({ route, navigation }: Props) {
   const [txnSortKey, setTxnSortKey] = useState<TxnSortKey>('date');
   const [txnSortDir, setTxnSortDir] = useState<'asc' | 'desc'>('desc');
   const [showAskAi, setShowAskAi] = useState(false);
+  const [tags, setTags] = useState<string[]>([]);
+  const [allAppTags, setAllAppTags] = useState<{ tag: string; tickerCount: number }[]>([]);
+  const [showTagEditor, setShowTagEditor] = useState(false);
+  const [alerts, setAlerts] = useState<StockAlert[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  // T-07: tracker entry for this ticker — used to show "Linked from Tracker" chip on alerts
+  const [trackerEntry, setTrackerEntry] = useState<StockTrackerEntry | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      Promise.all([
+        store.getTagsForTicker(ticker),
+        store.getAllTagsWithCounts(),
+      ]).then(([tList, appTags]) => {
+        if (!cancelled) {
+          setTags(tList.map((t) => t.tag));
+          setAllAppTags(appTags);
+        }
+      });
+      return () => { cancelled = true; };
+    }, [store, ticker])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setAlertsLoading(true);
+      // T-07: load alerts + tracker entry for this ticker in parallel
+      Promise.all([
+        store.getAlertsForTicker(ticker),
+        store.getStockTrackerForTicker(ticker),
+      ]).then(([list, entry]) => {
+        if (!cancelled) {
+          setAlerts(list);
+          setTrackerEntry(entry);
+          setAlertsLoading(false);
+        }
+      }).catch(() => { if (!cancelled) setAlertsLoading(false); });
+      return () => { cancelled = true; };
+    }, [store, ticker])
+  );
+
+  // T-07: set of alert IDs that were auto-created by the tracker entry for this ticker.
+  // Used by AlertsSection to show the "Linked from Stock Tracker" chip.
+  const linkedAlertIds = useMemo<Set<string>>(() => {
+    if (trackerEntry?.priceAlertId) return new Set([trackerEntry.priceAlertId]);
+    return new Set();
+  }, [trackerEntry]);
+
+  // T-07: navigate to the Stock Tracker tab, using root navigator.
+  // Cast to 'any' because this screen lives in multiple stacks and we only
+  // need a tab-level navigate — no param is needed for the tab root.
+  const handleNavigateToTracker = useCallback(() => {
+    try {
+      rootNav.navigate('StockTracker' as any);
+    } catch (e) {
+      console.log('[StockDetail] T-07 navigate to tracker failed:', e);
+    }
+  }, [rootNav]);
+
+  async function handleSaveTags(newTags: string[]) {
+
+    try {
+      await store.setTagsForTicker(ticker, newTags);
+      setTags(newTags);
+      const appTags = await store.getAllTagsWithCounts();
+      setAllAppTags(appTags);
+    } catch (e: any) {
+      Alert.alert('Could not save tags', e.message ?? String(e));
+    }
+  }
 
   useEffect(() => {
     (async () => {
@@ -235,6 +312,37 @@ export default function StockDetailScreen({ route, navigation }: Props) {
     }
   }
 
+  async function handleAddAlert(alert: Omit<StockAlert, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>) {
+    try {
+      const created = await store.addStockAlert(alert);
+      setAlerts((prev) => [created, ...prev]);
+    } catch (e: any) {
+      Alert.alert('Could not save alert', e.message ?? String(e));
+    }
+  }
+
+  async function handleUpdateAlert(
+    id: string,
+    updates: Partial<Pick<StockAlert, 'title' | 'eventDate' | 'eventTime' | 'reminderTiming' | 'priceDirection' | 'priceThreshold' | 'email' | 'status'>>
+  ) {
+    try {
+      await store.updateStockAlert(id, updates);
+      const updatedAt = new Date().toISOString();
+      setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, ...updates, updatedAt } : a)));
+    } catch (e: any) {
+      Alert.alert('Could not update alert', e.message ?? String(e));
+    }
+  }
+
+  async function handleDeleteAlert(id: string) {
+    try {
+      await store.deleteStockAlert(id);
+      setAlerts((prev) => prev.filter((a) => a.id !== id));
+    } catch (e: any) {
+      Alert.alert('Could not delete alert', e.message ?? String(e));
+    }
+  }
+
   const sortedTxnHistory = useMemo(() => {
     const rows = [...txnHistory];
     rows.sort((a, b) => {
@@ -276,6 +384,18 @@ export default function StockDetailScreen({ route, navigation }: Props) {
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <Text style={styles.ticker}>{ticker}</Text>
         <Text style={styles.subtitle}>Not currently held in any bucket</Text>
+
+        <View style={styles.tagContainer}>
+          {tags.map((t) => (
+            <Pressable key={t} style={styles.tagChip} onPress={() => setShowTagEditor(true)}>
+              <Text style={styles.tagChipText}>{t}</Text>
+            </Pressable>
+          ))}
+          <Pressable style={styles.addTagBtn} onPress={() => setShowTagEditor(true)}>
+            <Ionicons name="add" size={14} color={colors.primary} />
+            <Text style={styles.addTagBtnText}>{tags.length === 0 ? 'Add Tags' : 'Edit'}</Text>
+          </Pressable>
+        </View>
 
         <View style={styles.suggestionCard}>
           <BucketSuggestion ticker={ticker} yieldPct={priceEntry?.yieldPct ?? null} buckets={buckets} />
@@ -320,6 +440,19 @@ export default function StockDetailScreen({ route, navigation }: Props) {
           />
         </View>
 
+        <View style={styles.notesCard}>
+          <AlertsSection
+            alerts={alerts}
+            loading={alertsLoading}
+            ticker={ticker}
+            onAdd={handleAddAlert}
+            onUpdate={handleUpdateAlert}
+            onDelete={handleDeleteAlert}
+            linkedAlertIds={linkedAlertIds}
+            onNavigateToTracker={handleNavigateToTracker}
+          />
+        </View>
+
         <AskAiModal
           visible={showAskAi}
           onClose={() => setShowAskAi(false)}
@@ -334,6 +467,14 @@ export default function StockDetailScreen({ route, navigation }: Props) {
               buyBelowTarget: watchlistItem?.buyBelowPrice ?? null,
             });
           }}
+        />
+        <TagEditorDialog
+          visible={showTagEditor}
+          ticker={ticker}
+          initialTags={tags}
+          allAppTags={allAppTags}
+          onClose={() => setShowTagEditor(false)}
+          onSaveTags={handleSaveTags}
         />
         <DataDisclaimer />
       </ScrollView>
@@ -356,6 +497,18 @@ export default function StockDetailScreen({ route, navigation }: Props) {
           ? `Across ${activeBucketCount} bucket${activeBucketCount === 1 ? '' : 's'}${closedBucketCount > 0 ? ` · sold out of ${closedBucketCount} more` : ''}`
           : `Fully sold · previously held in ${stock.buckets.length} bucket${stock.buckets.length === 1 ? '' : 's'}`}
       </Text>
+
+      <View style={styles.tagContainer}>
+        {tags.map((t) => (
+          <Pressable key={t} style={styles.tagChip} onPress={() => setShowTagEditor(true)}>
+            <Text style={styles.tagChipText}>{t}</Text>
+          </Pressable>
+        ))}
+        <Pressable style={styles.addTagBtn} onPress={() => setShowTagEditor(true)}>
+          <Ionicons name="add" size={14} color={colors.primary} />
+          <Text style={styles.addTagBtnText}>{tags.length === 0 ? 'Add Tags' : 'Edit'}</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.suggestionCard}>
         <BucketSuggestion ticker={stock.ticker} yieldPct={valued?.currentYieldPct ?? null} buckets={buckets} />
@@ -438,6 +591,19 @@ export default function StockDetailScreen({ route, navigation }: Props) {
         />
       </View>
 
+      <View style={styles.notesCard}>
+        <AlertsSection
+          alerts={alerts}
+          loading={alertsLoading}
+          ticker={stock.ticker}
+          onAdd={handleAddAlert}
+          onUpdate={handleUpdateAlert}
+          onDelete={handleDeleteAlert}
+          linkedAlertIds={linkedAlertIds}
+          onNavigateToTracker={handleNavigateToTracker}
+        />
+      </View>
+
       <AskAiModal
         visible={showAskAi}
         onClose={() => setShowAskAi(false)}
@@ -460,6 +626,14 @@ export default function StockDetailScreen({ route, navigation }: Props) {
             buyBelowTarget: watchlistItem?.buyBelowPrice ?? null,
           });
         }}
+      />
+      <TagEditorDialog
+        visible={showTagEditor}
+        ticker={stock.ticker}
+        initialTags={tags}
+        allAppTags={allAppTags}
+        onClose={() => setShowTagEditor(false)}
+        onSaveTags={handleSaveTags}
       />
       <DataDisclaimer />
     </ScrollView>
@@ -531,7 +705,12 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   scrollContent: { padding: spacing.md, paddingBottom: 40 },
   center: { flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
   ticker: { fontFamily: fonts.monoBold, fontSize: 26, color: colors.onBackground },
-  subtitle: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant, marginBottom: spacing.md },
+  subtitle: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant, marginBottom: spacing.sm },
+  tagContainer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs, marginBottom: spacing.md, marginTop: -2 },
+  tagChip: { backgroundColor: colors.primaryContainer, borderRadius: radii.full, paddingVertical: 4, paddingHorizontal: spacing.sm },
+  tagChipText: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.onPrimaryContainer },
+  addTagBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceVariant, borderRadius: radii.full, paddingVertical: 4, paddingHorizontal: spacing.sm, gap: 2, borderWidth: 1, borderColor: colors.outlineVariant },
+  addTagBtnText: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.primary },
   statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.sm },
   stat: { flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outlineVariant, borderRadius: radii.xl, padding: spacing.md },
   statLabel: { fontFamily: fonts.bodySemiBold, fontSize: 11, color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 6 },

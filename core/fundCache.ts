@@ -63,7 +63,11 @@ export async function fetchFundCache(
 }
 
 export function getFundPrice(cache: FundCache | null, ticker: string): FundEntry | null {
-  return cache?.funds?.[ticker] ?? null;
+  const entry = cache?.funds?.[ticker] ?? null;
+  if (!entry) {
+    console.log('[fundCache] ticker not found in funds.json: ', ticker);
+  }
+  return entry;
 }
 
 export function isFundCacheStale(cache: FundCache, maxAgeHours = 48): boolean {

@@ -14,13 +14,13 @@ import {
 import {
   BucketRow, BucketStoreAPI, WatchlistItem, WatchlistImportResult, SyncSnapshot, RestoreResult,
   SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord, SyncStockNoteRecord,
-  StockNote,
+  StockNote, StockTagAssignment, SyncStockTagRecord, StockAlert, StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment,
 } from './storeApi';
 import { PortfolioStockInput, dedupePortfolioStocks, mergeBuyBelowPrice } from './watchlistImport';
 import { generateUuid } from './uuid';
 
 const DB_NAME = 'bucket_portfolio';
-const DB_VERSION = 7;
+const DB_VERSION = 10;
 
 // Sync-prep fields (sync-plan.md §1, §4 Phase 0). Named to match the SQLite
 // column names in db.native.ts (uuid / updated_at / deleted_at) rather than
@@ -47,6 +47,17 @@ interface StoredWatchlistItem {
 interface StoredStockNote {
   id: string; ticker: string; contentHtml: string; createdAt: string;
   updated_at: string; deleted_at?: string | null;
+}
+interface StoredStockTag {
+  // Compound key stored as array for IndexedDB keyPath - see the
+  // createObjectStore call in upgrade(). idb's TypeScript typing accepts
+  // the array literal as the keyPath on put/add, and IDBKeyRange.only([...])
+  // for exact-pair lookups.
+  ticker: string;
+  tag: string;
+  assigned_at: string;
+  updated_at: string;
+  deleted_at: string | null;
 }
 
 async function openBucketDB(): Promise<IDBPDatabase> {
@@ -125,6 +136,35 @@ async function openBucketDB(): Promise<IDBPDatabase> {
       if (!db.objectStoreNames.contains('stock_notes')) {
         const notes = db.createObjectStore('stock_notes', { keyPath: 'id' });
         notes.createIndex('by_ticker', 'ticker');
+      }
+
+      // Migration (version 7 -> 8): stock tags store. Compound [ticker, tag]
+      // keyPath makes an exact-pair lookup a direct get([ticker, tag]) rather
+      // than a scan; IndexedDB treats the array literally as the object's key
+      // for put/add (same compound-key pattern as by_bucket_hash on
+      // transactions, just promoted to keyPath instead of an index). A
+      // by_ticker index covers getTagsForTicker's filtered read without
+      // a full-store scan; a by_tag index covers getTickersForTag's reverse
+      // lookup.
+      if (!db.objectStoreNames.contains('stock_tags')) {
+        const tags = db.createObjectStore('stock_tags', { keyPath: ['ticker', 'tag'] });
+        tags.createIndex('by_ticker', 'ticker');
+        tags.createIndex('by_tag', 'tag');
+      }
+
+      // Migration (version 8 -> 9): stock alerts store, keyed by id (uuid)
+      // with by_ticker and by_updatedAt indexes for filtering and sync updates.
+      if (!db.objectStoreNames.contains('stock_alerts')) {
+        const alerts = db.createObjectStore('stock_alerts', { keyPath: 'id' });
+        alerts.createIndex('by_ticker', 'ticker');
+        alerts.createIndex('by_updatedAt', 'updatedAt');
+      }
+
+      // Migration (version 9 -> 10): stock tracker store, keyed by id (uuid)
+      // with by_ticker index for quick lookup by ticker.
+      if (!db.objectStoreNames.contains('stock_tracker')) {
+        const tracker = db.createObjectStore('stock_tracker', { keyPath: 'id' });
+        tracker.createIndex('by_ticker', 'ticker');
       }
     },
   });
@@ -574,6 +614,25 @@ export class WebBucketStore implements BucketStoreAPI {
       .map((n) => ({ id: n.id, ticker: n.ticker, contentHtml: n.contentHtml, createdAt: n.createdAt, updatedAt: n.updated_at }));
   }
 
+  async listAllStockNotes(ticker?: string): Promise<StockNote[]> {
+    let raw: StoredStockNote[];
+    if (ticker !== undefined && ticker.length > 0) {
+      raw = await this.db.getAllFromIndex('stock_notes', 'by_ticker', ticker) as StoredStockNote[];
+    } else {
+      raw = await this.db.getAll('stock_notes') as StoredStockNote[];
+    }
+    return raw
+      .filter((n) => !n.deleted_at)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((n) => ({
+        id: n.id,
+        ticker: n.ticker,
+        contentHtml: n.contentHtml,
+        createdAt: n.createdAt,
+        updatedAt: n.updated_at,
+      }));
+  }
+
   async addStockNote(ticker: string, contentHtml: string): Promise<StockNote> {
     const id = generateUuid();
     const now = new Date().toISOString();
@@ -600,6 +659,224 @@ export class WebBucketStore implements BucketStoreAPI {
     await this.db.put('stock_notes', existing);
   }
 
+  /** Normalize one tag value before writing - mirrors the native
+   *  implementation (trim, collapse whitespace, prepend "#" if missing) so
+   *  any non-UI write path (restore, sync apply) produces the same storage
+   *  format as the interactive tag editor. */
+  private normalizeTagValue(raw: string): string {
+    const trimmed = raw.trim().replace(/\s+/g, ' ');
+    if (trimmed.length === 0) return '';
+    return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  }
+
+  async getTagsForTicker(ticker: string): Promise<StockTagAssignment[]> {
+    const all = await this.db.getAllFromIndex('stock_tags', 'by_ticker', ticker) as StoredStockTag[];
+    return all
+      .filter((r) => !r.deleted_at)
+      .sort((a, b) => b.assigned_at.localeCompare(a.assigned_at))
+      .map((r) => ({
+        ticker: r.ticker, tag: r.tag,
+        assignedAt: r.assigned_at ?? r.assigned_at ?? null,
+        updatedAt: r.updated_at ?? null,
+        deletedAt: r.deleted_at ?? null,
+      }));
+  }
+
+  async setTagsForTicker(ticker: string, tags: string[]): Promise<void> {
+    const now = new Date().toISOString();
+    // Normalize, drop empties, dedupe.
+    const seen = new Set<string>();
+    const target: string[] = [];
+    for (const t of tags) {
+      const norm = this.normalizeTagValue(t);
+      if (norm.length === 0) continue;
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      target.push(norm);
+    }
+
+    // Fetch every existing row for this ticker (including tombstoned) so we
+    // can diff against it - same logic as the native implementation.
+    const existing = await this.db.getAllFromIndex('stock_tags', 'by_ticker', ticker) as StoredStockTag[];
+    const existingMap = new Map(existing.map((r) => [r.tag, r]));
+
+    // 1. Each incoming tag: INSERT if new, REVIVE if tombstoned, skip if live.
+    for (const tag of target) {
+      const ex = existingMap.get(tag);
+      if (!ex) {
+        await this.db.add('stock_tags', {
+          ticker, tag, assigned_at: now, updated_at: now, deleted_at: null,
+        } as StoredStockTag);
+      } else if (ex.deleted_at != null) {
+        // Revive tombstone: keep original assigned_at, only bump updated_at.
+        ex.deleted_at = null;
+        ex.updated_at = now;
+        await this.db.put('stock_tags', ex);
+      }
+      // else: already live - no write needed (preserves LWW timestamps).
+    }
+
+    // 2. Every currently-live tag NOT in the incoming set: soft-delete.
+    const keep = new Set(target);
+    for (const ex of existing) {
+      if (ex.deleted_at != null) continue;
+      if (!keep.has(ex.tag)) {
+        ex.deleted_at = now;
+        ex.updated_at = now;
+        await this.db.put('stock_tags', ex);
+      }
+    }
+  }
+
+  async getAllTagsWithCounts(): Promise<{ tag: string; tickerCount: number; mostRecentAssignedAt: string }[]> {
+    const all = await this.db.getAll('stock_tags') as StoredStockTag[];
+    const live = all.filter((r) => !r.deleted_at);
+    // Group by tag: count distinct tickers, track most-recent assigned_at.
+    const byTag = new Map<string, { tickers: Set<string>; mostRecent: string }>();
+    for (const r of live) {
+      let entry = byTag.get(r.tag);
+      if (!entry) { entry = { tickers: new Set(), mostRecent: r.assigned_at }; byTag.set(r.tag, entry); }
+      entry.tickers.add(r.ticker);
+      if (r.assigned_at > entry.mostRecent) entry.mostRecent = r.assigned_at;
+    }
+    return Array.from(byTag.entries())
+      .map(([tag, { tickers, mostRecent }]) => ({ tag, tickerCount: tickers.size, mostRecentAssignedAt: mostRecent }))
+      .sort((a, b) => b.tickerCount - a.tickerCount || b.mostRecentAssignedAt.localeCompare(a.mostRecentAssignedAt));
+  }
+
+  async getTickersForTag(tag: string): Promise<(StockTagAssignment & { ticker: string })[]> {
+    const all = await this.db.getAllFromIndex('stock_tags', 'by_tag', tag) as StoredStockTag[];
+    return all
+      .filter((r) => !r.deleted_at)
+      .sort((a, b) => b.assigned_at.localeCompare(a.assigned_at))
+      .map((r) => ({
+        ticker: r.ticker, tag: r.tag,
+        assignedAt: r.assigned_at ?? null,
+        updatedAt: r.updated_at ?? null,
+        deletedAt: r.deleted_at ?? null,
+      }));
+  }
+
+  async getAlertsForTicker(ticker: string): Promise<StockAlert[]> {
+    const all = await this.db.getAllFromIndex('stock_alerts', 'by_ticker', ticker) as StockAlert[];
+    const live = all.filter((r) => !r.deletedAt);
+    live.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+    return live;
+  }
+
+  async addStockAlert(alertInput: Omit<StockAlert, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<StockAlert> {
+    const now = new Date().toISOString();
+    const alert: StockAlert = {
+      ...alertInput,
+      id: generateUuid(),
+      createdAt: now,
+      updatedAt: now,
+      deletedAt: null,
+      lastTriggeredAt: null,
+      lastTriggeredValue: null,
+      lastCheckedAt: null,
+    };
+    await this.db.put('stock_alerts', alert);
+    return alert;
+  }
+
+  async updateStockAlert(
+    id: string,
+    updates: Partial<Pick<StockAlert, 'title' | 'eventDate' | 'eventTime' | 'reminderTiming' | 'priceDirection' | 'priceThreshold' | 'email' | 'status'>>
+  ): Promise<void> {
+    const existing = await this.db.get('stock_alerts', id) as StockAlert | undefined;
+    if (!existing) throw new Error(`StockAlert not found: ${id}`);
+    const now = new Date().toISOString();
+    const next: StockAlert = {
+      ...existing,
+      ...updates,
+      updatedAt: now,
+    };
+    await this.db.put('stock_alerts', next);
+  }
+
+  async deleteStockAlert(id: string): Promise<void> {
+    const existing = await this.db.get('stock_alerts', id) as StockAlert | undefined;
+    if (!existing) return;
+    const now = new Date().toISOString();
+    const next: StockAlert = {
+      ...existing,
+      updatedAt: now,
+      deletedAt: now,
+    };
+    await this.db.put('stock_alerts', next);
+  }
+
+  async listAllStockAlerts(): Promise<StockAlert[]> {
+    const all = await this.db.getAll('stock_alerts') as StockAlert[];
+    const live = all.filter((r) => !r.deletedAt);
+    live.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+    return live;
+  }
+
+  async listAllStockTrackerEntries(): Promise<StockTrackerEntry[]> {
+    const all = await this.db.getAll('stock_tracker') as StockTrackerEntry[];
+    const live = all.filter((r) => !r.deletedAt);
+    live.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+    return live;
+  }
+
+  async getStockTrackerEntry(id: string): Promise<StockTrackerEntry | null> {
+    const entry = await this.db.get('stock_tracker', id) as StockTrackerEntry | undefined;
+    if (!entry || entry.deletedAt) return null;
+    return entry;
+  }
+
+  async getStockTrackerForTicker(ticker: string): Promise<StockTrackerEntry | null> {
+    const all = await this.db.getAllFromIndex('stock_tracker', 'by_ticker', ticker) as StockTrackerEntry[];
+    const live = all.filter((r) => !r.deletedAt);
+    if (live.length === 0) return null;
+    live.sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
+    return live[0];
+  }
+
+  async upsertStockTrackerEntry(
+    input: Omit<StockTrackerEntry, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & {
+      id?: string;
+      createdAt?: string;
+      updatedAt?: string;
+    }
+  ): Promise<StockTrackerEntry> {
+    const now = new Date().toISOString();
+    const id = input.id || generateUuid();
+    const existing = await this.db.get('stock_tracker', id) as StockTrackerEntry | undefined;
+
+    const entry: StockTrackerEntry = {
+      id,
+      ticker: input.ticker.trim().toUpperCase(),
+      areaPriceOfInterest: input.areaPriceOfInterest ?? '',
+      weeklyMacdTrend: input.weeklyMacdTrend ?? 'none',
+      weeklyMacdTrendCustom: input.weeklyMacdTrendCustom ?? null,
+      foreignFlowSentiment: input.foreignFlowSentiment ?? 'unknown',
+      eventCatalyst: input.eventCatalyst ?? '',
+      projection: input.projection ?? '',
+      notes: input.notes ?? null,
+      priceAlertId: input.priceAlertId ?? null,
+      createdAt: existing?.createdAt ?? input.createdAt ?? now,
+      updatedAt: input.updatedAt ?? now,
+      deletedAt: null,
+    };
+    await this.db.put('stock_tracker', entry);
+    return entry;
+  }
+
+  async deleteStockTrackerEntry(id: string): Promise<void> {
+    const existing = await this.db.get('stock_tracker', id) as StockTrackerEntry | undefined;
+    if (!existing) return;
+    const now = new Date().toISOString();
+    const next: StockTrackerEntry = {
+      ...existing,
+      deletedAt: now,
+      updatedAt: now,
+    };
+    await this.db.put('stock_tracker', next);
+  }
+
   async getSyncSnapshot(): Promise<SyncSnapshot> {
     const buckets = await this.db.getAll('buckets') as StoredBucket[];
     const bucketUuidById = new Map(buckets.map((b) => [b.id, b.uuid]));
@@ -607,6 +884,9 @@ export class WebBucketStore implements BucketStoreAPI {
     const allTxns = await this.db.getAll('transactions') as StoredWebTxn[];
     const watchlist = await this.db.getAll('watchlist') as StoredWatchlistItem[];
     const stockNotes = await this.db.getAll('stock_notes') as StoredStockNote[];
+    const stockTags = await this.db.getAll('stock_tags') as StoredStockTag[];
+    const stockAlerts = await this.db.getAll('stock_alerts') as StockAlert[];
+    const stockTrackerEntries = await this.db.getAll('stock_tracker') as StockTrackerEntry[];
     const settingsRows = await this.db.getAll('settings') as { key: string; value: number; updated_at?: string }[];
     const goalRow = settingsRows.find((r) => r.key === 'monthlyIncomeGoal');
     const themeRow = settingsRows.find((r) => r.key === 'themeMode');
@@ -637,6 +917,26 @@ export class WebBucketStore implements BucketStoreAPI {
       stockNotes: stockNotes.map((n) => ({
         uuid: n.id, ticker: n.ticker, contentHtml: n.contentHtml,
         createdAt: n.createdAt, updatedAt: n.updated_at, deletedAt: n.deleted_at ?? null,
+      })),
+      stockTags: stockTags.map((r) => ({
+        ticker: r.ticker, tag: r.tag,
+        assignedAt: r.assigned_at ?? null,
+        updatedAt: r.updated_at ?? null,
+        deletedAt: r.deleted_at ?? null,
+      })),
+      stockAlerts: stockAlerts.map((a) => ({
+        id: a.id, ticker: a.ticker, type: a.type, title: a.title,
+        eventDate: a.eventDate ?? null, eventTime: a.eventTime ?? null, reminderTiming: a.reminderTiming ?? null,
+        priceDirection: a.priceDirection ?? null, priceThreshold: a.priceThreshold ?? null,
+        email: a.email, status: a.status, createdAt: a.createdAt, updatedAt: a.updatedAt, deletedAt: a.deletedAt ?? null,
+        lastTriggeredAt: a.lastTriggeredAt ?? null, lastTriggeredValue: a.lastTriggeredValue ?? null, lastCheckedAt: a.lastCheckedAt ?? null,
+      })),
+      stockTrackerEntries: stockTrackerEntries.map((e) => ({
+        id: e.id, ticker: e.ticker, areaPriceOfInterest: e.areaPriceOfInterest ?? '',
+        weeklyMacdTrend: e.weeklyMacdTrend ?? 'none', weeklyMacdTrendCustom: e.weeklyMacdTrendCustom ?? null,
+        foreignFlowSentiment: e.foreignFlowSentiment ?? 'unknown', eventCatalyst: e.eventCatalyst ?? '',
+        projection: e.projection ?? '', notes: e.notes ?? null, priceAlertId: e.priceAlertId ?? null,
+        createdAt: e.createdAt, updatedAt: e.updatedAt, deletedAt: e.deletedAt ?? null,
       })),
       settings: {
         monthlyIncomeGoal: goalRow?.value ?? null,
@@ -670,7 +970,11 @@ export class WebBucketStore implements BucketStoreAPI {
     const watchlist = await this.db.getAll('watchlist') as StoredWatchlistItem[];
     if (watchlist.some((w) => !w.deleted_at)) return true;
     const notes = await this.db.getAll('stock_notes') as StoredStockNote[];
-    return notes.some((n) => !n.deleted_at);
+    if (notes.some((n) => !n.deleted_at)) return true;
+    const alerts = await this.db.getAll('stock_alerts') as StockAlert[];
+    if (alerts.some((a) => !a.deletedAt)) return true;
+    const tracker = await this.db.getAll('stock_tracker') as StockTrackerEntry[];
+    return tracker.some((t) => !t.deletedAt);
   }
 
   // Phase 3 (sync-plan.md §5/§8): one-way pull, clean overwrite rather than
@@ -680,17 +984,23 @@ export class WebBucketStore implements BucketStoreAPI {
   // rolls back everything, including the .clear() calls, rather than
   // leaving local data half-overwritten.
   async restoreFromSyncSnapshot(snapshot: SyncSnapshot): Promise<RestoreResult> {
-    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'stock_notes', 'settings'], 'readwrite');
+    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'stock_notes', 'stock_tags', 'stock_alerts', 'stock_tracker', 'settings'], 'readwrite');
     const bucketsStore = tx.objectStore('buckets');
     const txnsStore = tx.objectStore('transactions');
     const watchlistStore = tx.objectStore('watchlist');
     const notesStore = tx.objectStore('stock_notes');
+    const tagsStore = tx.objectStore('stock_tags');
+    const alertsStore = tx.objectStore('stock_alerts');
+    const trackerStore = tx.objectStore('stock_tracker');
     const settingsStore = tx.objectStore('settings');
 
     await bucketsStore.clear();
     await txnsStore.clear();
     await watchlistStore.clear();
     await notesStore.clear();
+    await tagsStore.clear();
+    await alertsStore.clear();
+    await trackerStore.clear();
 
     // Buckets first, so bucketUuid -> local id resolves before transactions
     // (which reference bucketId, not bucketUuid) are inserted.
@@ -741,10 +1051,46 @@ export class WebBucketStore implements BucketStoreAPI {
       stockNotesWritten++;
     }
 
+    let stockTagsWritten = 0;
+    for (const t of snapshot.stockTags ?? []) {
+      if (t.deletedAt) continue;
+      await tagsStore.add({
+        ticker: t.ticker, tag: t.tag,
+        assigned_at: t.assignedAt, updated_at: t.updatedAt, deleted_at: null,
+      } as StoredStockTag);
+      stockTagsWritten++;
+    }
+
+    let stockAlertsWritten = 0;
+    for (const a of snapshot.stockAlerts ?? []) {
+      if (a.deletedAt) continue;
+      await alertsStore.add({
+        id: a.id, ticker: a.ticker, type: a.type, title: a.title,
+        eventDate: a.eventDate ?? null, eventTime: a.eventTime ?? null, reminderTiming: a.reminderTiming ?? null,
+        priceDirection: a.priceDirection ?? null, priceThreshold: a.priceThreshold ?? null,
+        email: a.email, status: a.status, createdAt: a.createdAt, updatedAt: a.updatedAt, deletedAt: null,
+        lastTriggeredAt: a.lastTriggeredAt ?? null, lastTriggeredValue: a.lastTriggeredValue ?? null, lastCheckedAt: a.lastCheckedAt ?? null,
+      } as StockAlert);
+      stockAlertsWritten++;
+    }
+
     // Only the two settings keys that are actually part of a synced
     // snapshot - lastSyncedAt and hasCompletedInitialRestore live in this
     // same store but describe THIS device's own sync history, not synced
     // data, so a restore must never touch them.
+    let stockTrackerEntriesWritten = 0;
+    for (const e of snapshot.stockTrackerEntries ?? []) {
+      if (e.deletedAt) continue;
+      await trackerStore.add({
+        id: e.id, ticker: e.ticker, areaPriceOfInterest: e.areaPriceOfInterest ?? '',
+        weeklyMacdTrend: e.weeklyMacdTrend ?? 'none', weeklyMacdTrendCustom: e.weeklyMacdTrendCustom ?? null,
+        foreignFlowSentiment: e.foreignFlowSentiment ?? 'unknown', eventCatalyst: e.eventCatalyst ?? '',
+        projection: e.projection ?? '', notes: e.notes ?? null, priceAlertId: e.priceAlertId ?? null,
+        createdAt: e.createdAt, updatedAt: e.updatedAt, deletedAt: null,
+      } as StockTrackerEntry);
+      stockTrackerEntriesWritten++;
+    }
+
     if (snapshot.settings.monthlyIncomeGoal == null) {
       await settingsStore.delete('monthlyIncomeGoal');
     } else {
@@ -757,7 +1103,7 @@ export class WebBucketStore implements BucketStoreAPI {
 
     await tx.done;
 
-    return { bucketsWritten, transactionsWritten, watchlistWritten, stockNotesWritten, settingsRestored: true };
+    return { bucketsWritten, transactionsWritten, watchlistWritten, stockNotesWritten, stockTagsWritten, stockAlertsWritten, stockTrackerEntriesWritten, settingsRestored: true };
   }
 
   async getHasCompletedInitialRestore(): Promise<boolean> {
@@ -849,6 +1195,68 @@ export class WebBucketStore implements BucketStoreAPI {
     } as StoredStockNote);
   }
 
+  async applySyncedTag(record: SyncStockTagRecord): Promise<void> {
+    // [ticker, tag] IS the compound keyPath, so put() is a genuine
+    // insert-or-replace with no scan needed (same pattern as
+    // applySyncedWatchlistItem's ticker keyPath, but compound here).
+    const now = new Date().toISOString();
+    await this.db.put('stock_tags', {
+      ticker: record.ticker,
+      tag: record.tag,
+      assigned_at: record.assignedAt ?? now,
+      updated_at: record.updatedAt,
+      deleted_at: record.deletedAt ?? null,
+    } as StoredStockTag);
+  }
+
+  async applySyncedStockAlert(record: StockAlert): Promise<void> {
+    const existing = await this.db.get('stock_alerts', record.id) as StockAlert | undefined;
+    if (existing && existing.updatedAt && existing.updatedAt >= record.updatedAt) {
+      return;
+    }
+    await this.db.put('stock_alerts', {
+      id: record.id,
+      ticker: record.ticker,
+      type: record.type,
+      title: record.title,
+      eventDate: record.eventDate ?? null,
+      eventTime: record.eventTime ?? null,
+      reminderTiming: record.reminderTiming ?? null,
+      priceDirection: record.priceDirection ?? null,
+      priceThreshold: record.priceThreshold ?? null,
+      email: record.email,
+      status: record.status,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      deletedAt: record.deletedAt ?? null,
+      lastTriggeredAt: record.lastTriggeredAt ?? null,
+      lastTriggeredValue: record.lastTriggeredValue ?? null,
+      lastCheckedAt: record.lastCheckedAt ?? null,
+    } as StockAlert);
+  }
+
+  async applySyncedStockTrackerEntry(record: StockTrackerEntry): Promise<void> {
+    const existing = await this.db.get('stock_tracker', record.id) as StockTrackerEntry | undefined;
+    if (existing && existing.updatedAt && existing.updatedAt >= record.updatedAt) {
+      return;
+    }
+    await this.db.put('stock_tracker', {
+      id: record.id,
+      ticker: record.ticker,
+      areaPriceOfInterest: record.areaPriceOfInterest ?? '',
+      weeklyMacdTrend: record.weeklyMacdTrend ?? 'none',
+      weeklyMacdTrendCustom: record.weeklyMacdTrendCustom ?? null,
+      foreignFlowSentiment: record.foreignFlowSentiment ?? 'unknown',
+      eventCatalyst: record.eventCatalyst ?? '',
+      projection: record.projection ?? '',
+      notes: record.notes ?? null,
+      priceAlertId: record.priceAlertId ?? null,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
+      deletedAt: record.deletedAt ?? null,
+    } as StockTrackerEntry);
+  }
+
   async applySyncedSettings(record: SyncSettingsRecord): Promise<void> {
     // Same (key, value) settings store + null-means-delete convention as
     // setMonthlyIncomeGoal above.
@@ -862,18 +1270,15 @@ export class WebBucketStore implements BucketStoreAPI {
   }
 
   async wipeAllLocalData(): Promise<void> {
-    // Unlike restoreFromSyncSnapshot (which leaves 'settings' rows like
-    // lastSyncedAt/hasCompletedInitialRestore alone on purpose), this clears
-    // it too - account deletion should return the app to a genuinely
-    // fresh-install state, not one that still remembers a since-deleted
-    // account's sync history. Same all-in-one-transaction shape as
-    // restoreFromSyncSnapshot for the same atomicity reason.
-    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'stock_notes', 'settings'], 'readwrite');
+    const tx = this.db.transaction(['buckets', 'transactions', 'watchlist', 'stock_notes', 'stock_tags', 'stock_alerts', 'stock_tracker', 'settings'], 'readwrite');
     await Promise.all([
       tx.objectStore('buckets').clear(),
       tx.objectStore('transactions').clear(),
       tx.objectStore('watchlist').clear(),
       tx.objectStore('stock_notes').clear(),
+      tx.objectStore('stock_tags').clear(),
+      tx.objectStore('stock_alerts').clear(),
+      tx.objectStore('stock_tracker').clear(),
       tx.objectStore('settings').clear(),
       tx.done,
     ]);

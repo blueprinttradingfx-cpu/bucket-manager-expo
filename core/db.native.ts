@@ -14,7 +14,7 @@ import {
 import {
   BucketRow, BucketStoreAPI, WatchlistItem, WatchlistImportResult, SyncSnapshot, RestoreResult,
   SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord, SyncStockNoteRecord,
-  StockNote,
+  StockNote, StockTagAssignment, SyncStockTagRecord, StockAlert, StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment,
 } from './storeApi';
 import { PortfolioStockInput, dedupePortfolioStocks, mergeBuyBelowPrice } from './watchlistImport';
 import { generateUuid } from './uuid';
@@ -67,6 +67,57 @@ export async function initSchema(db: SQLiteDatabase) {
       deleted_at TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_stock_notes_ticker ON stock_notes(ticker);
+
+    CREATE TABLE IF NOT EXISTS stock_tags (
+      ticker TEXT NOT NULL,
+      tag TEXT NOT NULL,
+      assigned_at TEXT,
+      updated_at TEXT,
+      deleted_at TEXT,
+      PRIMARY KEY (ticker, tag)
+    );
+    CREATE INDEX IF NOT EXISTS idx_stock_tags_ticker ON stock_tags(ticker);
+    CREATE INDEX IF NOT EXISTS idx_stock_tags_tag ON stock_tags(tag);
+
+    CREATE TABLE IF NOT EXISTS stock_alerts (
+      id TEXT PRIMARY KEY,
+      ticker TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      event_date TEXT,
+      event_time TEXT,
+      reminder_timing TEXT,
+      price_direction TEXT,
+      price_threshold REAL,
+      email TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT,
+      last_triggered_at TEXT,
+      last_triggered_value TEXT,
+      last_checked_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_stock_alerts_ticker ON stock_alerts(ticker);
+    CREATE INDEX IF NOT EXISTS idx_stock_alerts_updated_at ON stock_alerts(updated_at);
+
+    CREATE TABLE IF NOT EXISTS stock_tracker (
+      id TEXT PRIMARY KEY,
+      ticker TEXT NOT NULL,
+      area_price_of_interest TEXT NOT NULL DEFAULT '',
+      weekly_macd_trend TEXT NOT NULL DEFAULT 'none',
+      weekly_macd_trend_custom TEXT,
+      foreign_flow_sentiment TEXT NOT NULL DEFAULT 'unknown',
+      event_catalyst TEXT NOT NULL DEFAULT '',
+      projection TEXT NOT NULL DEFAULT '',
+      notes TEXT,
+      price_alert_id TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_stock_tracker_ticker ON stock_tracker(ticker);
+    CREATE INDEX IF NOT EXISTS idx_stock_tracker_updated_at ON stock_tracker(updated_at);
   `);
 
   // Migration: add is_manual column if it doesn't exist (for existing databases)
@@ -617,6 +668,17 @@ export class NativeBucketStore implements BucketStoreAPI {
     return rows.map((r) => ({ id: r.id, ticker: r.ticker, contentHtml: r.content_html, createdAt: r.created_at, updatedAt: r.updated_at }));
   }
 
+  async listAllStockNotes(ticker?: string): Promise<StockNote[]> {
+    const sql = ticker !== undefined && ticker.length > 0
+      ? 'SELECT id, ticker, content_html, created_at, updated_at FROM stock_notes WHERE ticker = ? AND deleted_at IS NULL ORDER BY created_at DESC'
+      : 'SELECT id, ticker, content_html, created_at, updated_at FROM stock_notes WHERE deleted_at IS NULL ORDER BY created_at DESC';
+    const rows = await this.db.getAllAsync<{ id: string; ticker: string; content_html: string; created_at: string; updated_at: string }>(
+      sql,
+      ...(ticker !== undefined && ticker.length > 0 ? [ticker] : [])
+    );
+    return rows.map((r) => ({ id: r.id, ticker: r.ticker, contentHtml: r.content_html, createdAt: r.created_at, updatedAt: r.updated_at }));
+  }
+
   async addStockNote(ticker: string, contentHtml: string): Promise<StockNote> {
     const id = generateUuid();
     const now = new Date().toISOString();
@@ -643,6 +705,339 @@ export class NativeBucketStore implements BucketStoreAPI {
     // SyncStockNoteRecord's doc comment.
     const now = new Date().toISOString();
     await this.db.runAsync('UPDATE stock_notes SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id);
+  }
+
+  async getTagsForTicker(ticker: string): Promise<StockTagAssignment[]> {
+    const rows = await this.db.getAllAsync<{
+      ticker: string; tag: string; assigned_at: string; updated_at: string; deleted_at: string | null;
+    }>(
+      'SELECT ticker, tag, assigned_at, updated_at, deleted_at FROM stock_tags WHERE ticker = ? AND deleted_at IS NULL ORDER BY assigned_at DESC',
+      ticker
+    );
+    return rows.map((r) => ({
+      ticker: r.ticker, tag: r.tag,
+      assignedAt: r.assigned_at, updatedAt: r.updated_at,
+      deletedAt: r.deleted_at ?? null,
+    }));
+  }
+
+  /** Normalize one tag value before writing it to storage - mirrors what the
+   *  UI layer does (trim, collapse whitespace, prepend "#" if missing). Done
+   *  here too so callers that write tags through non-UI paths (restore from
+   *  sync, manual programmatic calls) still end up with consistent storage. */
+  private normalizeTagValue(raw: string): string {
+    const trimmed = raw.trim().replace(/\s+/g, ' ');
+    if (trimmed.length === 0) return '';
+    return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  }
+
+  async setTagsForTicker(ticker: string, tags: string[]): Promise<void> {
+    const now = new Date().toISOString();
+    // Normalize each value, drop any that normalize to empty, then dedupe
+    // (user could accidentally pass "#foo" and "foo" separately); keep
+    // first occurrence order.
+    const seen = new Set<string>();
+    const target: string[] = [];
+    for (const t of tags) {
+      const norm = this.normalizeTagValue(t);
+      if (norm.length === 0) continue;
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      target.push(norm);
+    }
+
+    await this.db.withTransactionAsync(async () => {
+      // Fetch every existing row for this ticker INCLUDING tombstoned ones
+      // - we need to know the original assignedAt for revivals (don't reset
+      // it just because the tag was removed and re-added later), plus we
+      // need the set to diff against for inserts/updates/deletes.
+      const existing = await this.db.getAllAsync<{
+        tag: string; assigned_at: string; updated_at: string; deleted_at: string | null;
+      }>('SELECT tag, assigned_at, updated_at, deleted_at FROM stock_tags WHERE ticker = ?', ticker);
+      const existingMap = new Map(existing.map((r) => [r.tag, r]));
+
+      // 1. Every incoming tag: INSERT if new, or REVIVE if tombstoned, or leave as-is if live
+      for (const tag of target) {
+        const ex = existingMap.get(tag);
+        if (!ex) {
+          await this.db.runAsync(
+            'INSERT INTO stock_tags (ticker, tag, assigned_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, NULL)',
+            ticker, tag, now, now
+          );
+        } else if (ex.deleted_at != null) {
+          // Revive the tombstone. Keep the original assignedAt; only bump updatedAt.
+          await this.db.runAsync(
+            'UPDATE stock_tags SET deleted_at = NULL, updated_at = ? WHERE ticker = ? AND tag = ?',
+            now, ticker, tag
+          );
+        } else {
+          // Already live and not changed - no write needed (preserves LWW
+          // timestamp ordering across devices for identical sets).
+        }
+      }
+
+      // 2. Every currently-LIVE existing tag that is NOT in the incoming set: soft-delete.
+      const keep = new Set(target);
+      for (const ex of existing) {
+        if (ex.deleted_at != null) continue;
+        if (!keep.has(ex.tag)) {
+          await this.db.runAsync(
+            'UPDATE stock_tags SET deleted_at = ?, updated_at = ? WHERE ticker = ? AND tag = ?',
+            now, now, ticker, ex.tag
+          );
+        }
+      }
+    });
+  }
+
+  async getAllTagsWithCounts(): Promise<{ tag: string; tickerCount: number; mostRecentAssignedAt: string }[]> {
+    // SQLite GROUP BY rollup: count of DISTINCT live tickers per tag, with
+    // most-recent assignedAt for ordering tiebreaks. Excludes pairs whose
+    // deleted_at IS NOT NULL via the WHERE clause (so a tag whose every
+    // assignment is tombstoned yields no rows and vanishes entirely).
+    const rows = await this.db.getAllAsync<{
+      tag: string; ticker_count: number; most_recent: string;
+    }>(`
+      SELECT tag, COUNT(DISTINCT ticker) AS ticker_count, MAX(assigned_at) AS most_recent
+      FROM stock_tags
+      WHERE deleted_at IS NULL
+      GROUP BY tag
+      ORDER BY ticker_count DESC, most_recent DESC
+    `);
+    return rows.map((r) => ({ tag: r.tag, tickerCount: r.ticker_count, mostRecentAssignedAt: r.most_recent }));
+  }
+
+  async getTickersForTag(tag: string): Promise<(StockTagAssignment & { ticker: string })[]> {
+    const rows = await this.db.getAllAsync<{
+      ticker: string; tag: string; assigned_at: string; updated_at: string; deleted_at: string | null;
+    }>(
+      'SELECT ticker, tag, assigned_at, updated_at, deleted_at FROM stock_tags WHERE tag = ? AND deleted_at IS NULL ORDER BY assigned_at DESC',
+      tag
+    );
+    return rows.map((r) => ({
+      ticker: r.ticker, tag: r.tag,
+      assignedAt: r.assigned_at, updatedAt: r.updated_at,
+      deletedAt: r.deleted_at ?? null,
+    }));
+  }
+
+  // --- Stock alerts -------------------------------------------------------
+
+  private rowToAlert(r: {
+    id: string; ticker: string; type: string; title: string;
+    event_date: string | null; event_time: string | null; reminder_timing: string | null;
+    price_direction: string | null; price_threshold: number | null;
+    email: string; status: string;
+    created_at: string; updated_at: string; deleted_at: string | null;
+    last_triggered_at: string | null; last_triggered_value: string | null; last_checked_at: string | null;
+  }): StockAlert {
+    return {
+      id: r.id, ticker: r.ticker,
+      type: r.type as 'event' | 'price',
+      title: r.title,
+      eventDate: r.event_date, eventTime: r.event_time,
+      reminderTiming: r.reminder_timing as StockAlert['reminderTiming'],
+      priceDirection: r.price_direction as 'above' | 'below' | null,
+      priceThreshold: r.price_threshold,
+      email: r.email, status: r.status as 'active' | 'paused',
+      createdAt: r.created_at, updatedAt: r.updated_at, deletedAt: r.deleted_at,
+      lastTriggeredAt: r.last_triggered_at,
+      lastTriggeredValue: r.last_triggered_value,
+      lastCheckedAt: r.last_checked_at,
+    };
+  }
+
+  async getAlertsForTicker(ticker: string): Promise<StockAlert[]> {
+    const rows = await this.db.getAllAsync<Parameters<NativeBucketStore['rowToAlert']>[0]>(
+      `SELECT id, ticker, type, title, event_date, event_time, reminder_timing,
+              price_direction, price_threshold, email, status, created_at, updated_at,
+              deleted_at, last_triggered_at, last_triggered_value, last_checked_at
+       FROM stock_alerts WHERE ticker = ? AND deleted_at IS NULL ORDER BY created_at DESC`,
+      ticker
+    );
+    return rows.map((r) => this.rowToAlert(r));
+  }
+
+  async addStockAlert(alert: Omit<StockAlert, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'>): Promise<StockAlert> {
+    const id = generateUuid();
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      `INSERT INTO stock_alerts
+       (id, ticker, type, title, event_date, event_time, reminder_timing,
+        price_direction, price_threshold, email, status, created_at, updated_at, deleted_at,
+        last_triggered_at, last_triggered_value, last_checked_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,?,?,?)`,
+      id, alert.ticker, alert.type, alert.title, alert.eventDate ?? null,
+      alert.eventTime ?? null, alert.reminderTiming ?? null,
+      alert.priceDirection ?? null, alert.priceThreshold ?? null,
+      alert.email, alert.status, now, now,
+      alert.lastTriggeredAt ?? null,
+      alert.lastTriggeredValue != null ? String(alert.lastTriggeredValue) : null,
+      alert.lastCheckedAt ?? null
+    );
+    return { ...alert, id, createdAt: now, updatedAt: now, deletedAt: null };
+  }
+
+  async updateStockAlert(
+    id: string,
+    updates: Partial<Pick<StockAlert, 'title' | 'eventDate' | 'eventTime' | 'reminderTiming' | 'priceDirection' | 'priceThreshold' | 'email' | 'status'>>
+  ): Promise<void> {
+    const existing = await this.db.getFirstAsync<Parameters<NativeBucketStore['rowToAlert']>[0]>(
+      `SELECT id, ticker, type, title, event_date, event_time, reminder_timing,
+              price_direction, price_threshold, email, status, created_at, updated_at,
+              deleted_at, last_triggered_at, last_triggered_value, last_checked_at
+       FROM stock_alerts WHERE id = ? AND deleted_at IS NULL`, id
+    );
+    if (!existing) throw new Error('Alert not found or already deleted.');
+    const current = this.rowToAlert(existing);
+    const title = updates.title ?? current.title;
+    const eventDate = updates.eventDate !== undefined ? updates.eventDate : current.eventDate;
+    const eventTime = updates.eventTime !== undefined ? updates.eventTime : current.eventTime;
+    const reminderTiming = updates.reminderTiming !== undefined ? updates.reminderTiming : current.reminderTiming;
+    const priceDirection = updates.priceDirection !== undefined ? updates.priceDirection : current.priceDirection;
+    const priceThreshold = updates.priceThreshold !== undefined ? updates.priceThreshold : current.priceThreshold;
+    const email = updates.email ?? current.email;
+    const status = updates.status ?? current.status;
+    await this.db.runAsync(
+      `UPDATE stock_alerts SET title = ?, event_date = ?, event_time = ?, reminder_timing = ?,
+       price_direction = ?, price_threshold = ?, email = ?, status = ?, updated_at = ? WHERE id = ?`,
+      title, eventDate ?? null, eventTime ?? null, reminderTiming ?? null,
+      priceDirection ?? null, priceThreshold ?? null, email, status,
+      new Date().toISOString(), id
+    );
+  }
+
+  async deleteStockAlert(id: string): Promise<void> {
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      'UPDATE stock_alerts SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id
+    );
+  }
+
+  async listAllStockAlerts(): Promise<StockAlert[]> {
+    const rows = await this.db.getAllAsync<Parameters<NativeBucketStore['rowToAlert']>[0]>(
+      `SELECT id, ticker, type, title, event_date, event_time, reminder_timing,
+              price_direction, price_threshold, email, status, created_at, updated_at,
+              deleted_at, last_triggered_at, last_triggered_value, last_checked_at
+       FROM stock_alerts WHERE deleted_at IS NULL ORDER BY created_at DESC`
+    );
+    return rows.map((r) => this.rowToAlert(r));
+  }
+
+  // --- Stock tracker ------------------------------------------------------
+
+  private rowToTrackerEntry(r: {
+    id: string;
+    ticker: string;
+    area_price_of_interest: string;
+    weekly_macd_trend: string;
+    weekly_macd_trend_custom: string | null;
+    foreign_flow_sentiment: string;
+    event_catalyst: string;
+    projection: string;
+    notes: string | null;
+    price_alert_id: string | null;
+    created_at: string;
+    updated_at: string;
+    deleted_at: string | null;
+  }): StockTrackerEntry {
+    return {
+      id: r.id,
+      ticker: r.ticker,
+      areaPriceOfInterest: r.area_price_of_interest,
+      weeklyMacdTrend: r.weekly_macd_trend as WeeklyMacdTrend,
+      weeklyMacdTrendCustom: r.weekly_macd_trend_custom,
+      foreignFlowSentiment: r.foreign_flow_sentiment as ForeignFlowSentiment,
+      eventCatalyst: r.event_catalyst,
+      projection: r.projection,
+      notes: r.notes,
+      priceAlertId: r.price_alert_id,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      deletedAt: r.deleted_at,
+    };
+  }
+
+  async listAllStockTrackerEntries(): Promise<StockTrackerEntry[]> {
+    const rows = await this.db.getAllAsync<Parameters<NativeBucketStore['rowToTrackerEntry']>[0]>(
+      `SELECT id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
+              foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+              created_at, updated_at, deleted_at
+       FROM stock_tracker WHERE deleted_at IS NULL ORDER BY updated_at DESC`
+    );
+    return rows.map((r) => this.rowToTrackerEntry(r));
+  }
+
+  async getStockTrackerEntry(id: string): Promise<StockTrackerEntry | null> {
+    const row = await this.db.getFirstAsync<Parameters<NativeBucketStore['rowToTrackerEntry']>[0]>(
+      `SELECT id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
+              foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+              created_at, updated_at, deleted_at
+       FROM stock_tracker WHERE id = ? AND deleted_at IS NULL`,
+      id
+    );
+    return row ? this.rowToTrackerEntry(row) : null;
+  }
+
+  async getStockTrackerForTicker(ticker: string): Promise<StockTrackerEntry | null> {
+    const row = await this.db.getFirstAsync<Parameters<NativeBucketStore['rowToTrackerEntry']>[0]>(
+      `SELECT id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
+              foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+              created_at, updated_at, deleted_at
+       FROM stock_tracker WHERE ticker = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1`,
+      ticker.trim().toUpperCase()
+    );
+    return row ? this.rowToTrackerEntry(row) : null;
+  }
+
+  async upsertStockTrackerEntry(
+    input: Omit<StockTrackerEntry, 'id' | 'createdAt' | 'updatedAt' | 'deletedAt'> & {
+      id?: string;
+      createdAt?: string;
+      updatedAt?: string;
+    }
+  ): Promise<StockTrackerEntry> {
+    const now = new Date().toISOString();
+    const id = input.id || generateUuid();
+    const existing = await this.db.getFirstAsync<{ created_at: string }>(
+      'SELECT created_at FROM stock_tracker WHERE id = ?', id
+    );
+
+    const ticker = input.ticker.trim().toUpperCase();
+    const areaPriceOfInterest = input.areaPriceOfInterest ?? '';
+    const weeklyMacdTrend = input.weeklyMacdTrend ?? 'none';
+    const weeklyMacdTrendCustom = input.weeklyMacdTrendCustom ?? null;
+    const foreignFlowSentiment = input.foreignFlowSentiment ?? 'unknown';
+    const eventCatalyst = input.eventCatalyst ?? '';
+    const projection = input.projection ?? '';
+    const notes = input.notes ?? null;
+    const priceAlertId = input.priceAlertId ?? null;
+    const createdAt = existing?.created_at ?? input.createdAt ?? now;
+    const updatedAt = input.updatedAt ?? now;
+
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO stock_tracker
+       (id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
+        foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+        created_at, updated_at, deleted_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
+      id, ticker, areaPriceOfInterest, weeklyMacdTrend, weeklyMacdTrendCustom,
+      foreignFlowSentiment, eventCatalyst, projection, notes, priceAlertId,
+      createdAt, updatedAt
+    );
+
+    return {
+      id, ticker, areaPriceOfInterest, weeklyMacdTrend, weeklyMacdTrendCustom,
+      foreignFlowSentiment, eventCatalyst, projection, notes, priceAlertId,
+      createdAt, updatedAt, deletedAt: null,
+    };
+  }
+
+  async deleteStockTrackerEntry(id: string): Promise<void> {
+    const now = new Date().toISOString();
+    await this.db.runAsync(
+      'UPDATE stock_tracker SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id
+    );
   }
 
   async getSyncSnapshot(): Promise<SyncSnapshot> {
@@ -672,6 +1067,24 @@ export class NativeBucketStore implements BucketStoreAPI {
       id: string; ticker: string; content_html: string; created_at: string; updated_at: string; deleted_at: string | null;
     }>('SELECT id, ticker, content_html, created_at, updated_at, deleted_at FROM stock_notes');
 
+    const stockTags = await this.db.getAllAsync<{
+      ticker: string; tag: string; assigned_at: string; updated_at: string; deleted_at: string | null;
+    }>('SELECT ticker, tag, assigned_at, updated_at, deleted_at FROM stock_tags');
+
+    const alertRows = await this.db.getAllAsync<Parameters<NativeBucketStore['rowToAlert']>[0]>(
+      `SELECT id, ticker, type, title, event_date, event_time, reminder_timing,
+              price_direction, price_threshold, email, status, created_at, updated_at,
+              deleted_at, last_triggered_at, last_triggered_value, last_checked_at
+       FROM stock_alerts`
+    );
+
+    const trackerRows = await this.db.getAllAsync<Parameters<NativeBucketStore['rowToTrackerEntry']>[0]>(
+      `SELECT id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
+              foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+              created_at, updated_at, deleted_at
+       FROM stock_tracker`
+    );
+
     const settingsRows = await this.db.getAllAsync<{ key: string; value: number; updated_at: string | null }>(
       'SELECT key, value, updated_at FROM settings'
     );
@@ -699,6 +1112,12 @@ export class NativeBucketStore implements BucketStoreAPI {
         uuid: n.id, ticker: n.ticker, contentHtml: n.content_html,
         createdAt: n.created_at, updatedAt: n.updated_at, deletedAt: n.deleted_at,
       })),
+      stockTags: stockTags.map((r) => ({
+        ticker: r.ticker, tag: r.tag, assignedAt: r.assigned_at,
+        updatedAt: r.updated_at, deletedAt: r.deleted_at ?? null,
+      })),
+      stockAlerts: alertRows.map((r) => this.rowToAlert(r)),
+      stockTrackerEntries: trackerRows.map((t) => this.rowToTrackerEntry(t)),
       settings: {
         monthlyIncomeGoal: goalRow?.value ?? null,
         themeMode: (['system', 'light', 'dark'] as const)[themeRow?.value ?? 0] ?? 'system',
@@ -734,7 +1153,9 @@ export class NativeBucketStore implements BucketStoreAPI {
     const watchlistItem = await this.db.getFirstAsync<{ ticker: string }>('SELECT ticker FROM watchlist WHERE deleted_at IS NULL LIMIT 1');
     if (watchlistItem) return true;
     const note = await this.db.getFirstAsync<{ id: string }>('SELECT id FROM stock_notes WHERE deleted_at IS NULL LIMIT 1');
-    return !!note;
+    if (note) return true;
+    const tracker = await this.db.getFirstAsync<{ id: string }>('SELECT id FROM stock_tracker WHERE deleted_at IS NULL LIMIT 1');
+    return !!tracker;
   }
 
   // Phase 3 (sync-plan.md §5/§8): one-way pull, clean overwrite rather than
@@ -744,10 +1165,10 @@ export class NativeBucketStore implements BucketStoreAPI {
   // including the DELETEs at the top, leaving local data exactly as it was
   // before the restore was attempted rather than half-overwritten.
   async restoreFromSyncSnapshot(snapshot: SyncSnapshot): Promise<RestoreResult> {
-    let bucketsWritten = 0, transactionsWritten = 0, watchlistWritten = 0, stockNotesWritten = 0;
+    let bucketsWritten = 0, transactionsWritten = 0, watchlistWritten = 0, stockNotesWritten = 0, stockTagsWritten = 0, stockAlertsWritten = 0, stockTrackerEntriesWritten = 0;
 
     await this.db.withTransactionAsync(async () => {
-      await this.db.execAsync('DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist; DELETE FROM stock_notes;');
+      await this.db.execAsync('DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist; DELETE FROM stock_notes; DELETE FROM stock_tags; DELETE FROM stock_alerts; DELETE FROM stock_tracker;');
 
       // Buckets first, so bucketUuid -> local integer id resolves before
       // transactions (which reference bucket_id, not bucketUuid) are inserted.
@@ -794,6 +1215,49 @@ export class NativeBucketStore implements BucketStoreAPI {
         stockNotesWritten++;
       }
 
+      for (const t of snapshot.stockTags ?? []) {
+        if (t.deletedAt) continue;
+        await this.db.runAsync(
+          'INSERT INTO stock_tags (ticker, tag, assigned_at, updated_at, deleted_at) VALUES (?, ?, ?, ?, NULL)',
+          t.ticker, t.tag, t.assignedAt, t.updatedAt
+        );
+        stockTagsWritten++;
+      }
+
+      for (const a of snapshot.stockAlerts ?? []) {
+        if (a.deletedAt) continue;
+        await this.db.runAsync(
+          `INSERT INTO stock_alerts
+           (id, ticker, type, title, event_date, event_time, reminder_timing,
+            price_direction, price_threshold, email, status, created_at, updated_at, deleted_at,
+            last_triggered_at, last_triggered_value, last_checked_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NULL,?,?,?)`,
+          a.id, a.ticker, a.type, a.title, a.eventDate ?? null, a.eventTime ?? null,
+          a.reminderTiming ?? null, a.priceDirection ?? null, a.priceThreshold ?? null,
+          a.email, a.status, a.createdAt, a.updatedAt,
+          a.lastTriggeredAt ?? null,
+          a.lastTriggeredValue != null ? String(a.lastTriggeredValue) : null,
+          a.lastCheckedAt ?? null
+        );
+        stockAlertsWritten++;
+      }
+
+      for (const e of snapshot.stockTrackerEntries ?? []) {
+        if (e.deletedAt) continue;
+        await this.db.runAsync(
+          `INSERT INTO stock_tracker
+           (id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
+            foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+            created_at, updated_at, deleted_at)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
+          e.id, e.ticker, e.areaPriceOfInterest ?? '', e.weeklyMacdTrend ?? 'none',
+          e.weeklyMacdTrendCustom ?? null, e.foreignFlowSentiment ?? 'unknown',
+          e.eventCatalyst ?? '', e.projection ?? '', e.notes ?? null, e.priceAlertId ?? null,
+          e.createdAt, e.updatedAt
+        );
+        stockTrackerEntriesWritten++;
+      }
+
       // Only the two settings keys that are actually part of a synced
       // snapshot - lastSyncedAt and hasCompletedInitialRestore live in this
       // same (key, value) table but describe THIS device's own sync
@@ -813,7 +1277,7 @@ export class NativeBucketStore implements BucketStoreAPI {
       );
     });
 
-    return { bucketsWritten, transactionsWritten, watchlistWritten, stockNotesWritten, settingsRestored: true };
+    return { bucketsWritten, transactionsWritten, watchlistWritten, stockNotesWritten, stockTagsWritten, stockAlertsWritten, stockTrackerEntriesWritten, settingsRestored: true };
   }
 
   async getHasCompletedInitialRestore(): Promise<boolean> {
@@ -921,6 +1385,79 @@ export class NativeBucketStore implements BucketStoreAPI {
     );
   }
 
+  async applySyncedTag(record: SyncStockTagRecord): Promise<void> {
+    // (ticker, tag) IS the composite PRIMARY KEY on stock_tags, so a single
+    // INSERT OR REPLACE handles both the insert-new and update-existing cases
+    // without needing a SELECT-then-branch.
+    await this.db.runAsync(
+      `INSERT INTO stock_tags (ticker, tag, assigned_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(ticker, tag) DO UPDATE SET
+         assigned_at = COALESCE(excluded.assigned_at, stock_tags.assigned_at),
+         updated_at  = excluded.updated_at,
+         deleted_at  = excluded.deleted_at`,
+      record.ticker, record.tag,
+      record.assignedAt ?? new Date().toISOString(),
+      record.updatedAt,
+      record.deletedAt ?? null
+    );
+  }
+
+  async applySyncedStockAlert(record: StockAlert): Promise<void> {
+    const existing = await this.db.getFirstAsync<{ id: string }>(
+      'SELECT id FROM stock_alerts WHERE id = ?', record.id
+    );
+    if (existing) {
+      await this.db.runAsync(
+        `UPDATE stock_alerts SET ticker = ?, type = ?, title = ?, event_date = ?, event_time = ?,
+         reminder_timing = ?, price_direction = ?, price_threshold = ?, email = ?, status = ?,
+         created_at = ?, updated_at = ?, deleted_at = ?,
+         last_triggered_at = ?, last_triggered_value = ?, last_checked_at = ? WHERE id = ?`,
+        record.ticker, record.type, record.title, record.eventDate ?? null, record.eventTime ?? null,
+        record.reminderTiming ?? null, record.priceDirection ?? null, record.priceThreshold ?? null,
+        record.email, record.status, record.createdAt, record.updatedAt, record.deletedAt ?? null,
+        record.lastTriggeredAt ?? null,
+        record.lastTriggeredValue != null ? String(record.lastTriggeredValue) : null,
+        record.lastCheckedAt ?? null, record.id
+      );
+      return;
+    }
+    await this.db.runAsync(
+      `INSERT INTO stock_alerts
+       (id, ticker, type, title, event_date, event_time, reminder_timing,
+        price_direction, price_threshold, email, status, created_at, updated_at, deleted_at,
+        last_triggered_at, last_triggered_value, last_checked_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      record.id, record.ticker, record.type, record.title, record.eventDate ?? null,
+      record.eventTime ?? null, record.reminderTiming ?? null, record.priceDirection ?? null,
+      record.priceThreshold ?? null, record.email, record.status,
+      record.createdAt, record.updatedAt, record.deletedAt ?? null,
+      record.lastTriggeredAt ?? null,
+      record.lastTriggeredValue != null ? String(record.lastTriggeredValue) : null,
+      record.lastCheckedAt ?? null
+    );
+  }
+
+  async applySyncedStockTrackerEntry(record: StockTrackerEntry): Promise<void> {
+    const existing = await this.db.getFirstAsync<{ updated_at: string }>(
+      'SELECT updated_at FROM stock_tracker WHERE id = ?', record.id
+    );
+    if (existing && existing.updated_at >= record.updatedAt) {
+      return;
+    }
+    await this.db.runAsync(
+      `INSERT OR REPLACE INTO stock_tracker
+       (id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
+        foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+        created_at, updated_at, deleted_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      record.id, record.ticker, record.areaPriceOfInterest ?? '', record.weeklyMacdTrend ?? 'none',
+      record.weeklyMacdTrendCustom ?? null, record.foreignFlowSentiment ?? 'unknown',
+      record.eventCatalyst ?? '', record.projection ?? '', record.notes ?? null, record.priceAlertId ?? null,
+      record.createdAt, record.updatedAt, record.deletedAt ?? null
+    );
+  }
+
   async applySyncedSettings(record: SyncSettingsRecord): Promise<void> {
     // Same (key, value) settings table + ON CONFLICT upsert pattern as
     // setMonthlyIncomeGoal/setThemeMode above - a null goal means "cleared,"
@@ -949,7 +1486,7 @@ export class NativeBucketStore implements BucketStoreAPI {
     // that still remembers a since-deleted account's sync history.
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(
-        'DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist; DELETE FROM stock_notes; DELETE FROM settings;'
+        'DELETE FROM transactions; DELETE FROM buckets; DELETE FROM watchlist; DELETE FROM stock_notes; DELETE FROM stock_tags; DELETE FROM stock_alerts; DELETE FROM stock_tracker; DELETE FROM settings;'
       );
     });
   }

@@ -462,11 +462,25 @@ export function computeHoldings(txns: StoredTxn[]): { holdings: Holding[]; orpha
   // grows, qty/avgCost stay as-is since that portion's shares aren't known
   // yet), or - the common case - add it as a brand-new cost-only holding
   // for a ticker with no FIFO lots at all.
+  //
+  // T-01 FIX: pendingSettlement flag means "this ticker is 100% stuck in
+  // limbo with zero known share counts and zero NAVPU on file anywhere".
+  // If there are ANY settled FIFO lots (totalQty > 0) for this ticker from
+  // a later statement import that filled in real Quantity+Price, we do
+  // NOT mark the merged aggregate holding as pending — the settled lots
+  // mean the Dashboard can show real Market Value. Pending peso amounts
+  // still grow totalCostBasis (their original design intent for tracking
+  // committed-but-unsettled cash), but the Pending badge is suppressed
+  // because real statement data exists for this ticker.
   for (const [ticker, { cost, count }] of pendingCostByTicker) {
     const existing = holdings.find((h) => h.ticker === ticker);
     if (existing) {
       existing.totalCostBasis = round(existing.totalCostBasis + cost, 2);
-      existing.pendingSettlement = true;
+      // Only carry pending flag if this holding is entirely qty-less.
+      // If any settled lots exist → not pending.
+      if (existing.totalQty <= 0.0001) {
+        existing.pendingSettlement = true;
+      }
     } else {
       holdings.push({
         ticker,

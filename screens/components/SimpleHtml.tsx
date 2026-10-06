@@ -258,15 +258,22 @@ function renderInline(node: HtmlNode, key: string, colors: ThemeColors, styles: 
   }
 }
 
+type ElementNode = Extract<HtmlNode, { type: 'element' }>;
+
 function renderList(node: HtmlNode, key: string, colors: ThemeColors, styles: ReturnType<typeof createStyles>): React.ReactNode {
+  if (node.type !== 'element') return null;
   const ordered = node.tag === 'ol';
-  const items = node.children.filter((c): c is HtmlNode & { type: 'element' } => c.type === 'element' && c.tag === 'li');
+  const items: ElementNode[] = node.children.filter(
+    (c: HtmlNode): c is ElementNode => c.type === 'element' && c.tag === 'li'
+  );
   return (
     <View key={key} style={styles.list}>
-      {items.map((li, idx) => (
+      {items.map((li: ElementNode, idx: number) => (
         <View key={`${key}-li-${idx}`} style={styles.listItemRow}>
           <Text style={styles.listBullet}>{ordered ? `${idx + 1}.` : '\u2022'}</Text>
-          <Text style={styles.listItemText}>{li.children.map((c, i) => renderInline(c, `${key}-li-${idx}-${i}`, colors, styles))}</Text>
+          <Text style={styles.listItemText}>
+            {li.children.map((c: HtmlNode, i: number) => renderInline(c, `${key}-li-${idx}-${i}`, colors, styles))}
+          </Text>
         </View>
       ))}
     </View>

@@ -4,13 +4,15 @@
 // App.tsx) so it gets a proper header/back button on both phone and the
 // wide-web sidebar layout.
 
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../core/ThemeContext';
 import type { ThemeMode } from '../core/ThemeContext';
 import { useAuth } from '../core/AuthProvider';
+import { useStore } from '../core/StoreProvider';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { SettingsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
@@ -35,7 +37,37 @@ export default function SettingsScreen({ navigation }: Props) {
   useScreenViewLog('Settings');
   const { colors, mode, setMode } = useTheme();
   const { user, initializing } = useAuth();
+  const store = useStore();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [noteCount, setNoteCount] = useState(0);
+  const [tagCount, setTagCount] = useState(0);
+  const [alertCount, setAlertCount] = useState(0);
+  const [trackerCount, setTrackerCount] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const [notes, tags, alerts, trackers] = await Promise.all([
+            store.listAllStockNotes(),
+            store.getAllTagsWithCounts(),
+            store.listAllStockAlerts(),
+            store.listAllStockTrackerEntries(),
+          ]);
+          if (!cancelled) {
+            setNoteCount(notes.length);
+            setTagCount(tags.length);
+            setAlertCount(alerts.length);
+            setTrackerCount(trackers.length);
+          }
+        } catch (e) {
+          console.error('[SettingsScreen] count load failed:', e);
+        }
+      })();
+      return () => { cancelled = true; };
+    }, [store])
+  );
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
@@ -82,6 +114,54 @@ export default function SettingsScreen({ navigation }: Props) {
       <Text style={styles.hint}>
         "System" follows your device's light/dark setting automatically.
       </Text>
+
+      <Text style={styles.sectionTitle}>My Data</Text>
+      <View style={styles.card}>
+        <Pressable
+          style={[styles.row, styles.rowDivider]}
+          onPress={() => navigation.navigate('StockTracker')}
+        >
+          <Ionicons name="stats-chart-outline" size={20} color={colors.onSurfaceVariant} style={styles.rowIcon} />
+          <Text style={styles.rowLabel}>Stock Tracker</Text>
+          <Text style={styles.rowCount}>{trackerCount}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+        </Pressable>
+        <Pressable
+          style={[styles.row, styles.rowDivider]}
+          onPress={() => navigation.navigate('AllNotes', {})}
+        >
+          <Ionicons name="document-text-outline" size={20} color={colors.onSurfaceVariant} style={styles.rowIcon} />
+          <Text style={styles.rowLabel}>All Notes</Text>
+          <Text style={styles.rowCount}>{noteCount}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+        </Pressable>
+        <Pressable
+          style={[styles.row, styles.rowDivider]}
+          onPress={() => navigation.navigate('AllTags')}
+        >
+          <Ionicons name="pricetag-outline" size={20} color={colors.onSurfaceVariant} style={styles.rowIcon} />
+          <Text style={styles.rowLabel}>Stock Tags</Text>
+          <Text style={styles.rowCount}>{tagCount}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+        </Pressable>
+        <Pressable
+          style={[styles.row, styles.rowDivider]}
+          onPress={() => navigation.navigate('AllAlerts')}
+        >
+          <Ionicons name="notifications-outline" size={20} color={colors.onSurfaceVariant} style={styles.rowIcon} />
+          <Text style={styles.rowLabel}>Stock Alerts</Text>
+          <Text style={styles.rowCount}>{alertCount}</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+        </Pressable>
+        <Pressable
+          style={styles.row}
+          onPress={() => navigation.navigate('ImportStatement')}
+        >
+          <Ionicons name="cloud-upload-outline" size={20} color={colors.onSurfaceVariant} style={styles.rowIcon} />
+          <Text style={styles.rowLabel}>Import Statement</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.onSurfaceVariant} />
+        </Pressable>
+      </View>
 
       <Text style={styles.sectionTitle}>Pages</Text>
       <View style={styles.card}>
@@ -139,4 +219,5 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   rowDivider: { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant },
   rowIcon: { width: 22 },
   rowLabel: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.onSurface },
+  rowCount: { fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.onSurfaceVariant, marginRight: spacing.xs },
 });

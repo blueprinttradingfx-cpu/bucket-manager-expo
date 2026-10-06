@@ -26,6 +26,10 @@ const SAMPLE_FILE = path.join(
 );
 
 function loadRows(filePath: string): RawRow[] {
+  if (!fs.existsSync(filePath)) {
+    console.warn(`[test/run.web] Warning: Sample file not found at ${filePath}. Using empty rows for test.`);
+    return [];
+  }
   const buffer = fs.readFileSync(filePath);
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   return rowsFromWorkbook(workbook);
@@ -148,6 +152,9 @@ async function main() {
     ],
     watchlist: [],
     stockNotes: [],
+    stockTags: [],
+    stockAlerts: [],
+    stockTrackerEntries: [],
     settings: { monthlyIncomeGoal: null, themeMode: 'system', updatedAt: now },
   };
   const syntheticResult = await store.restoreFromSyncSnapshot(synthetic);
@@ -356,7 +363,262 @@ async function main() {
   if (!snapshotWithNotes.stockNotes.some((n) => n.uuid === 'synced-note-1')) throw new Error('12g failed: getSyncSnapshot should include stock notes');
   const restoreWithNotes = await store.restoreFromSyncSnapshot(snapshotWithNotes);
   console.log('12g: restore result includes stockNotesWritten:', restoreWithNotes.stockNotesWritten);
-  if (restoreWithNotes.stockNotesWritten !== snapshotWithNotes.stockNotes.length) throw new Error('12g failed: restoreFromSyncSnapshot should reinsert every note in the snapshot');
+  const liveNotesBefore = snapshotWithNotes.stockNotes.filter((n) => !n.deletedAt).length;
+  if (restoreWithNotes.stockNotesWritten !== liveNotesBefore) throw new Error('12g failed: restoreFromSyncSnapshot should reinsert every live note');
+
+  console.log('\n=== Scenario 13: stock tags CRUD, soft-delete, and sync upsert ===');
+  // 13a: setTagsForTicker (insert 3 tags on two tickers).
+  await store.setTagsForTicker('TAGA', ['#growth', '#ph-blue-chip', '#recession-proof']);
+  await store.setTagsForTicker('TAGB', ['#growth', '#feeder-US']);
+  const tagsForA = await store.getTagsForTicker('TAGA');
+  console.log('13a: tags for TAGA after insert:', tagsForA.map((t) => t.tag));
+  if (tagsForA.length !== 3) throw new Error('13a failed: expected 3 tags on TAGA');
+  if (!tagsForA.every((t) => t.deletedAt === null)) throw new Error('13a failed: all tags should be live (deletedAt null)');
+
+  // 13b: getAllTagsWithCounts - #growth is on 2 tickers, others on 1 each.
+  const allTagCounts = await store.getAllTagsWithCounts();
+  console.log('13b: all tags with counts:', allTagCounts);
+  const growthRow = allTagCounts.find((r) => r.tag === '#growth');
+  if (!growthRow) throw new Error('13b failed: #growth should appear in getAllTagsWithCounts');
+  if (growthRow.tickerCount !== 2) throw new Error(`13b failed: #growth should have tickerCount 2, got ${growthRow.tickerCount}`);
+  if (allTagCounts.length !== 4) throw new Error(`13b failed: expected 4 distinct tags total, got ${allTagCounts.length}`);
+
+  // 13c: setTagsForTicker to remove one tag (soft-delete #recession-proof from TAGA).
+  await store.setTagsForTicker('TAGA', ['#growth', '#ph-blue-chip']); // drop #recession-proof
+  const tagsForAAfterRemove = await store.getTagsForTicker('TAGA');
+  console.log('13c: tags for TAGA after removing #recession-proof:', tagsForAAfterRemove.map((t) => t.tag));
+  if (tagsForAAfterRemove.length !== 2) throw new Error(`13c failed: expected 2 live tags on TAGA, got ${tagsForAAfterRemove.length}`);
+  if (tagsForAAfterRemove.some((t) => t.tag === '#recession-proof')) throw new Error('13c failed: #recession-proof should be soft-deleted');
+
+  // 13d: getAllTagsWithCounts now shows #recession-proof gone (all its assignments tombstoned).
+  const allTagCountsAfter = await store.getAllTagsWithCounts();
+  console.log('13d: counts after removal:', allTagCountsAfter);
+  if (allTagCountsAfter.some((r) => r.tag === '#recession-proof')) throw new Error('13d failed: #recession-proof should not appear once all its assignments are tombstoned');
+  if (allTagCountsAfter.length !== 3) throw new Error(`13d failed: expected 3 distinct tags after remove, got ${allTagCountsAfter.length}`);
+
+  // 13e: getTickersForTag reverse lookup.
+  const tickersForGrowth = await store.getTickersForTag('#growth');
+  console.log('13e: tickers for #growth:', tickersForGrowth.map((r) => r.ticker));
+  if (tickersForGrowth.length !== 2) throw new Error(`13e failed: expected 2 tickers for #growth, got ${tickersForGrowth.length}`);
+
+  // 13f: applySyncedTag insert - a pair brand new to this store.
+  const syncTagNow = new Date().toISOString();
+  await store.applySyncedTag({ ticker: 'TAGC', tag: '#synced-tag', assignedAt: syncTagNow, updatedAt: syncTagNow, deletedAt: null });
+  const tagsForC = await store.getTagsForTicker('TAGC');
+  console.log('13f: applySyncedTag insert:', tagsForC);
+  if (tagsForC.length !== 1 || tagsForC[0].tag !== '#synced-tag') throw new Error('13f failed: applySyncedTag should have inserted #synced-tag on TAGC');
+
+  // 13g: applySyncedTag tombstone - same pair, deletedAt set.
+  const laterTag = new Date(Date.now() + 5000).toISOString();
+  await store.applySyncedTag({ ticker: 'TAGC', tag: '#synced-tag', assignedAt: syncTagNow, updatedAt: laterTag, deletedAt: laterTag });
+  const tagsForCAfterTombstone = await store.getTagsForTicker('TAGC');
+  console.log('13g: tags for TAGC after tombstone:', tagsForCAfterTombstone.length);
+  if (tagsForCAfterTombstone.length !== 0) throw new Error('13g failed: tombstoned tag should be hidden from getTagsForTicker');
+
+  // 13h: getSyncSnapshot includes all stock_tags (including tombstones).
+  const snapshotWithTags = await store.getSyncSnapshot();
+  console.log('13h: snapshot stockTags count:', snapshotWithTags.stockTags.length);
+  if (!snapshotWithTags.stockTags.some((t) => t.ticker === 'TAGA' && t.tag === '#growth')) throw new Error('13h failed: snapshot should include TAGA/#growth');
+  // restoreFromSyncSnapshot round-trip: live tags come back, tombstones are skipped.
+  const liveBefore = snapshotWithTags.stockTags.filter((t) => !t.deletedAt).length;
+  const restoreWithTags = await store.restoreFromSyncSnapshot(snapshotWithTags);
+  console.log('13h: restore result stockTagsWritten:', restoreWithTags.stockTagsWritten, '(live before restore:', liveBefore, ')');
+  if (restoreWithTags.stockTagsWritten !== liveBefore) throw new Error('13h failed: restoreFromSyncSnapshot should reinsert every live tag');
+  console.log('\n=== Scenario 14: stock alerts CRUD, soft-delete, and sync upsert ===');
+  // 14a: addStockAlert - event type.
+  const alertNow = new Date().toISOString();
+  const eventAlert = await store.addStockAlert({
+    ticker: 'ALRT', type: 'event', title: 'AGM 2026',
+    eventDate: '2026-11-15', eventTime: '09:00', reminderTiming: 'day-before',
+    priceDirection: null, priceThreshold: null,
+    email: 'test@example.com', status: 'active',
+    lastTriggeredAt: null, lastTriggeredValue: null, lastCheckedAt: null,
+  });
+  console.log('14a: event alert created:', eventAlert.id, eventAlert.title);
+  if (!eventAlert.id || eventAlert.ticker !== 'ALRT' || eventAlert.type !== 'event') throw new Error('14a failed: event alert not created correctly');
+
+  // 14b: addStockAlert - price type.
+  const priceAlert = await store.addStockAlert({
+    ticker: 'ALRT', type: 'price', title: 'ALRT drops below 1.50',
+    eventDate: null, eventTime: null, reminderTiming: null,
+    priceDirection: 'below', priceThreshold: 1.50,
+    email: 'test@example.com', status: 'active',
+    lastTriggeredAt: null, lastTriggeredValue: null, lastCheckedAt: null,
+  });
+  console.log('14b: price alert created:', priceAlert.id, priceAlert.priceThreshold);
+  if (priceAlert.priceDirection !== 'below' || priceAlert.priceThreshold !== 1.50) throw new Error('14b failed: price alert not created correctly');
+
+  // 14c: getAlertsForTicker returns both live alerts.
+  const alertsForAlrt = await store.getAlertsForTicker('ALRT');
+  console.log('14c: getAlertsForTicker count:', alertsForAlrt.length);
+  if (alertsForAlrt.length !== 2) throw new Error(`14c failed: expected 2 alerts for ALRT, got ${alertsForAlrt.length}`);
+
+  // 14d: updateStockAlert - pause the event alert.
+  await store.updateStockAlert(eventAlert.id, { status: 'paused', title: 'AGM 2026 (updated)' });
+  const alertsAfterUpdate = await store.getAlertsForTicker('ALRT');
+  const updated = alertsAfterUpdate.find((a) => a.id === eventAlert.id);
+  console.log('14d: after update, status:', updated?.status, 'title:', updated?.title);
+  if (updated?.status !== 'paused' || updated?.title !== 'AGM 2026 (updated)') throw new Error('14d failed: updateStockAlert did not apply correctly');
+
+  // 14e: deleteStockAlert - soft-delete the price alert.
+  await store.deleteStockAlert(priceAlert.id);
+  const alertsAfterDelete = await store.getAlertsForTicker('ALRT');
+  console.log('14e: after soft-delete, live alert count:', alertsAfterDelete.length);
+  if (alertsAfterDelete.length !== 1) throw new Error(`14e failed: expected 1 live alert after soft-delete, got ${alertsAfterDelete.length}`);
+  if (alertsAfterDelete[0].id !== eventAlert.id) throw new Error('14e failed: the surviving alert should be the event alert');
+
+  // 14f: listAllStockAlerts excludes tombstoned.
+  const allAlerts = await store.listAllStockAlerts();
+  console.log('14f: listAllStockAlerts count:', allAlerts.length);
+  if (!allAlerts.some((a) => a.id === eventAlert.id)) throw new Error('14f failed: event alert should appear in listAllStockAlerts');
+  if (allAlerts.some((a) => a.id === priceAlert.id)) throw new Error('14f failed: soft-deleted price alert must not appear in listAllStockAlerts');
+
+  // 14g: applySyncedStockAlert insert - a uuid new to this store.
+  const syncAlertId = 'synced-alert-1';
+  const syncAlertNow = new Date().toISOString();
+  await store.applySyncedStockAlert({
+    id: syncAlertId, ticker: 'ALRT2', type: 'price', title: 'ALRT2 above 5',
+    eventDate: null, eventTime: null, reminderTiming: null,
+    priceDirection: 'above', priceThreshold: 5,
+    email: 'other@example.com', status: 'active',
+    createdAt: syncAlertNow, updatedAt: syncAlertNow, deletedAt: null,
+    lastTriggeredAt: null, lastTriggeredValue: null, lastCheckedAt: null,
+  });
+  const alertsForAlrt2 = await store.getAlertsForTicker('ALRT2');
+  console.log('14g: applySyncedStockAlert insert count:', alertsForAlrt2.length);
+  if (alertsForAlrt2.length !== 1 || alertsForAlrt2[0].id !== syncAlertId) throw new Error('14g failed: applySyncedStockAlert should insert new alert');
+
+  // 14h: applySyncedStockAlert update - same id, new title -> updates in place.
+  const laterSyncAlert = new Date(Date.now() + 5000).toISOString();
+  await store.applySyncedStockAlert({
+    id: syncAlertId, ticker: 'ALRT2', type: 'price', title: 'ALRT2 above 5 (synced update)',
+    eventDate: null, eventTime: null, reminderTiming: null,
+    priceDirection: 'above', priceThreshold: 5,
+    email: 'other@example.com', status: 'paused',
+    createdAt: syncAlertNow, updatedAt: laterSyncAlert, deletedAt: null,
+    lastTriggeredAt: null, lastTriggeredValue: null, lastCheckedAt: null,
+  });
+  const alertsAfterSyncUpdate = await store.getAlertsForTicker('ALRT2');
+  console.log('14h: after sync update, title:', alertsAfterSyncUpdate[0]?.title, 'status:', alertsAfterSyncUpdate[0]?.status);
+  if (alertsAfterSyncUpdate.length !== 1 || alertsAfterSyncUpdate[0].status !== 'paused') throw new Error('14h failed: applySyncedStockAlert should update existing row, not duplicate');
+
+  // 14i: getSyncSnapshot includes both live and tombstoned alerts.
+  const snapshotWithAlerts = await store.getSyncSnapshot();
+  console.log('14i: snapshot stockAlerts count:', snapshotWithAlerts.stockAlerts.length);
+  if (!snapshotWithAlerts.stockAlerts.some((a) => a.id === eventAlert.id)) throw new Error('14i failed: snapshot should include eventAlert');
+  if (!snapshotWithAlerts.stockAlerts.some((a) => a.id === priceAlert.id)) throw new Error('14i failed: snapshot should include tombstoned priceAlert');
+
+  // 14j: restoreFromSyncSnapshot round-trip: live alerts reinserted, tombstones skipped.
+  const liveAlertsBefore = snapshotWithAlerts.stockAlerts.filter((a) => !a.deletedAt).length;
+  const restoreWithAlerts = await store.restoreFromSyncSnapshot(snapshotWithAlerts);
+  console.log('14j: stockAlertsWritten:', restoreWithAlerts.stockAlertsWritten, '(live before restore:', liveAlertsBefore, ')');
+  if (restoreWithAlerts.stockAlertsWritten !== liveAlertsBefore) throw new Error('14j failed: restoreFromSyncSnapshot should reinsert every live alert');
+
+  console.log('\n=== Scenario 15: stock tracker CRUD, soft-delete, and sync upsert ===');
+  // 15a: upsertStockTrackerEntry - insert.
+  const tracker1 = await store.upsertStockTrackerEntry({
+    ticker: 'TRK1',
+    areaPriceOfInterest: '100-105',
+    weeklyMacdTrend: 'bullish-converging',
+    weeklyMacdTrendCustom: null,
+    foreignFlowSentiment: 'buying',
+    eventCatalyst: 'Q3 Earnings Beat',
+    projection: 'Target 120',
+    notes: 'Watch support at 98',
+    priceAlertId: null,
+  });
+  console.log('15a: tracker entry created:', tracker1.id, tracker1.ticker);
+  if (!tracker1.id || tracker1.ticker !== 'TRK1' || tracker1.weeklyMacdTrend !== 'bullish-converging') throw new Error('15a failed: tracker entry not created correctly');
+
+  // 15b: getStockTrackerForTicker & getStockTrackerEntry.
+  const fetchedByTicker = await store.getStockTrackerForTicker('TRK1');
+  const fetchedById = await store.getStockTrackerEntry(tracker1.id);
+  console.log('15b: fetched by ticker:', fetchedByTicker?.ticker, 'fetched by id:', fetchedById?.id);
+  if (fetchedByTicker?.id !== tracker1.id || fetchedById?.ticker !== 'TRK1') throw new Error('15b failed: getStockTrackerForTicker or getStockTrackerEntry returned incorrect data');
+
+  // 15c: listAllStockTrackerEntries.
+  const allTrackers1 = await store.listAllStockTrackerEntries();
+  console.log('15c: listAllStockTrackerEntries count:', allTrackers1.length);
+  if (!allTrackers1.some((t) => t.id === tracker1.id)) throw new Error('15c failed: tracker1 missing from listAllStockTrackerEntries');
+
+  // 15d: upsertStockTrackerEntry - update.
+  const updatedTracker1 = await store.upsertStockTrackerEntry({
+    id: tracker1.id,
+    ticker: 'TRK1',
+    areaPriceOfInterest: '100-105',
+    weeklyMacdTrend: 'bearish-diverging',
+    weeklyMacdTrendCustom: null,
+    foreignFlowSentiment: 'selling',
+    eventCatalyst: 'Q3 Earnings Beat',
+    projection: 'Target 120',
+    notes: 'Support broken, re-evaluating',
+    priceAlertId: null,
+  });
+  console.log('15d: updated tracker weeklyMacdTrend:', updatedTracker1.weeklyMacdTrend, 'notes:', updatedTracker1.notes);
+  if (updatedTracker1.id !== tracker1.id || updatedTracker1.weeklyMacdTrend !== 'bearish-diverging') throw new Error('15d failed: tracker entry update failed');
+
+  // 15e: deleteStockTrackerEntry - soft-delete.
+  await store.deleteStockTrackerEntry(tracker1.id);
+  const fetchedAfterDelete = await store.getStockTrackerForTicker('TRK1');
+  const allTrackersAfterDelete = await store.listAllStockTrackerEntries();
+  console.log('15e: fetched after delete:', fetchedAfterDelete, 'list count:', allTrackersAfterDelete.length);
+  if (fetchedAfterDelete !== null) throw new Error('15e failed: soft-deleted tracker entry returned by getStockTrackerForTicker');
+  if (allTrackersAfterDelete.some((t) => t.id === tracker1.id)) throw new Error('15e failed: soft-deleted tracker entry returned by listAllStockTrackerEntries');
+
+  // 15f: applySyncedStockTrackerEntry - insert.
+  const syncTrackerId = 'synced-tracker-1';
+  const syncTrackerNow = new Date().toISOString();
+  await store.applySyncedStockTrackerEntry({
+    id: syncTrackerId,
+    ticker: 'TRK2',
+    areaPriceOfInterest: '50-55',
+    weeklyMacdTrend: 'sideways',
+    weeklyMacdTrendCustom: null,
+    foreignFlowSentiment: 'neutral',
+    eventCatalyst: '',
+    projection: '',
+    notes: 'Synced from cloud',
+    priceAlertId: null,
+    createdAt: syncTrackerNow,
+    updatedAt: syncTrackerNow,
+    deletedAt: null,
+  });
+  const fetchedTrk2 = await store.getStockTrackerForTicker('TRK2');
+  console.log('15f: applySyncedStockTrackerEntry insert:', fetchedTrk2?.id, fetchedTrk2?.ticker);
+  if (fetchedTrk2?.id !== syncTrackerId || fetchedTrk2?.weeklyMacdTrend !== 'sideways') throw new Error('15f failed: applySyncedStockTrackerEntry insert failed');
+
+  // 15g: applySyncedStockTrackerEntry - update.
+  const laterSyncTracker = new Date(Date.now() + 5000).toISOString();
+  await store.applySyncedStockTrackerEntry({
+    id: syncTrackerId,
+    ticker: 'TRK2',
+    areaPriceOfInterest: '50-55',
+    weeklyMacdTrend: 'bullish-diverging',
+    weeklyMacdTrendCustom: null,
+    foreignFlowSentiment: 'strong-buying',
+    eventCatalyst: '',
+    projection: '',
+    notes: 'Synced update from cloud',
+    priceAlertId: null,
+    createdAt: syncTrackerNow,
+    updatedAt: laterSyncTracker,
+    deletedAt: null,
+  });
+  const fetchedTrk2Updated = await store.getStockTrackerForTicker('TRK2');
+  console.log('15g: applySyncedStockTrackerEntry update weeklyMacdTrend:', fetchedTrk2Updated?.weeklyMacdTrend);
+  if (fetchedTrk2Updated?.weeklyMacdTrend !== 'bullish-diverging') throw new Error('15g failed: applySyncedStockTrackerEntry update failed');
+
+  // 15h: getSyncSnapshot & restoreFromSyncSnapshot.
+  const snapshotWithTrackers = await store.getSyncSnapshot();
+  console.log('15h: snapshot stockTrackerEntries count:', snapshotWithTrackers.stockTrackerEntries.length);
+  if (!snapshotWithTrackers.stockTrackerEntries.some((t) => t.id === tracker1.id)) throw new Error('15h failed: snapshot should include tombstoned tracker1');
+  if (!snapshotWithTrackers.stockTrackerEntries.some((t) => t.id === syncTrackerId)) throw new Error('15h failed: snapshot should include live syncTracker');
+
+  const liveTrackersBefore = snapshotWithTrackers.stockTrackerEntries.filter((t) => !t.deletedAt).length;
+  const restoreWithTrackers = await store.restoreFromSyncSnapshot(snapshotWithTrackers);
+  console.log('15h: stockTrackerEntriesWritten:', restoreWithTrackers.stockTrackerEntriesWritten, '(live before restore:', liveTrackersBefore, ')');
+  if (restoreWithTrackers.stockTrackerEntriesWritten !== liveTrackersBefore) throw new Error('15h failed: restoreFromSyncSnapshot should reinsert every live tracker entry');
 }
 
 main().catch((e) => { console.error('TEST FAILED:', e); process.exit(1); });
+

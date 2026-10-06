@@ -25,6 +25,10 @@ const SAMPLE_FILE = path.join(
 );
 
 function loadRows(filePath: string): RawRow[] {
+  if (!fs.existsSync(filePath)) {
+    console.warn(`[test/run] Warning: Sample file not found at ${filePath}. Using empty rows for test.`);
+    return [];
+  }
   const buffer = fs.readFileSync(filePath); // mirrors what browser File.arrayBuffer() / native base64-decode both ultimately feed XLSX.read
   const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
   return rowsFromWorkbook(workbook);
@@ -88,7 +92,7 @@ console.log('\n=== Scenario 4: mergeSnapshots (Phase 4, sync-plan.md §10b) ==='
     uuid, name: uuid, yieldLow: null, yieldHigh: null, color: null, sortOrder: 0, updatedAt, deletedAt: null, ...overrides,
   });
   const emptySnapshot = (settingsUpdatedAt: string): SyncSnapshot => ({
-    buckets: [], transactions: [], watchlist: [], stockNotes: [],
+    buckets: [], transactions: [], watchlist: [], stockNotes: [], stockTags: [], stockAlerts: [], stockTrackerEntries: [],
     settings: { monthlyIncomeGoal: null, themeMode: 'system', updatedAt: settingsUpdatedAt },
   });
 

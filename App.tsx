@@ -52,15 +52,19 @@ import PrivacyPolicyScreen from './screens/PrivacyPolicyScreen';
 import MonthlyDividendIncomeScreen from './screens/MonthlyDividendIncomeScreen';
 import MarketPulseScreen from './screens/MarketPulseScreen';
 import WatchListScreen from './screens/WatchListScreen';
-import { DashboardStackParamList, BucketsStackParamList, SettingsStackParamList, WatchListStackParamList } from './core/navigationTypes';
+import AllNotesScreen from './screens/AllNotesScreen';
+import AllTagsScreen from './screens/AllTagsScreen';
+import AllAlertsScreen from './screens/AllAlertsScreen';
+import StockTrackerScreen from './screens/StockTrackerScreen';
+import { DashboardStackParamList, BucketsStackParamList, SettingsStackParamList, WatchListStackParamList, TrackerStackParamList } from './core/navigationTypes';
 
 // Bottom tabs (phone/narrow web) vs. left sidebar (wide web) both draw from
 // this one list so the two nav UIs can never drift out of sync.
 const TAB_ITEMS: SidebarItem[] = [
   { key: 'Dashboard', label: 'Dashboard', icon: 'grid-outline' },
   { key: 'Buckets', label: 'Buckets', icon: 'file-tray-stacked-outline' },
+  { key: 'StockTracker', label: 'Stock Tracker', icon: 'stats-chart-outline' },
   { key: 'WatchList', label: 'Watch List', icon: 'eye-outline' },
-  { key: 'Import', label: 'Import', icon: 'cloud-upload-outline' },
   { key: 'Settings', label: 'Settings', icon: 'settings-outline' },
 ];
 
@@ -70,15 +74,16 @@ const TAB_ITEMS: SidebarItem[] = [
 const TAB_HOME_SCREEN: Record<string, string | undefined> = {
   Dashboard: 'DashboardHome',
   Buckets: 'BucketsHome',
+  StockTracker: 'StockTrackerHome',
   WatchList: 'WatchListHome',
   Settings: 'SettingsHome',
-  // Import has no nested stack - there's no "home screen" to reset to.
 };
 
 const Tab = createBottomTabNavigator();
 const DashboardStack = createNativeStackNavigator<DashboardStackParamList>();
 const BucketsStack = createNativeStackNavigator<BucketsStackParamList>();
 const WatchListStack = createNativeStackNavigator<WatchListStackParamList>();
+const TrackerStack = createNativeStackNavigator<TrackerStackParamList>();
 const SettingsStack = createNativeStackNavigator<SettingsStackParamList>();
 
 function DashboardStackNavigator({ stackScreenOptions, colors }: { stackScreenOptions: object; colors: ThemeColors }) {
@@ -202,6 +207,35 @@ function WatchListStackNavigator({ stackScreenOptions, colors }: { stackScreenOp
   );
 }
 
+function TrackerStackNavigator({ stackScreenOptions, colors }: { stackScreenOptions: object; colors: ThemeColors }) {
+  return (
+    <TrackerStack.Navigator screenOptions={stackScreenOptions}>
+      <TrackerStack.Screen
+        name="StockTrackerHome"
+        component={StockTrackerScreen}
+        options={({ navigation }) => ({
+          title: 'Stock Tracker',
+          headerRight: () => (
+            <Pressable onPress={() => navigation.navigate('SearchStock')} hitSlop={10} style={{ marginRight: 4 }}>
+              <Ionicons name="search-outline" size={22} color={colors.onSurface} />
+            </Pressable>
+          ),
+        })}
+      />
+      <TrackerStack.Screen
+        name="StockDetail"
+        component={StockDetailScreen}
+        options={({ route }: any) => ({ title: route.params?.ticker ?? 'Stock' })}
+      />
+      <TrackerStack.Screen
+        name="SearchStock"
+        component={SearchStockScreen}
+        options={{ title: 'Search Stocks' }}
+      />
+    </TrackerStack.Navigator>
+  );
+}
+
 function SettingsStackNavigator({ stackScreenOptions }: { stackScreenOptions: object }) {
   return (
     <SettingsStack.Navigator screenOptions={stackScreenOptions}>
@@ -213,6 +247,12 @@ function SettingsStackNavigator({ stackScreenOptions }: { stackScreenOptions: ob
       <SettingsStack.Screen name="Contact" component={ContactScreen} options={{ title: 'Contact' }} />
       <SettingsStack.Screen name="TermsOfUse" component={TermsOfUseScreen} options={{ title: 'Terms of Use' }} />
       <SettingsStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} options={{ title: 'Privacy Policy' }} />
+      <SettingsStack.Screen name="AllNotes" component={AllNotesScreen} options={{ title: 'All Notes' }} />
+      <SettingsStack.Screen name="AllTags" component={AllTagsScreen} options={{ title: 'Stock Tags' }} />
+      <SettingsStack.Screen name="AllAlerts" component={AllAlertsScreen} options={{ title: 'Stock Alerts' }} />
+      <SettingsStack.Screen name="StockTracker" component={StockTrackerScreen as any} options={{ title: 'Stock Tracker' }} />
+      <SettingsStack.Screen name="ImportStatement" component={ImportScreen} options={{ title: 'Import Statement' }} />
+      <SettingsStack.Screen name="StockDetail" component={StockDetailScreen} options={({ route }: any) => ({ title: route.params?.ticker ?? 'Stock' })} />
     </SettingsStack.Navigator>
   );
 }
@@ -330,10 +370,12 @@ function AppShell() {
             <Tab.Screen name="Buckets" listeners={tabPressReset('Buckets')}>
               {() => <BucketsStackNavigator stackScreenOptions={stackScreenOptions} />}
             </Tab.Screen>
+            <Tab.Screen name="StockTracker" listeners={tabPressReset('StockTracker')}>
+              {() => <TrackerStackNavigator stackScreenOptions={stackScreenOptions} colors={colors} />}
+            </Tab.Screen>
             <Tab.Screen name="WatchList" listeners={tabPressReset('WatchList')}>
               {() => <WatchListStackNavigator stackScreenOptions={stackScreenOptions} colors={colors} />}
             </Tab.Screen>
-            <Tab.Screen name="Import" component={ImportScreen} />
             <Tab.Screen name="Settings" listeners={tabPressReset('Settings')}>
               {() => <SettingsStackNavigator stackScreenOptions={stackScreenOptions} />}
             </Tab.Screen>
