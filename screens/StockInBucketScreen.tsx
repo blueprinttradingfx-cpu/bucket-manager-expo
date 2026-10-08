@@ -86,7 +86,7 @@ export default function StockInBucketScreen({ route }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.ticker}>{ticker}</Text>
-      <Text style={styles.bucketLabel}>{bucket}{isClosed ? ' · fully sold' : position.pendingSettlement ? ' · awaiting NAVPU' : ''}</Text>
+      <Text style={styles.bucketLabel}>{bucket}{isClosed ? ' · fully sold' : position.pendingSettlement ? (valued?.estimatedQty != null ? ' · est. units' : ' · awaiting NAVPU') : ''}</Text>
 
       <View style={styles.statsRow}>
         <Stat label="Shares" value={String(position.totalQty)} />
@@ -117,7 +117,14 @@ export default function StockInBucketScreen({ route }: Props) {
         </View>
       ) : position.pendingSettlement ? (
         <View style={styles.statsRow}>
-          <Stat label="Status" value="Awaiting NAVPU" sublabel="Statement hasn't settled units/price yet" />
+          {valued != null && valued.estimatedQty != null ? (
+            <>
+              <Stat label="Est. Units" value={valued.estimatedQty.toLocaleString(undefined, { maximumFractionDigits: 4 })} sublabel="Cost ÷ current NAVPU - statement hasn't settled yet" />
+              <Stat label="Current NAVPU" value={`₱${valued.currentPrice}`} />
+            </>
+          ) : (
+            <Stat label="Status" value="Awaiting NAVPU" sublabel="Statement hasn't settled units/price yet" />
+          )}
         </View>
       ) : (
         valued?.unrealizedGain != null && (

@@ -52,6 +52,7 @@ function toPositionItem(item: PositionRow, colors: ThemeColors, fundCache: FundC
     unrealizedGain: valued?.unrealizedGain ?? null,
     unrealizedGainPct: valued?.unrealizedGainPct ?? null,
     pendingSettlement: item.pendingSettlement,
+    estimatedQty: valued?.estimatedQty,
     expandedContent: (
       <>
         <ExpandedRow label="Market Value" value={`₱${(valued?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
@@ -59,7 +60,7 @@ function toPositionItem(item: PositionRow, colors: ThemeColors, fundCache: FundC
         <ExpandedRow label="Open Lots" value={String(item.openLots)} />
         <ExpandedRow label="Dividends Earned" value={`₱${item.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} valueStyle={item.totalDividends > 0 ? { color: colors.positive } : undefined} />
         {item.pendingSettlement && (
-          <ExpandedRow label="Status" value="Awaiting NAVPU from statement" />
+          <ExpandedRow label="Status" value={valued?.estimatedQty != null ? "Units estimated from current NAVPU - update on Import > Fund Prices Needed" : "Awaiting NAVPU from statement"} />
         )}
       </>
     ),

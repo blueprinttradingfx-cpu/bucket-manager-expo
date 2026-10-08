@@ -854,6 +854,8 @@ export class WebBucketStore implements BucketStoreAPI {
       weeklyMacdTrendCustom: input.weeklyMacdTrendCustom ?? null,
       foreignFlowSentiment: input.foreignFlowSentiment ?? 'unknown',
       eventCatalyst: input.eventCatalyst ?? '',
+      eventDate: input.eventDate ?? null,
+      eventAlertId: input.eventAlertId ?? null,
       projection: input.projection ?? '',
       notes: input.notes ?? null,
       priceAlertId: input.priceAlertId ?? null,
@@ -934,7 +936,7 @@ export class WebBucketStore implements BucketStoreAPI {
       stockTrackerEntries: stockTrackerEntries.map((e) => ({
         id: e.id, ticker: e.ticker, areaPriceOfInterest: e.areaPriceOfInterest ?? '',
         weeklyMacdTrend: e.weeklyMacdTrend ?? 'none', weeklyMacdTrendCustom: e.weeklyMacdTrendCustom ?? null,
-        foreignFlowSentiment: e.foreignFlowSentiment ?? 'unknown', eventCatalyst: e.eventCatalyst ?? '',
+        foreignFlowSentiment: e.foreignFlowSentiment ?? 'unknown', eventCatalyst: e.eventCatalyst ?? '', eventDate: e.eventDate ?? null, eventAlertId: e.eventAlertId ?? null,
         projection: e.projection ?? '', notes: e.notes ?? null, priceAlertId: e.priceAlertId ?? null,
         createdAt: e.createdAt, updatedAt: e.updatedAt, deletedAt: e.deletedAt ?? null,
       })),
@@ -1084,7 +1086,7 @@ export class WebBucketStore implements BucketStoreAPI {
       await trackerStore.add({
         id: e.id, ticker: e.ticker, areaPriceOfInterest: e.areaPriceOfInterest ?? '',
         weeklyMacdTrend: e.weeklyMacdTrend ?? 'none', weeklyMacdTrendCustom: e.weeklyMacdTrendCustom ?? null,
-        foreignFlowSentiment: e.foreignFlowSentiment ?? 'unknown', eventCatalyst: e.eventCatalyst ?? '',
+        foreignFlowSentiment: e.foreignFlowSentiment ?? 'unknown', eventCatalyst: e.eventCatalyst ?? '', eventDate: e.eventDate ?? null, eventAlertId: e.eventAlertId ?? null,
         projection: e.projection ?? '', notes: e.notes ?? null, priceAlertId: e.priceAlertId ?? null,
         createdAt: e.createdAt, updatedAt: e.updatedAt, deletedAt: null,
       } as StockTrackerEntry);
@@ -1248,6 +1250,8 @@ export class WebBucketStore implements BucketStoreAPI {
       weeklyMacdTrendCustom: record.weeklyMacdTrendCustom ?? null,
       foreignFlowSentiment: record.foreignFlowSentiment ?? 'unknown',
       eventCatalyst: record.eventCatalyst ?? '',
+      eventDate: record.eventDate ?? null,
+      eventAlertId: record.eventAlertId ?? null,
       projection: record.projection ?? '',
       notes: record.notes ?? null,
       priceAlertId: record.priceAlertId ?? null,

@@ -117,7 +117,16 @@ export interface StockTrackerEntry {
   weeklyMacdTrend: WeeklyMacdTrend;
   weeklyMacdTrendCustom?: string | null;
   foreignFlowSentiment: ForeignFlowSentiment;
+  /** Free-text event details (UI label: "Event Details"; field name kept as
+   *  eventCatalyst so existing synced/local data needs no rename). */
   eventCatalyst: string;
+  /** Optional YYYY-MM-DD date for the event. When set together with
+   *  eventCatalyst, the editor mirrors it into an 'event' StockAlert
+   *  (see eventAlertId) so it shows up under Stock Alerts > Events. */
+  eventDate?: string | null;
+  /** Id of the StockAlert (type 'event') auto-created from eventDate +
+   *  eventCatalyst, so later edits update that alert instead of duplicating. */
+  eventAlertId?: string | null;
   projection: string;
   notes?: string | null;
   priceAlertId?: string | null;

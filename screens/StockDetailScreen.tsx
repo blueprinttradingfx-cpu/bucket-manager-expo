@@ -80,13 +80,14 @@ function toPositionItem(item: BucketPositionRow, colors: ThemeColors): PositionI
     unrealizedGain: valued?.unrealizedGain ?? null,
     unrealizedGainPct: valued?.unrealizedGainPct ?? null,
     pendingSettlement: item.pendingSettlement,
+    estimatedQty: valued?.estimatedQty,
     expandedContent: (
       <>
         {item.totalQty <= 0 && !item.pendingSettlement && (
           <ExpandedRow label="Status" value="Fully sold in this bucket" />
         )}
         {item.pendingSettlement && (
-          <ExpandedRow label="Status" value="Awaiting NAVPU from statement" />
+          <ExpandedRow label="Status" value={valued?.estimatedQty != null ? "Units estimated from current NAVPU - update on Import > Fund Prices Needed" : "Awaiting NAVPU from statement"} />
         )}
         <ExpandedRow label="Market Value" value={`₱${(valued?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
         <ExpandedRow label="Avg Cost" value={`₱${item.avgCost}`} />

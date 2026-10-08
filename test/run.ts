@@ -11,7 +11,7 @@ import * as path from 'path';
 import * as XLSX from 'xlsx';
 import { RawRow } from '../core/bucketLogic';
 import { rowsFromWorkbook } from '../core/xlsxRows';
-import { prepareRows, computeHoldings } from '../core/bucketLogic';
+import { prepareRows, computeHoldings, aggregateAcrossBuckets, applyPricesToAggregated, applyPricesToPositions, BucketStockPosition } from '../core/bucketLogic';
 import { mergeSnapshots } from '../core/syncMerge';
 import { SyncSnapshot } from '../core/storeApi';
 
@@ -173,4 +173,38 @@ console.log('\n=== Scenario 4: mergeSnapshots (Phase 4, sync-plan.md §10b) ==='
   if (settingsEqual.toPush.settings || settingsEqual.toPull.settings) throw new Error('4h failed: equal-timestamp settings should be a no-op both ways');
 
   console.log('mergeSnapshots: all checks passed');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 5: pending fund buy (no Quantity/Price yet) + NAVPU in the lookup
+// ---------------------------------------------------------------------------
+{
+  console.log('\n=== Scenario 5: pending fund valued from NAVPU (e.g. 26UF50) ===');
+  const pendingBuy: RawRow = {
+    Date: '01/10/2026', Type: 'BUY', Stock: '26UF50', Description: 'ATRAM Nasdaq Equity Income Feeder Fund',
+    Quantity: null, Price: null, 'Comm & Other Fees': null, Currency: 'PHP', Amount: -10000,
+  };
+  const { holdings } = computeHoldings(prepareRows([pendingBuy]));
+  if (holdings.length !== 1 || !holdings[0].pendingSettlement) throw new Error('5a failed: qty-less fund buy should be a pendingSettlement holding');
+  const pos: BucketStockPosition = { ...holdings[0], bucket: 'Growth', totalDividends: 0, realizedGain: 0, assetType: 'fund' as any };
+
+  // 5b: with a NAVPU available -> estimated units, still cost-valued, 0 gain.
+  const [valuedPos] = applyPricesToPositions([pos], { '26UF50': { price: 100, yieldPct: null } });
+  console.log('5b: estimatedQty =', valuedPos.estimatedQty, ', marketValue =', valuedPos.marketValue, ', gain =', valuedPos.unrealizedGain);
+  if (valuedPos.estimatedQty !== 100) throw new Error('5b failed: 10000 / NAVPU 100 should estimate 100 units');
+  if (valuedPos.currentPrice !== 100 || valuedPos.marketValue !== 10000 || valuedPos.unrealizedGain !== 0) {
+    throw new Error('5b failed: estimated pending position should show NAVPU, value at cost, and 0 gain (units are only an estimate)');
+  }
+  const [valuedAgg] = applyPricesToAggregated(aggregateAcrossBuckets([pos]), { '26UF50': { price: 100, yieldPct: null } });
+  if (valuedAgg.estimatedQty !== 100 || valuedAgg.currentPrice !== 100 || valuedAgg.marketValue !== 10000) {
+    throw new Error('5b failed: aggregated pending fund should carry the same estimate');
+  }
+
+  // 5c: NO NAVPU for that ticker -> unchanged legacy behavior (plain pending).
+  const [noNav] = applyPricesToPositions([pos], {});
+  if (noNav.estimatedQty !== undefined || noNav.currentPrice !== null || noNav.marketValue !== 10000) {
+    throw new Error('5c failed: without a NAVPU the position must stay plain-pending (no estimate)');
+  }
+  console.log('5c: no NAVPU -> still plain pending (no estimate)');
+  console.log('Scenario 5: all checks passed');
 }

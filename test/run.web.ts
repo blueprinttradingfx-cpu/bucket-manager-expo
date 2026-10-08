@@ -618,6 +618,44 @@ async function main() {
   const restoreWithTrackers = await store.restoreFromSyncSnapshot(snapshotWithTrackers);
   console.log('15h: stockTrackerEntriesWritten:', restoreWithTrackers.stockTrackerEntriesWritten, '(live before restore:', liveTrackersBefore, ')');
   if (restoreWithTrackers.stockTrackerEntriesWritten !== liveTrackersBefore) throw new Error('15h failed: restoreFromSyncSnapshot should reinsert every live tracker entry');
+
+  console.log('\n=== Scenario 16: tracker eventDate + linked event alert ===');
+  // 16a: eventDate / eventAlertId persist through upsert.
+  const evAlert = await store.addStockAlert({
+    ticker: 'EVT1', type: 'event', title: 'Q3 Earnings release', eventDate: '2026-11-12', eventTime: null,
+    reminderTiming: 'day-before', priceDirection: null, priceThreshold: null, email: 'wilb@example.com',
+    status: 'active', lastTriggeredAt: null, lastTriggeredValue: null, lastCheckedAt: null,
+  });
+  const evTracker = await store.upsertStockTrackerEntry({
+    ticker: 'EVT1', areaPriceOfInterest: '', weeklyMacdTrend: 'none', weeklyMacdTrendCustom: null,
+    foreignFlowSentiment: 'unknown', eventCatalyst: 'Q3 Earnings release', eventDate: '2026-11-12',
+    eventAlertId: evAlert.id, projection: '', notes: null, priceAlertId: null,
+  });
+  const evFetched = await store.getStockTrackerEntry(evTracker.id);
+  console.log('16a: eventDate =', evFetched?.eventDate, ', eventAlertId matches alert:', evFetched?.eventAlertId === evAlert.id);
+  if (evFetched?.eventDate !== '2026-11-12' || evFetched?.eventAlertId !== evAlert.id) throw new Error('16a failed: eventDate/eventAlertId should persist');
+
+  // 16b: entries saved without the new fields read back as null (back-compat with older rows/snapshots).
+  const legacy = await store.upsertStockTrackerEntry({
+    ticker: 'EVT2', areaPriceOfInterest: '', weeklyMacdTrend: 'none', weeklyMacdTrendCustom: null,
+    foreignFlowSentiment: 'unknown', eventCatalyst: 'Old free-text catalyst', projection: '', notes: null, priceAlertId: null,
+  });
+  if (legacy.eventDate !== null || legacy.eventAlertId !== null) throw new Error('16b failed: missing eventDate/eventAlertId should default to null');
+
+  // 16c: snapshot + restore round-trip keeps them.
+  const evSnap = await store.getSyncSnapshot();
+  const evInSnap = evSnap.stockTrackerEntries.find((t) => t.id === evTracker.id);
+  if (evInSnap?.eventDate !== '2026-11-12' || evInSnap?.eventAlertId !== evAlert.id) throw new Error('16c failed: snapshot should carry eventDate/eventAlertId');
+  await store.restoreFromSyncSnapshot(evSnap);
+  const evRestored = await store.getStockTrackerEntry(evTracker.id);
+  if (evRestored?.eventDate !== '2026-11-12' || evRestored?.eventAlertId !== evAlert.id) throw new Error('16c failed: restore should keep eventDate/eventAlertId');
+
+  // 16d: applySynced (newer remote) carries them too.
+  await store.applySyncedStockTrackerEntry({ ...evTracker, eventDate: '2026-12-01', updatedAt: new Date(Date.now() + 60000).toISOString() });
+  const evSynced = await store.getStockTrackerEntry(evTracker.id);
+  console.log('16d: after applySynced eventDate =', evSynced?.eventDate);
+  if (evSynced?.eventDate !== '2026-12-01') throw new Error('16d failed: applySynced should update eventDate');
+  console.log('Scenario 16: all checks passed');
 }
 
 main().catch((e) => { console.error('TEST FAILED:', e); process.exit(1); });

@@ -13,6 +13,7 @@ import { useThemeColors } from '../../core/ThemeContext';
 import { spacing, radii, fonts, ThemeColors } from '../../core/theme';
 import { StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment } from '../../core/storeApi';
 import { useAuth } from '../../core/AuthProvider';
+import TickerPicker from './TickerPicker';
 
 interface Props {
   visible: boolean;
@@ -40,6 +41,64 @@ const FF_OPTIONS: { key: ForeignFlowSentiment; label: string }[] = [
   { key: 'unknown', label: 'Unknown' },
 ];
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function isValidIsoDate(s: string): boolean {
+  if (!ISO_DATE_RE.test(s)) return false;
+  const d = new Date(`${s}T00:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
+}
+
+/** Auto-inserts dashes while typing digits: 20261231 -> 2026-12-31. */
+function formatDateInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 4) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6)}`;
+}
+
+function DateField({
+  value, onChange, inputStyle, placeholderColor, textColor,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  inputStyle: any;
+  placeholderColor: string;
+  textColor: string;
+}) {
+  if (Platform.OS === 'web') {
+    // Real browser date picker; value is already YYYY-MM-DD.
+    return React.createElement('input', {
+      type: 'date',
+      value,
+      onChange: (e: any) => onChange(e.target.value),
+      style: {
+        backgroundColor: 'transparent',
+        color: textColor,
+        border: '1px solid rgba(128,128,128,0.4)',
+        borderRadius: 12,
+        padding: '8px 12px',
+        fontSize: 14,
+        fontFamily: 'inherit',
+        width: '100%',
+        boxSizing: 'border-box',
+        colorScheme: 'light dark',
+      },
+    });
+  }
+  return (
+    <TextInput
+      style={inputStyle}
+      value={value}
+      onChangeText={(v) => onChange(formatDateInput(v))}
+      placeholder="YYYY-MM-DD"
+      placeholderTextColor={placeholderColor}
+      keyboardType="number-pad"
+      maxLength={10}
+    />
+  );
+}
+
 export default function StockTrackerEditorDialog({
   visible,
   initialEntry,
@@ -58,7 +117,9 @@ export default function StockTrackerEditorDialog({
   const [macdTrend, setMacdTrend] = useState<WeeklyMacdTrend>('none');
   const [macdCustom, setMacdCustom] = useState('');
   const [ffSentiment, setFfSentiment] = useState<ForeignFlowSentiment>('unknown');
+  const [eventDate, setEventDate] = useState('');
   const [catalyst, setCatalyst] = useState('');
+  const [takenTickers, setTakenTickers] = useState<Set<string>>(new Set());
   const [projection, setProjection] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -81,6 +142,7 @@ export default function StockTrackerEditorDialog({
       macdTrend,
       macdCustom,
       ffSentiment,
+      eventDate,
       catalyst,
       projection,
       notes,
@@ -112,6 +174,7 @@ export default function StockTrackerEditorDialog({
     const initialMacdCustom = initialEntry?.weeklyMacdTrendCustom || '';
     const initialFfSentiment: ForeignFlowSentiment = initialEntry?.foreignFlowSentiment || 'unknown';
     const initialCatalyst = initialEntry?.eventCatalyst || '';
+    const initialEventDate = initialEntry?.eventDate || '';
     const initialProjection = initialEntry?.projection || '';
     const initialNotes = initialEntry?.notes || '';
 
@@ -121,6 +184,7 @@ export default function StockTrackerEditorDialog({
       setMacdTrend(initialMacdTrend);
       setMacdCustom(initialMacdCustom);
       setFfSentiment(initialFfSentiment);
+      setEventDate(initialEventDate);
       setCatalyst(initialCatalyst);
       setProjection(initialProjection);
       setNotes(initialNotes);
@@ -131,6 +195,7 @@ export default function StockTrackerEditorDialog({
       setMacdTrend('none');
       setMacdCustom('');
       setFfSentiment('unknown');
+      setEventDate('');
       setCatalyst('');
       setProjection('');
       setNotes('');
@@ -138,7 +203,8 @@ export default function StockTrackerEditorDialog({
       setAlertDirection('below');
       setAlertThreshold('');
     }
-    setAlertEmail(user?.email || 'user@example.com');
+    // Email for Notifications defaults to the signed-in user's email (still editable).
+    setAlertEmail(user?.email ?? '');
 
     // Snapshot baseline for dirty-check
     setBaseline({
@@ -147,13 +213,24 @@ export default function StockTrackerEditorDialog({
       macdTrend: initialMacdTrend,
       macdCustom: initialMacdCustom,
       ffSentiment: initialFfSentiment,
+      eventDate: initialEventDate,
       catalyst: initialCatalyst,
       projection: initialProjection,
       notes: initialNotes,
       alertThreshold: '',
       alertDirection: 'below',
     });
-  }, [initialEntry, visible, user]);
+  }, [initialEntry, visible, user?.email]);
+
+  // Tickers that already have a tracker entry (so the dropdown can mark them).
+  useEffect(() => {
+    if (!visible || isEdit) return;
+    let cancelled = false;
+    store.listAllStockTrackerEntries()
+      .then((list) => { if (!cancelled) setTakenTickers(new Set(list.map((e) => e.ticker.toUpperCase()))); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [visible, isEdit, store]);
 
   // Attempt to parse numbers from Area Price of Interest as default threshold
   useEffect(() => {
@@ -173,9 +250,20 @@ export default function StockTrackerEditorDialog({
   const handleSave = async () => {
     const cleanTicker = ticker.trim().toUpperCase();
     if (!cleanTicker) {
-      Alert.alert('Validation Error', 'Please enter a valid stock ticker.');
+      Alert.alert('Validation Error', 'Please select a stock ticker.');
       return;
     }
+    const cleanEventDate = eventDate.trim();
+    const cleanCatalyst = catalyst.trim();
+    if (cleanEventDate && !isValidIsoDate(cleanEventDate)) {
+      Alert.alert('Validation Error', 'Event Date must be a valid date (YYYY-MM-DD).');
+      return;
+    }
+    if (cleanEventDate && !cleanCatalyst) {
+      Alert.alert('Validation Error', 'Please add Event Details for the event date.');
+      return;
+    }
+    const notifyEmail = alertEmail.trim() || user?.email || '';
 
     setSubmitting(true);
     try {
@@ -194,7 +282,7 @@ export default function StockTrackerEditorDialog({
             reminderTiming: null,
             priceDirection: alertDirection,
             priceThreshold: thresholdNum,
-            email: alertEmail.trim() || user?.email || 'user@example.com',
+            email: notifyEmail,
             status: 'active',
             lastTriggeredAt: null,
             lastTriggeredValue: null,
@@ -202,6 +290,44 @@ export default function StockTrackerEditorDialog({
           });
           linkedAlertId = createdAlert.id;
         }
+      }
+
+      // 1b. Mirror Event Date + Event Details into an 'event' alert so it shows
+      // under Stock Alerts > Events. Re-uses the previously linked alert on edit.
+      let linkedEventAlertId: string | null = initialEntry?.eventAlertId || null;
+      if (linkedEventAlertId) {
+        const live = await store.listAllStockAlerts();
+        if (!live.some((a) => a.id === linkedEventAlertId)) linkedEventAlertId = null; // deleted from the Alerts screen
+      }
+      if (cleanEventDate && cleanCatalyst) {
+        if (linkedEventAlertId) {
+          await store.updateStockAlert(linkedEventAlertId, {
+            title: cleanCatalyst,
+            eventDate: cleanEventDate,
+            email: notifyEmail,
+          });
+        } else {
+          const createdEvent = await store.addStockAlert({
+            ticker: cleanTicker,
+            type: 'event',
+            title: cleanCatalyst,
+            eventDate: cleanEventDate,
+            eventTime: null,
+            reminderTiming: 'day-before',
+            priceDirection: null,
+            priceThreshold: null,
+            email: notifyEmail,
+            status: 'active',
+            lastTriggeredAt: null,
+            lastTriggeredValue: null,
+            lastCheckedAt: null,
+          });
+          linkedEventAlertId = createdEvent.id;
+        }
+      } else if (linkedEventAlertId) {
+        // Date cleared: the linked event alert no longer has anything to remind about.
+        await store.deleteStockAlert(linkedEventAlertId);
+        linkedEventAlertId = null;
       }
 
       // 2. Upsert StockTrackerEntry
@@ -212,7 +338,9 @@ export default function StockTrackerEditorDialog({
         weeklyMacdTrend: macdTrend,
         weeklyMacdTrendCustom: macdTrend === 'custom' ? macdCustom.trim() : null,
         foreignFlowSentiment: ffSentiment,
-        eventCatalyst: catalyst.trim(),
+        eventCatalyst: cleanCatalyst,
+        eventDate: cleanEventDate || null,
+        eventAlertId: linkedEventAlertId,
         projection: projection.trim(),
         notes: notes.trim() || null,
         priceAlertId: linkedAlertId,
@@ -245,14 +373,11 @@ export default function StockTrackerEditorDialog({
           <ScrollView style={styles.body} contentContainerStyle={{ paddingBottom: spacing.lg }}>
             {/* Ticker Input */}
             <Text style={styles.label}>Stock Ticker *</Text>
-            <TextInput
-              style={[styles.input, isEdit && styles.disabledInput]}
+            <TickerPicker
               value={ticker}
-              onChangeText={setTicker}
-              placeholder="e.g. ALI, SM, MER"
-              placeholderTextColor={colors.onSurfaceVariant}
-              autoCapitalize="characters"
-              editable={!isEdit}
+              onChange={setTicker}
+              disabled={isEdit}
+              disabledTickers={takenTickers}
             />
 
             {/* Area Price of Interest */}
@@ -309,16 +434,30 @@ export default function StockTrackerEditorDialog({
               })}
             </View>
 
-            {/* Event Catalyst */}
-            <Text style={styles.label}>Event Catalyst</Text>
+            {/* Event Date + Event Details (saved to Stock Alerts > Events) */}
+            <Text style={styles.label}>Event Date</Text>
+            <DateField
+              value={eventDate}
+              onChange={setEventDate}
+              inputStyle={styles.input}
+              placeholderColor={colors.onSurfaceVariant}
+              textColor={colors.onSurface}
+            />
+
+            <Text style={styles.label}>Event Details</Text>
             <TextInput
               style={[styles.input, styles.multilineInput]}
               value={catalyst}
               onChangeText={setCatalyst}
-              placeholder="e.g. Q3 Earnings beat, Dividend announcement"
+              placeholder="e.g. Q3 Earnings release, Dividend announcement"
               placeholderTextColor={colors.onSurfaceVariant}
               multiline
             />
+            {!!eventDate && (
+              <Text style={styles.helperText}>
+                Saved as an event alert (Stock Alerts › Events) with a reminder the day before.
+              </Text>
+            )}
 
             {/* Projection */}
             <Text style={styles.label}>Projection / Thesis</Text>
@@ -340,6 +479,22 @@ export default function StockTrackerEditorDialog({
               placeholderTextColor={colors.onSurfaceVariant}
               multiline
             />
+
+            {(!!eventDate || autoAlert) && (
+              <>
+                <Text style={styles.label}>Email for Notifications</Text>
+                <TextInput
+                  style={styles.input}
+                  value={alertEmail}
+                  onChangeText={setAlertEmail}
+                  placeholder="your@email.com"
+                  placeholderTextColor={colors.onSurfaceVariant}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </>
+            )}
 
             {/* Auto-create Price Alert Toggle */}
             <View style={styles.alertBox}>
@@ -454,6 +609,12 @@ function createStyles(colors: ThemeColors) {
       fontFamily: fonts.body,
       fontSize: 14,
       color: colors.onSurface,
+    },
+    helperText: {
+      fontFamily: fonts.body,
+      fontSize: 11,
+      color: colors.onSurfaceVariant,
+      marginTop: 4,
     },
     disabledInput: {
       opacity: 0.6,

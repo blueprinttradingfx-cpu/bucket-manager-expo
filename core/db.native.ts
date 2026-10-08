@@ -123,6 +123,11 @@ export async function initSchema(db: SQLiteDatabase) {
   // Migration: add is_manual column if it doesn't exist (for existing databases)
   await addColumnIfMissing(db, 'transactions', 'is_manual', 'INTEGER DEFAULT 0');
 
+  // Stock Tracker: optional event date + link to the auto-created event alert.
+  // NULL for every pre-existing row, which is exactly "no event date" - no backfill.
+  await addColumnIfMissing(db, 'stock_tracker', 'event_date', 'TEXT');
+  await addColumnIfMissing(db, 'stock_tracker', 'event_alert_id', 'TEXT');
+
   // --- Sync prep (sync-plan.md §1, §4 Phase 0) ---
   // buckets/transactions get a stable cross-device uuid; every synced store
   // gets updated_at (so a future push can tell what's dirty); buckets/
@@ -934,6 +939,8 @@ export class NativeBucketStore implements BucketStoreAPI {
     weekly_macd_trend_custom: string | null;
     foreign_flow_sentiment: string;
     event_catalyst: string;
+    event_date: string | null;
+    event_alert_id: string | null;
     projection: string;
     notes: string | null;
     price_alert_id: string | null;
@@ -949,6 +956,8 @@ export class NativeBucketStore implements BucketStoreAPI {
       weeklyMacdTrendCustom: r.weekly_macd_trend_custom,
       foreignFlowSentiment: r.foreign_flow_sentiment as ForeignFlowSentiment,
       eventCatalyst: r.event_catalyst,
+      eventDate: r.event_date ?? null,
+      eventAlertId: r.event_alert_id ?? null,
       projection: r.projection,
       notes: r.notes,
       priceAlertId: r.price_alert_id,
@@ -961,7 +970,7 @@ export class NativeBucketStore implements BucketStoreAPI {
   async listAllStockTrackerEntries(): Promise<StockTrackerEntry[]> {
     const rows = await this.db.getAllAsync<Parameters<NativeBucketStore['rowToTrackerEntry']>[0]>(
       `SELECT id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
-              foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+              foreign_flow_sentiment, event_catalyst, event_date, event_alert_id, projection, notes, price_alert_id,
               created_at, updated_at, deleted_at
        FROM stock_tracker WHERE deleted_at IS NULL ORDER BY updated_at DESC`
     );
@@ -971,7 +980,7 @@ export class NativeBucketStore implements BucketStoreAPI {
   async getStockTrackerEntry(id: string): Promise<StockTrackerEntry | null> {
     const row = await this.db.getFirstAsync<Parameters<NativeBucketStore['rowToTrackerEntry']>[0]>(
       `SELECT id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
-              foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+              foreign_flow_sentiment, event_catalyst, event_date, event_alert_id, projection, notes, price_alert_id,
               created_at, updated_at, deleted_at
        FROM stock_tracker WHERE id = ? AND deleted_at IS NULL`,
       id
@@ -982,7 +991,7 @@ export class NativeBucketStore implements BucketStoreAPI {
   async getStockTrackerForTicker(ticker: string): Promise<StockTrackerEntry | null> {
     const row = await this.db.getFirstAsync<Parameters<NativeBucketStore['rowToTrackerEntry']>[0]>(
       `SELECT id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
-              foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+              foreign_flow_sentiment, event_catalyst, event_date, event_alert_id, projection, notes, price_alert_id,
               created_at, updated_at, deleted_at
        FROM stock_tracker WHERE ticker = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1`,
       ticker.trim().toUpperCase()
@@ -1009,6 +1018,8 @@ export class NativeBucketStore implements BucketStoreAPI {
     const weeklyMacdTrendCustom = input.weeklyMacdTrendCustom ?? null;
     const foreignFlowSentiment = input.foreignFlowSentiment ?? 'unknown';
     const eventCatalyst = input.eventCatalyst ?? '';
+    const eventDate = input.eventDate ?? null;
+    const eventAlertId = input.eventAlertId ?? null;
     const projection = input.projection ?? '';
     const notes = input.notes ?? null;
     const priceAlertId = input.priceAlertId ?? null;
@@ -1018,17 +1029,17 @@ export class NativeBucketStore implements BucketStoreAPI {
     await this.db.runAsync(
       `INSERT OR REPLACE INTO stock_tracker
        (id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
-        foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+        foreign_flow_sentiment, event_catalyst, event_date, event_alert_id, projection, notes, price_alert_id,
         created_at, updated_at, deleted_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
       id, ticker, areaPriceOfInterest, weeklyMacdTrend, weeklyMacdTrendCustom,
-      foreignFlowSentiment, eventCatalyst, projection, notes, priceAlertId,
+      foreignFlowSentiment, eventCatalyst, eventDate, eventAlertId, projection, notes, priceAlertId,
       createdAt, updatedAt
     );
 
     return {
       id, ticker, areaPriceOfInterest, weeklyMacdTrend, weeklyMacdTrendCustom,
-      foreignFlowSentiment, eventCatalyst, projection, notes, priceAlertId,
+      foreignFlowSentiment, eventCatalyst, eventDate, eventAlertId, projection, notes, priceAlertId,
       createdAt, updatedAt, deletedAt: null,
     };
   }
@@ -1080,7 +1091,7 @@ export class NativeBucketStore implements BucketStoreAPI {
 
     const trackerRows = await this.db.getAllAsync<Parameters<NativeBucketStore['rowToTrackerEntry']>[0]>(
       `SELECT id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
-              foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+              foreign_flow_sentiment, event_catalyst, event_date, event_alert_id, projection, notes, price_alert_id,
               created_at, updated_at, deleted_at
        FROM stock_tracker`
     );
@@ -1247,12 +1258,12 @@ export class NativeBucketStore implements BucketStoreAPI {
         await this.db.runAsync(
           `INSERT INTO stock_tracker
            (id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
-            foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+            foreign_flow_sentiment, event_catalyst, event_date, event_alert_id, projection, notes, price_alert_id,
             created_at, updated_at, deleted_at)
-           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
           e.id, e.ticker, e.areaPriceOfInterest ?? '', e.weeklyMacdTrend ?? 'none',
           e.weeklyMacdTrendCustom ?? null, e.foreignFlowSentiment ?? 'unknown',
-          e.eventCatalyst ?? '', e.projection ?? '', e.notes ?? null, e.priceAlertId ?? null,
+          e.eventCatalyst ?? '', e.eventDate ?? null, e.eventAlertId ?? null, e.projection ?? '', e.notes ?? null, e.priceAlertId ?? null,
           e.createdAt, e.updatedAt
         );
         stockTrackerEntriesWritten++;
@@ -1448,12 +1459,12 @@ export class NativeBucketStore implements BucketStoreAPI {
     await this.db.runAsync(
       `INSERT OR REPLACE INTO stock_tracker
        (id, ticker, area_price_of_interest, weekly_macd_trend, weekly_macd_trend_custom,
-        foreign_flow_sentiment, event_catalyst, projection, notes, price_alert_id,
+        foreign_flow_sentiment, event_catalyst, event_date, event_alert_id, projection, notes, price_alert_id,
         created_at, updated_at, deleted_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       record.id, record.ticker, record.areaPriceOfInterest ?? '', record.weeklyMacdTrend ?? 'none',
       record.weeklyMacdTrendCustom ?? null, record.foreignFlowSentiment ?? 'unknown',
-      record.eventCatalyst ?? '', record.projection ?? '', record.notes ?? null, record.priceAlertId ?? null,
+      record.eventCatalyst ?? '', record.eventDate ?? null, record.eventAlertId ?? null, record.projection ?? '', record.notes ?? null, record.priceAlertId ?? null,
       record.createdAt, record.updatedAt, record.deletedAt ?? null
     );
   }

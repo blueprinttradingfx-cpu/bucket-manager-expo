@@ -1,7 +1,7 @@
 // screens/components/StockTrackerTable.tsx
 // Table view for StockTrackerScreen: displays tracked stocks with columns for
 // Ticker, Last Price, Area of Interest, Weekly MACD Trend, Foreign Flow,
-// Event Catalyst, Projection, Linked Price Alert, and row actions.
+// Event (date + details), Projection, Linked Price Alert, and row actions.
 // Supports responsive horizontal scrolling on narrow screens with sticky left column.
 
 import React, { useMemo } from 'react';
@@ -85,7 +85,7 @@ export default function StockTrackerTable({
             <Text style={[styles.th, styles.colArea]}>Area of Interest</Text>
             <Text style={[styles.th, styles.colMacd]}>MACD Trend</Text>
             <Text style={[styles.th, styles.colFF]}>Foreign Flow</Text>
-            <Text style={[styles.th, styles.colCatalyst]}>Catalyst</Text>
+            <Text style={[styles.th, styles.colCatalyst]}>Event</Text>
             <Text style={[styles.th, styles.colProjection]}>Projection</Text>
             <Text style={[styles.th, styles.colAlert]}>Alert</Text>
             <Text style={[styles.th, styles.colActions]}>Actions</Text>
@@ -158,10 +158,15 @@ export default function StockTrackerTable({
                   </View>
                 </View>
 
-                {/* Event Catalyst */}
+                {/* Event (date + details) */}
                 <View style={[styles.td, styles.colCatalyst]}>
+                  {!!entry.eventDate && (
+                    <Text style={[styles.cellText, { fontWeight: '600' }]} numberOfLines={1}>
+                      {entry.eventDate}
+                    </Text>
+                  )}
                   <Text style={styles.cellText} numberOfLines={2}>
-                    {entry.eventCatalyst || '—'}
+                    {entry.eventCatalyst || (entry.eventDate ? '' : '—')}
                   </Text>
                 </View>
 

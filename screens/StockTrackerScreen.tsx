@@ -137,7 +137,7 @@ export default function StockTrackerScreen({ navigation }: Props) {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const matchTicker = item.ticker.toLowerCase().includes(q);
-        const matchCatalyst = item.eventCatalyst.toLowerCase().includes(q);
+        const matchCatalyst = item.eventCatalyst.toLowerCase().includes(q) || (item.eventDate ?? '').includes(q);
         const matchProjection = item.projection.toLowerCase().includes(q);
         const matchArea = item.areaPriceOfInterest.toLowerCase().includes(q);
         const matchNotes = (item.notes ?? '').toLowerCase().includes(q);

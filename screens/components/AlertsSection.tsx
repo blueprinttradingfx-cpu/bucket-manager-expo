@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { StockAlert } from '../../core/storeApi';
 import { spacing, radii, fonts, ThemeColors } from '../../core/theme';
 import { useThemeColors } from '../../core/ThemeContext';
+import { useAuth } from '../../core/AuthProvider';
 
 interface Props {
   alerts: StockAlert[];
@@ -44,7 +45,7 @@ interface AlertFormState {
   email: string;
 }
 
-function freshForm(): AlertFormState {
+function freshForm(defaultEmail = ''): AlertFormState {
   return {
     type: 'event',
     title: '',
@@ -53,7 +54,7 @@ function freshForm(): AlertFormState {
     reminderTiming: 'day-before',
     priceDirection: 'below',
     priceThreshold: '',
-    email: '',
+    email: defaultEmail,
   };
 }
 
@@ -369,10 +370,13 @@ export default function AlertsSection({
 
   // Memoised so the form ref is stable when the dialog is closed (avoids a
   // stale-closure flash when animationType="fade" still renders for a frame).
-  const addInitialForm = useMemo(() => freshForm(), [ticker]);
+  // Email for Notifications defaults to the signed-in user's email (editable).
+  const { user } = useAuth();
+  const defaultEmail = user?.email ?? '';
+  const addInitialForm = useMemo(() => freshForm(defaultEmail), [ticker, defaultEmail]);
   const editInitialForm = useMemo(
-    () => (editingAlert ? formFromAlert(editingAlert) : freshForm()),
-    [editingAlert]
+    () => (editingAlert ? formFromAlert(editingAlert) : freshForm(defaultEmail)),
+    [editingAlert, defaultEmail]
   );
 
   async function handleAdd(form: AlertFormState) {

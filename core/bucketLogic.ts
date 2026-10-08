@@ -509,6 +509,12 @@ export interface PriceLookup {
 }
 
 export interface ValuedStockPosition extends BucketStockPosition {
+  /** Set only for a pendingSettlement fund position whose NAVPU IS available
+   *  in the price lookup: units estimated as costBasis / current NAVPU. It's
+   *  an estimate (the real units use the NAVPU on the trade date, which only
+   *  the statement has), so P/L stays 0 and UIs should label it as estimated
+   *  rather than show a real gain figure. */
+  estimatedQty?: number;
   currentPrice: number | null;
   currentYieldPct: number | null;
   marketValue: number | null;
@@ -525,6 +531,15 @@ export function applyPricesToPositions(
     // them at cost (0 unrealized gain) until a later import fills in the
     // actual Quantity/Price and this position joins normal FIFO holdings.
     if (p.pendingSettlement) {
+      const pd = prices[p.ticker];
+      if (pd && pd.price > 0 && p.totalCostBasis > 0) {
+        return {
+          ...p,
+          currentPrice: pd.price, currentYieldPct: pd.yieldPct,
+          marketValue: p.totalCostBasis, unrealizedGain: 0, unrealizedGainPct: 0,
+          estimatedQty: round(p.totalCostBasis / pd.price, 4),
+        };
+      }
       return { ...p, currentPrice: null, currentYieldPct: null, marketValue: p.totalCostBasis, unrealizedGain: 0, unrealizedGainPct: 0 };
     }
     const priceData = prices[p.ticker];
@@ -546,6 +561,8 @@ export function applyPricesToPositions(
 }
 
 export interface ValuedAggregatedStock extends Omit<AggregatedStock, 'buckets'> {
+  /** Sum of the buckets' estimatedQty - see ValuedStockPosition.estimatedQty. */
+  estimatedQty?: number;
   currentPrice: number | null;
   currentYieldPct: number | null;
   marketValue: number | null;
@@ -560,6 +577,23 @@ export function applyPricesToAggregated(
   return stocks.map((s) => {
     const valuedBuckets = applyPricesToPositions(s.buckets, prices);
     if (s.pendingSettlement) {
+      const pd = prices[s.ticker];
+      const estimated = valuedBuckets.filter((b) => b.estimatedQty != null);
+      if (pd && estimated.length > 0) {
+        // Pending buckets are valued at cost; any settled buckets at qty * NAVPU.
+        const allValued = valuedBuckets.every((b) => b.marketValue != null);
+        const marketValue = allValued
+          ? round(valuedBuckets.reduce((sum, b) => sum + (b.marketValue ?? 0), 0), 2)
+          : s.totalCostBasis;
+        const unrealizedGain = round(marketValue - s.totalCostBasis, 2);
+        return {
+          ...s, buckets: valuedBuckets,
+          currentPrice: pd.price, currentYieldPct: pd.yieldPct,
+          marketValue, unrealizedGain,
+          unrealizedGainPct: s.totalCostBasis > 0 ? round((unrealizedGain / s.totalCostBasis) * 100, 2) : 0,
+          estimatedQty: round(estimated.reduce((sum, b) => sum + (b.estimatedQty ?? 0), 0), 4),
+        };
+      }
       return { ...s, buckets: valuedBuckets, currentPrice: null, currentYieldPct: null, marketValue: s.totalCostBasis, unrealizedGain: 0, unrealizedGainPct: 0 };
     }
     const priceData = prices[s.ticker];

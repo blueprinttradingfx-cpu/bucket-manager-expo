@@ -65,13 +65,14 @@ function toPositionItem(item: StockRow, yieldBuckets: YieldBracket[], bucketColo
     unrealizedGain: valued?.unrealizedGain ?? null,
     unrealizedGainPct: valued?.unrealizedGainPct ?? null,
     pendingSettlement: item.pendingSettlement,
+    estimatedQty: valued?.estimatedQty,
     expandedContent: (
       <>
         <ExpandedRow label="Market Value" value={`₱${(valued?.marketValue ?? item.totalCostBasis).toLocaleString(undefined, { minimumFractionDigits: 2 })}`} />
         <ExpandedRow label="Avg Cost" value={`₱${item.avgCost}`} />
         <ExpandedRow label="Dividends Earned" value={`₱${item.totalDividends.toLocaleString(undefined, { minimumFractionDigits: 2 })}`} valueStyle={item.totalDividends > 0 ? { color: colors.positive } : undefined} />
         {item.pendingSettlement && (
-          <ExpandedRow label="Status" value="Awaiting NAVPU from statement" />
+          <ExpandedRow label="Status" value={valued?.estimatedQty != null ? "Units estimated from current NAVPU - update on Import > Fund Prices Needed" : "Awaiting NAVPU from statement"} />
         )}
         <View style={styles.bucketChipsLabel}><Text style={styles.bucketChipsLabelText}>Buckets</Text></View>
         <View style={styles.bucketChipsGrid}>

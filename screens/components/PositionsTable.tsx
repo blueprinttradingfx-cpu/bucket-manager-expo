@@ -46,6 +46,9 @@ export interface PositionItem {
    *  only the peso amount invested (costBasis). See bucketLogic's
    *  Holding.pendingSettlement for the full story. */
   pendingSettlement?: boolean;
+  /** Pending fund whose NAVPU is known: units estimated from cost / NAVPU.
+   *  When set, the row shows NAVPU + estimated units instead of "Pending". */
+  estimatedQty?: number;
   expandedContent: React.ReactNode;
 }
 
@@ -139,6 +142,7 @@ export default function PositionsTable({ items, onItemPress, tabs, activeTab, on
         {sorted.map((item) => {
           const isOpen = expanded.has(item.key);
           const hasGain = item.unrealizedGain != null;
+          const isEstimated = !!item.pendingSettlement && item.estimatedQty != null && item.currentPrice != null;
           return (
             <View key={item.key} style={styles.card}>
               <Pressable style={styles.row} onPress={() => onItemPress(item.key)}>
@@ -158,15 +162,23 @@ export default function PositionsTable({ items, onItemPress, tabs, activeTab, on
 
                 <View style={styles.priceCol}>
                   <Text style={styles.priceValue}>
-                    {item.pendingSettlement
-                      ? `₱${item.costBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
-                      : item.currentPrice != null ? `₱${item.currentPrice}` : `₱${item.avgCost}`}
+                    {isEstimated
+                      ? `₱${item.currentPrice}`
+                      : item.pendingSettlement
+                        ? `₱${item.costBasis.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+                        : item.currentPrice != null ? `₱${item.currentPrice}` : `₱${item.avgCost}`}
                   </Text>
-                  <Text style={styles.qtySubtext}>{item.pendingSettlement ? 'Awaiting NAVPU' : `${item.qty.toLocaleString()} Qty`}</Text>
+                  <Text style={styles.qtySubtext}>
+                    {isEstimated
+                      ? `~${item.estimatedQty!.toLocaleString(undefined, { maximumFractionDigits: 4 })} units (est.)`
+                      : item.pendingSettlement ? 'Awaiting NAVPU' : `${item.qty.toLocaleString()} Qty`}
+                  </Text>
                 </View>
 
                 <View style={styles.plCol}>
-                  {item.pendingSettlement ? (
+                  {isEstimated ? (
+                    <Text style={styles.plUnavailable}>Est. units</Text>
+                  ) : item.pendingSettlement ? (
                     <Text style={styles.plUnavailable}>Pending</Text>
                   ) : hasGain ? (
                     <>
