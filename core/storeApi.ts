@@ -135,6 +135,19 @@ export interface StockTrackerEntry {
   deletedAt?: string | null;
 }
 
+/** One row of the bucket-level Transaction History. `id` + `description` let the
+ *  UI offer "enter units / NAVPU" on fund buys (see updateFundTransaction). */
+export interface BucketFeedTxn {
+  id: number | null;
+  date: string;
+  type: string;
+  ticker: string;
+  description: string | null;
+  quantity: number | null;
+  price: number | null;
+  amount: number | null;
+}
+
 export interface BucketStoreAPI {
   listBuckets(): Promise<BucketRow[]>;
   getOrCreateBucket(name: string, yieldLow?: number, yieldHigh?: number): Promise<number>;
@@ -222,7 +235,7 @@ export interface BucketStoreAPI {
   /** Every BUY/SELL/CASH DIVIDEND transaction in a bucket, across all tickers
    *  (manual + imported), newest first - powers the bucket-level Transaction
    *  History view. */
-  getBucketTransactionFeed(bucketName: string): Promise<{ date: string; type: string; ticker: string; quantity: number | null; price: number | null; amount: number | null }[]>;
+  getBucketTransactionFeed(bucketName: string): Promise<BucketFeedTxn[]>;
 
   /** The user-set monthly passive income goal (a peso amount), powering the
    *  "Passive Income Goal" gauge on the main Dashboard. null if never set. */

@@ -14,7 +14,7 @@ import {
 import {
   BucketRow, BucketStoreAPI, WatchlistItem, WatchlistImportResult, SyncSnapshot, RestoreResult,
   SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord, SyncStockNoteRecord,
-  StockNote, StockTagAssignment, SyncStockTagRecord, StockAlert, StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment,
+  StockNote, StockTagAssignment, SyncStockTagRecord, StockAlert, StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment, BucketFeedTxn,
 } from './storeApi';
 import { PortfolioStockInput, dedupePortfolioStocks, mergeBuyBelowPrice } from './watchlistImport';
 import { generateUuid } from './uuid';
@@ -367,11 +367,11 @@ export class WebBucketStore implements BucketStoreAPI {
     return { totalRealizedGain, totalDividends, trades: realizedTrades };
   }
 
-  async getBucketTransactionFeed(bucketName: string): Promise<{ date: string; type: string; ticker: string; quantity: number | null; price: number | null; amount: number | null }[]> {
+  async getBucketTransactionFeed(bucketName: string): Promise<BucketFeedTxn[]> {
     const txns = await this.getBucketTxns(bucketName);
     return txns
       .filter((t) => t.Stock != null)
-      .map((t) => ({ date: t.isoDate, type: t.Type, ticker: t.Stock!, quantity: t.Quantity, price: t.Price, amount: t.Amount }))
+      .map((t) => ({ id: t.id ?? null, date: t.isoDate, type: t.Type, ticker: t.Stock!, description: t.Description ?? null, quantity: t.Quantity, price: t.Price, amount: t.Amount }))
       .sort((a, b) => b.date.localeCompare(a.date));
   }
 

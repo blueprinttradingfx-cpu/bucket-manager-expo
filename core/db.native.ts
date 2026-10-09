@@ -14,7 +14,7 @@ import {
 import {
   BucketRow, BucketStoreAPI, WatchlistItem, WatchlistImportResult, SyncSnapshot, RestoreResult,
   SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord, SyncStockNoteRecord,
-  StockNote, StockTagAssignment, SyncStockTagRecord, StockAlert, StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment,
+  StockNote, StockTagAssignment, SyncStockTagRecord, StockAlert, StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment, BucketFeedTxn,
 } from './storeApi';
 import { PortfolioStockInput, dedupePortfolioStocks, mergeBuyBelowPrice } from './watchlistImport';
 import { generateUuid } from './uuid';
@@ -300,7 +300,7 @@ export class NativeBucketStore implements BucketStoreAPI {
   private async getBucketTxns(bucketName: string): Promise<StoredTxn[]> {
     const bucketId = await this.getOrCreateBucket(bucketName);
     const rows = await this.db.getAllAsync<any>(
-      `SELECT date as Date, type as Type, stock as Stock, description as Description,
+      `SELECT id as id, date as Date, type as Type, stock as Stock, description as Description,
               quantity as Quantity, price as Price, fees as [Comm & Other Fees], amount as Amount
        FROM transactions WHERE bucket_id = ? AND type IN ('BUY','SELL','CASH DIVIDEND')
          AND deleted_at IS NULL
@@ -397,11 +397,11 @@ export class NativeBucketStore implements BucketStoreAPI {
     return { totalRealizedGain, totalDividends, trades: realizedTrades };
   }
 
-  async getBucketTransactionFeed(bucketName: string): Promise<{ date: string; type: string; ticker: string; quantity: number | null; price: number | null; amount: number | null }[]> {
+  async getBucketTransactionFeed(bucketName: string): Promise<BucketFeedTxn[]> {
     const txns = await this.getBucketTxns(bucketName);
     return txns
       .filter((t) => t.Stock != null)
-      .map((t) => ({ date: t.isoDate, type: t.Type, ticker: t.Stock!, quantity: t.Quantity, price: t.Price, amount: t.Amount }))
+      .map((t) => ({ id: t.id ?? null, date: t.isoDate, type: t.Type, ticker: t.Stock!, description: t.Description ?? null, quantity: t.Quantity, price: t.Price, amount: t.Amount }))
       .sort((a, b) => b.date.localeCompare(a.date));
   }
 

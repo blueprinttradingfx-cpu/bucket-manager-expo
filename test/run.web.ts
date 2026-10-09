@@ -656,6 +656,25 @@ async function main() {
   console.log('16d: after applySynced eventDate =', evSynced?.eventDate);
   if (evSynced?.eventDate !== '2026-12-01') throw new Error('16d failed: applySynced should update eventDate');
   console.log('Scenario 16: all checks passed');
+
+  console.log('\n=== Scenario 17: Transaction History feed exposes id/description; fund buy units can be filled in ===');
+  await store.importIntoBucket('FeedFund', [{
+    Date: '01/10/2026', Type: 'BUY', Stock: '26UF50', Description: 'ATRAM Nasdaq Equity Income Feeder Fund',
+    Quantity: null, Price: null, 'Comm & Other Fees': null, Currency: 'PHP', Amount: 10000,
+  }]);
+  const feedBefore = await store.getBucketTransactionFeed('FeedFund');
+  const pendingRow = feedBefore.find((t) => t.ticker === '26UF50');
+  console.log('17a: feed row id =', pendingRow?.id, ', description =', pendingRow?.description, ', quantity =', pendingRow?.quantity);
+  if (!pendingRow || pendingRow.id == null || !/fund/i.test(pendingRow.description ?? '') || pendingRow.quantity !== null) {
+    throw new Error('17a failed: feed rows must carry id + description so the UI can offer "Add units"');
+  }
+  await store.updateFundTransaction(pendingRow.id, 100, 100);
+  const feedAfter = (await store.getBucketTransactionFeed('FeedFund')).find((t) => t.id === pendingRow.id);
+  console.log('17b: after update quantity =', feedAfter?.quantity, ', price =', feedAfter?.price);
+  if (feedAfter?.quantity !== 100 || feedAfter?.price !== 100) throw new Error('17b failed: updateFundTransaction should be reflected in the feed');
+  const fundPositions = await store.getBucketPositions('FeedFund');
+  if (fundPositions.find((p) => p.ticker === '26UF50')?.pendingSettlement) throw new Error('17c failed: a filled-in fund buy should no longer be pending');
+  console.log('Scenario 17: all checks passed');
 }
 
 main().catch((e) => { console.error('TEST FAILED:', e); process.exit(1); });

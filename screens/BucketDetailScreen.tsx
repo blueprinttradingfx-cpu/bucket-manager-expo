@@ -4,7 +4,7 @@
 // the full rationale) - same Positions table, stat cards, theme tokens.
 
 import React, { useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, RefreshControl, ScrollView, Pressable, Modal, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, RefreshControl, ScrollView, Pressable, Modal, FlatList, ActivityIndicator, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStore } from '../core/StoreProvider';
@@ -12,7 +12,8 @@ import { BucketStockPosition, ValuedStockPosition, applyPricesToPositions, compu
 import { fetchPriceCache, PriceCache } from '../core/priceCache';
 import { fetchFundCache, FundCache } from '../core/fundCache';
 import { fetchStockUniverse } from '../core/stockUniverse';
-import { BucketRow } from '../core/storeApi';
+import { BucketRow, BucketFeedTxn } from '../core/storeApi';
+import Alert from '../core/alert';
 import { BucketsStackParamList } from '../core/navigationTypes';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
@@ -83,9 +84,14 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
   const [totalRealizedGain, setTotalRealizedGain] = useState(0);
   const [totalDividends, setTotalDividends] = useState(0);
   const [txnHistoryOpen, setTxnHistoryOpen] = useState(false);
-  const [transactionFeed, setTransactionFeed] = useState<
-    { date: string; type: string; ticker: string; quantity: number | null; price: number | null; amount: number | null }[]
-  >([]);
+  const [transactionFeed, setTransactionFeed] = useState<BucketFeedTxn[]>([]);
+
+  // Edit units / NAVPU on a fund buy straight from Transaction History -
+  // fund buys export with an amount but no units/NAVPU, so they're filled in by hand.
+  const [fillTxn, setFillTxn] = useState<BucketFeedTxn | null>(null);
+  const [fillQty, setFillQty] = useState('');
+  const [fillPrice, setFillPrice] = useState('');
+  const [fillSaving, setFillSaving] = useState(false);
 
   // "Find stocks for <bucket>" - the stars/magic header button. Matches the
   // full PSE ticker universe against this bucket's own yield_low/yield_high
@@ -130,6 +136,49 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
   }, [store, bucket]);
 
   useEffect(() => { load(); }, [load]);
+
+  /** BUYs that can have units/NAVPU entered by hand: any buy still missing units,
+   *  or an already-filled fund buy (so a wrong value can be corrected). */
+  function canEditUnits(t: BucketFeedTxn): boolean {
+    return t.type === 'BUY' && t.id != null && t.amount != null
+      && (t.quantity == null || /fund/i.test(t.description ?? ''));
+  }
+
+  function openFillEditor(t: BucketFeedTxn) {
+    setFillTxn(t);
+    setFillQty(t.quantity != null ? String(t.quantity) : '');
+    setFillPrice(t.price != null ? String(t.price) : '');
+  }
+
+  async function handleSaveFill() {
+    if (!fillTxn || fillTxn.id == null || fillTxn.amount == null) return;
+    const amount = Math.abs(fillTxn.amount);
+    const qtyStr = fillQty.trim();
+    const priceStr = fillPrice.trim();
+    if (!qtyStr && !priceStr) {
+      Alert.alert('Enter units or NAVPU', 'Fill in at least one - the other is calculated from the amount already on file for this buy.');
+      return;
+    }
+    let qty = qtyStr ? parseFloat(qtyStr) : NaN;
+    let unitPrice = priceStr ? parseFloat(priceStr) : NaN;
+    // Same rule as Import > Fund Prices Needed: units = amount / NAVPU, so either side fills the other.
+    if (!isNaN(qty) && isNaN(unitPrice)) unitPrice = qty > 0 ? amount / qty : NaN;
+    if (isNaN(qty) && !isNaN(unitPrice)) qty = unitPrice > 0 ? amount / unitPrice : NaN;
+    if (isNaN(qty) || isNaN(unitPrice) || qty <= 0 || unitPrice <= 0) {
+      Alert.alert('Invalid values', 'Enter a positive number of units and/or NAVPU.');
+      return;
+    }
+    setFillSaving(true);
+    try {
+      await store.updateFundTransaction(fillTxn.id, Math.round(qty * 10000) / 10000, Math.round(unitPrice * 10000) / 10000);
+      setFillTxn(null);
+      await load();
+    } catch (e: any) {
+      Alert.alert('Failed to update', e?.message ?? String(e));
+    } finally {
+      setFillSaving(false);
+    }
+  }
 
   async function onRefresh() {
     setRefreshing(true);
@@ -335,7 +384,7 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
           <Text style={styles.emptyFeedText}>No transactions in this bucket yet.</Text>
         ) : (
           transactionFeed.map((txn, i) => (
-            <View key={i} style={styles.txnRow}>
+            <View key={txn.id ?? i} style={styles.txnRow}>
               <View style={styles.txnLeft}>
                 <Text style={[styles.txnType, txn.type === 'BUY' ? styles.positive : txn.type === 'SELL' ? styles.negative : styles.dividend]}>
                   {txn.type}
@@ -346,12 +395,58 @@ export default function BucketDetailScreen({ route, navigation }: Props) {
               <View style={styles.txnRight}>
                 {txn.quantity != null && <Text style={styles.txnDetail}>{txn.quantity.toLocaleString()} sh</Text>}
                 {txn.price != null && <Text style={styles.txnDetail}>@ ₱{txn.price}</Text>}
+                {txn.type === 'BUY' && txn.quantity == null && txn.amount != null && <Text style={styles.txnPending}>Awaiting units</Text>}
                 {txn.amount != null && <Text style={styles.txnDetail}>₱{txn.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>}
+                {canEditUnits(txn) && (
+                  <Pressable style={styles.txnEditBtn} onPress={() => openFillEditor(txn)} hitSlop={8}>
+                    <Ionicons name="create-outline" size={14} color={colors.primary} />
+                    <Text style={styles.txnEditText}>{txn.quantity == null ? 'Add units' : 'Edit units'}</Text>
+                  </Pressable>
+                )}
               </View>
             </View>
           ))
         )
       )}
+
+      <Modal visible={fillTxn != null} transparent animationType="slide" onRequestClose={() => setFillTxn(null)}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{fillTxn?.ticker} · units & NAVPU</Text>
+              <Pressable onPress={() => setFillTxn(null)} hitSlop={8}>
+                <Ionicons name="close" size={24} color={colors.onSurface} />
+              </Pressable>
+            </View>
+            {fillTxn && (
+              <Text style={styles.fillHint}>
+                {fillTxn.date} · ₱{Math.abs(fillTxn.amount ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2 })} invested. Enter what DragonFi shows - you only need one field, the other is calculated from the amount.
+              </Text>
+            )}
+            <Text style={styles.fillLabel}>Units</Text>
+            <TextInput
+              style={styles.fillInput}
+              value={fillQty}
+              onChangeText={setFillQty}
+              placeholder="e.g. 1234.5678"
+              placeholderTextColor={colors.onSurfaceVariant}
+              keyboardType="decimal-pad"
+            />
+            <Text style={styles.fillLabel}>NAVPU (leave blank to auto-calc)</Text>
+            <TextInput
+              style={styles.fillInput}
+              value={fillPrice}
+              onChangeText={setFillPrice}
+              placeholder="e.g. 1.2345"
+              placeholderTextColor={colors.onSurfaceVariant}
+              keyboardType="decimal-pad"
+            />
+            <Pressable style={styles.fillSaveBtn} onPress={handleSaveFill} disabled={fillSaving}>
+              {fillSaving ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={styles.fillSaveText}>Save</Text>}
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       <Modal
         visible={finderOpen}
@@ -469,6 +564,14 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   txnDate: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.onSurfaceVariant },
   txnRight: { alignItems: 'flex-end' },
   txnDetail: { fontFamily: fonts.mono, fontSize: 12, color: colors.onSurfaceVariant },
+  txnPending: { fontFamily: fonts.body, fontSize: 11, color: colors.onSurfaceVariant, fontStyle: 'italic' },
+  txnEditBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  txnEditText: { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.primary },
+  fillHint: { fontFamily: fonts.body, fontSize: 12, color: colors.onSurfaceVariant, marginBottom: spacing.sm },
+  fillLabel: { fontFamily: fonts.bodySemiBold, fontSize: 12, color: colors.onSurfaceVariant, marginTop: spacing.sm, marginBottom: 4 },
+  fillInput: { backgroundColor: colors.surfaceContainerHigh, borderWidth: 1, borderColor: colors.outlineVariant, borderRadius: radii.lg, paddingHorizontal: spacing.sm, paddingVertical: 8, fontFamily: fonts.body, fontSize: 14, color: colors.onSurface },
+  fillSaveBtn: { backgroundColor: colors.primary, borderRadius: radii.lg, paddingVertical: 12, alignItems: 'center', marginTop: spacing.md },
+  fillSaveText: { fontFamily: fonts.bodySemiBold, fontSize: 14, color: colors.onPrimary },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: radii.xl, borderTopRightRadius: radii.xl, padding: spacing.md, maxHeight: '80%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },

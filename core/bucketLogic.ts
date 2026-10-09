@@ -19,6 +19,8 @@ export interface RawRow {
 }
 
 export interface StoredTxn extends RawRow {
+  /** DB row id, present on rows read back from the store (not on freshly parsed statement rows). */
+  id?: number;
   rowHash: string;
   isoDate: string;        // normalized YYYY-MM-DD for sorting
 }
