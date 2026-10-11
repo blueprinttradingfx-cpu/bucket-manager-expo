@@ -133,3 +133,21 @@ export function mergeSnapshots(local: SyncSnapshot, remote: SyncSnapshot | null)
     toPull: { buckets: buckets.toPull, transactions: transactions.toPull, watchlist: watchlist.toPull, stockNotes: stockNotes.toPull, stockTags: stockTags.toPull, stockAlerts: stockAlerts.toPull, stockTrackerEntries: stockTrackerEntries.toPull, settings: pullSettings },
   };
 }
+
+/** Live (not soft-deleted) record counts per collection - powers the "On this device /
+ *  In the cloud" diagnostics shown after Sync Now, so a mismatch between what you see in the
+ *  app and what's in Firestore (wrong project, wrong account, empty store) is visible at a glance. */
+export interface SyncCounts {
+  buckets: number; transactions: number; watchlist: number; notes: number;
+  tags: number; alerts: number; trackerEntries: number;
+}
+
+export function countLiveRecords(s: SyncSnapshot | null | undefined): SyncCounts | null {
+  if (!s) return null;
+  const live = (rows: { deletedAt?: string | null }[] | undefined) => (rows ?? []).filter((r) => !r.deletedAt).length;
+  return {
+    buckets: live(s.buckets), transactions: live(s.transactions), watchlist: live(s.watchlist),
+    notes: live(s.stockNotes), tags: live(s.stockTags), alerts: live(s.stockAlerts),
+    trackerEntries: live(s.stockTrackerEntries),
+  };
+}

@@ -12,7 +12,7 @@ import * as XLSX from 'xlsx';
 import { RawRow } from '../core/bucketLogic';
 import { rowsFromWorkbook } from '../core/xlsxRows';
 import { prepareRows, computeHoldings, aggregateAcrossBuckets, applyPricesToAggregated, applyPricesToPositions, BucketStockPosition } from '../core/bucketLogic';
-import { mergeSnapshots } from '../core/syncMerge';
+import { mergeSnapshots, countLiveRecords } from '../core/syncMerge';
 import { SyncSnapshot } from '../core/storeApi';
 
 // Portable path (path.join handles Windows \ vs Unix / automatically) -
@@ -207,4 +207,29 @@ console.log('\n=== Scenario 4: mergeSnapshots (Phase 4, sync-plan.md §10b) ==='
   }
   console.log('5c: no NAVPU -> still plain pending (no estimate)');
   console.log('Scenario 5: all checks passed');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 6: countLiveRecords (sync diagnostics) ignores tombstones, tolerates null
+// ---------------------------------------------------------------------------
+{
+  console.log('\n=== Scenario 6: countLiveRecords ===');
+  if (countLiveRecords(null) !== null) throw new Error('6a failed: null snapshot (never backed up) must stay null');
+  const now = new Date().toISOString();
+  const snap: any = {
+    buckets: [{ uuid: 'b1', updatedAt: now, deletedAt: null }],
+    transactions: [],
+    watchlist: [],
+    stockNotes: [{ uuid: 'n1', updatedAt: now, deletedAt: null }, { uuid: 'n2', updatedAt: now, deletedAt: now }],
+    stockTags: [],
+    stockAlerts: [{ id: 'a1', updatedAt: now, deletedAt: null }, { id: 'a2', updatedAt: now, deletedAt: null }],
+    stockTrackerEntries: undefined, // older snapshots predate this collection
+    settings: { monthlyIncomeGoal: null, themeMode: 'system', updatedAt: now },
+  };
+  const c = countLiveRecords(snap)!;
+  console.log('6b:', JSON.stringify(c));
+  if (c.buckets !== 1 || c.notes !== 1 || c.alerts !== 2 || c.trackerEntries !== 0 || c.transactions !== 0) {
+    throw new Error('6b failed: soft-deleted rows must not count, missing collections count as 0');
+  }
+  console.log('Scenario 6: all checks passed');
 }

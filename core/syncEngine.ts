@@ -20,7 +20,7 @@ import { firestore } from './firebaseConfig';
 import {
   SyncSnapshot, SyncSettingsRecord, BucketStoreAPI,
 } from './storeApi';
-import { PushableSnapshot, MergePlan, mergeSnapshots } from './syncMerge';
+import { PushableSnapshot, MergePlan, mergeSnapshots, SyncCounts, countLiveRecords } from './syncMerge';
 
 // Re-exported so nothing outside this file + syncMerge.ts needs to know
 // mergeSnapshots lives in a separate, Firebase-free module (see
@@ -28,7 +28,7 @@ import { PushableSnapshot, MergePlan, mergeSnapshots } from './syncMerge';
 // still imports everything Phase 2-4 needs from just './syncEngine'. Tests
 // that need mergeSnapshots WITHOUT dragging in Firebase (test/run.ts)
 // import directly from './syncMerge' instead - see that file's header.
-export { PushableSnapshot, MergePlan, mergeSnapshots } from './syncMerge';
+export { PushableSnapshot, MergePlan, mergeSnapshots, SyncCounts, countLiveRecords } from './syncMerge';
 
 const BATCH_LIMIT = 450; // Firestore's hard cap is 500 writes/batch - leave headroom.
 
@@ -283,7 +283,17 @@ export async function pullSnapshotFromFirestore(uid: string): Promise<SyncSnapsh
 // pure I/O plumbing that carries out what a MergePlan says: applyMergePlan
 // pushes/pulls, syncNow is the one entry point the UI calls.
 
+/** What each side held BEFORE this sync, plus which Firebase project/account it talked to. */
+export interface SyncDiagnostics {
+  projectId: string;
+  uid: string;
+  local: SyncCounts;
+  /** null = this account has never backed anything up (no settings/preferences doc). */
+  remote: SyncCounts | null;
+}
+
 export interface SyncResult {
+  diagnostics?: SyncDiagnostics;
   pushed: PushResult;
   pulled: { buckets: number; transactions: number; watchlist: number; stockNotes: number; stockTags: number; stockAlerts: number; stockTrackerEntries: number; settingsApplied: boolean; failures: number };
   syncedAt: string;
@@ -359,7 +369,16 @@ export async function syncNow(store: BucketStoreAPI, uid: string): Promise<SyncR
     pullSnapshotFromFirestore(uid),
   ]);
   const plan = mergeSnapshots(local, remote);
-  return applyMergePlan(store, uid, plan);
+  const result = await applyMergePlan(store, uid, plan);
+  return {
+    ...result,
+    diagnostics: {
+      projectId: String(firestore.app.options.projectId ?? 'unknown'),
+      uid,
+      local: countLiveRecords(local)!,
+      remote: countLiveRecords(remote),
+    },
+  };
 }
 
 // --- Account deletion (pre-launch pass, 2026-07-26) -----------------------

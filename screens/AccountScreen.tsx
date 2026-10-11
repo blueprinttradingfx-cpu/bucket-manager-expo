@@ -227,6 +227,18 @@ export default function AccountScreen() {
     return `Sent: ${sent}\nReceived: ${received}${failureNote}`;
   };
 
+  // Shown under the Sync complete summary: what each side held before the merge, and which
+  // Firebase project + account ID this device is talking to. If the Firestore console (or the
+  // alert emails) disagree with the app, this is where the mismatch shows up.
+  const formatDiagnostics = (d?: SyncResult['diagnostics']) => {
+    if (!d) return '';
+    const fmt = (c: NonNullable<SyncResult['diagnostics']>['local']) =>
+      `${c.buckets} buckets · ${c.transactions} transactions · ${c.watchlist} watchlist · ${c.notes} notes · ` +
+      `${c.alerts} alerts · ${c.trackerEntries} tracker entries`;
+    return `\n\nBefore this sync:\nOn this device: ${fmt(d.local)}\nIn the cloud: ${d.remote ? fmt(d.remote) : 'nothing yet'}` +
+      `\n\nFirebase project: ${d.projectId}\nAccount ID: ${d.uid}`;
+  };
+
   const handleSyncNow = async () => {
     if (!user || syncGuard.inFlight) return;
     syncGuard.inFlight = true;
@@ -235,7 +247,7 @@ export default function AccountScreen() {
       const result = await syncNow(store, user.uid);
       await store.setLastSyncedAt(result.syncedAt);
       setLastSyncedAt(result.syncedAt);
-      Alert.alert('Sync complete', summarizeResult(result));
+      Alert.alert('Sync complete', summarizeResult(result) + formatDiagnostics(result.diagnostics));
     } catch (e: any) {
       console.warn('[AccountScreen] syncNow failed', e);
       Alert.alert('Sync failed', e?.message ?? 'Check your connection and try again.');
