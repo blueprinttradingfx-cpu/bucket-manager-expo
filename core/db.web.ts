@@ -16,6 +16,7 @@ import {
   SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord, SyncStockNoteRecord,
   StockNote, StockTagAssignment, SyncStockTagRecord, StockAlert, StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment, BucketFeedTxn,
 } from './storeApi';
+import { notifyLocalChange } from './syncScheduler';
 import { PortfolioStockInput, dedupePortfolioStocks, mergeBuyBelowPrice } from './watchlistImport';
 import { generateUuid } from './uuid';
 
@@ -777,6 +778,7 @@ export class WebBucketStore implements BucketStoreAPI {
       lastCheckedAt: null,
     };
     await this.db.put('stock_alerts', alert);
+    notifyLocalChange();
     return alert;
   }
 
@@ -793,6 +795,7 @@ export class WebBucketStore implements BucketStoreAPI {
       updatedAt: now,
     };
     await this.db.put('stock_alerts', next);
+    notifyLocalChange();
   }
 
   async deleteStockAlert(id: string): Promise<void> {
@@ -805,6 +808,7 @@ export class WebBucketStore implements BucketStoreAPI {
       deletedAt: now,
     };
     await this.db.put('stock_alerts', next);
+    notifyLocalChange();
   }
 
   async listAllStockAlerts(): Promise<StockAlert[]> {
@@ -864,6 +868,7 @@ export class WebBucketStore implements BucketStoreAPI {
       deletedAt: null,
     };
     await this.db.put('stock_tracker', entry);
+    notifyLocalChange();
     return entry;
   }
 
@@ -877,6 +882,7 @@ export class WebBucketStore implements BucketStoreAPI {
       updatedAt: now,
     };
     await this.db.put('stock_tracker', next);
+    notifyLocalChange();
   }
 
   async getSyncSnapshot(): Promise<SyncSnapshot> {

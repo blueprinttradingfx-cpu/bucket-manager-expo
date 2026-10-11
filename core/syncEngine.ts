@@ -374,13 +374,14 @@ export async function syncNow(store: BucketStoreAPI, uid: string): Promise<SyncR
 export async function deleteAllRemoteData(uid: string): Promise<void> {
   const db = firestore;
 
-  const [bucketsSnap, txnsSnap, watchlistSnap, stockNotesSnap, stockTagsSnap, stockAlertsSnap] = await Promise.all([
+  const [bucketsSnap, txnsSnap, watchlistSnap, stockNotesSnap, stockTagsSnap, stockAlertsSnap, stockTrackerSnap] = await Promise.all([
     getDocs(collection(db, 'users', uid, 'buckets')),
     getDocs(collection(db, 'users', uid, 'transactions')),
     getDocs(collection(db, 'users', uid, 'watchlist')),
     getDocs(collection(db, 'users', uid, 'stockNotes')),
     getDocs(collection(db, 'users', uid, 'stockTags')),
     getDocs(collection(db, 'users', uid, 'stockAlerts')),
+    getDocs(collection(db, 'users', uid, 'stockTracker')),
   ]);
 
   let batch = writeBatch(db);
@@ -403,6 +404,7 @@ export async function deleteAllRemoteData(uid: string): Promise<void> {
   for (const d of stockNotesSnap.docs) stageDelete(d.ref);
   for (const d of stockTagsSnap.docs) stageDelete(d.ref);
   for (const d of stockAlertsSnap.docs) stageDelete(d.ref);
+  for (const d of stockTrackerSnap.docs) stageDelete(d.ref);
   // Single-doc collections - settings/preferences and meta/sync - staged
   // the same way rather than a bare deleteDoc, so they ride along in the
   // batch instead of firing as separate round trips.

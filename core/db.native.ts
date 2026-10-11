@@ -16,6 +16,7 @@ import {
   SyncBucketRecord, SyncTransactionRecord, SyncWatchlistRecord, SyncSettingsRecord, SyncStockNoteRecord,
   StockNote, StockTagAssignment, SyncStockTagRecord, StockAlert, StockTrackerEntry, WeeklyMacdTrend, ForeignFlowSentiment, BucketFeedTxn,
 } from './storeApi';
+import { notifyLocalChange } from './syncScheduler';
 import { PortfolioStockInput, dedupePortfolioStocks, mergeBuyBelowPrice } from './watchlistImport';
 import { generateUuid } from './uuid';
 
@@ -880,6 +881,7 @@ export class NativeBucketStore implements BucketStoreAPI {
       alert.lastTriggeredValue != null ? String(alert.lastTriggeredValue) : null,
       alert.lastCheckedAt ?? null
     );
+    notifyLocalChange();
     return { ...alert, id, createdAt: now, updatedAt: now, deletedAt: null };
   }
 
@@ -910,6 +912,7 @@ export class NativeBucketStore implements BucketStoreAPI {
       priceDirection ?? null, priceThreshold ?? null, email, status,
       new Date().toISOString(), id
     );
+    notifyLocalChange();
   }
 
   async deleteStockAlert(id: string): Promise<void> {
@@ -917,6 +920,7 @@ export class NativeBucketStore implements BucketStoreAPI {
     await this.db.runAsync(
       'UPDATE stock_alerts SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id
     );
+    notifyLocalChange();
   }
 
   async listAllStockAlerts(): Promise<StockAlert[]> {
@@ -1037,6 +1041,7 @@ export class NativeBucketStore implements BucketStoreAPI {
       createdAt, updatedAt
     );
 
+    notifyLocalChange();
     return {
       id, ticker, areaPriceOfInterest, weeklyMacdTrend, weeklyMacdTrendCustom,
       foreignFlowSentiment, eventCatalyst, eventDate, eventAlertId, projection, notes, priceAlertId,
@@ -1049,6 +1054,7 @@ export class NativeBucketStore implements BucketStoreAPI {
     await this.db.runAsync(
       'UPDATE stock_tracker SET deleted_at = ?, updated_at = ? WHERE id = ?', now, now, id
     );
+    notifyLocalChange();
   }
 
   async getSyncSnapshot(): Promise<SyncSnapshot> {

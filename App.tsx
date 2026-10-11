@@ -27,6 +27,7 @@ import { JetBrainsMono_500Medium, JetBrainsMono_600SemiBold, JetBrainsMono_700Bo
 import { StoreProvider } from './core/StoreProvider';
 import { ThemeProvider, useTheme } from './core/ThemeContext';
 import { AuthProvider } from './core/AuthProvider';
+import AutoSync from './core/AutoSync';
 import { ErrorBoundary } from './core/ErrorBoundary';
 import { AlertHost } from './core/alert';
 import { linking } from './core/linking';
@@ -412,6 +413,7 @@ export default function App() {
       <StoreProvider>
         <ThemeProvider>
           <AuthProvider>
+            <AutoSync />
             <AppShell />
           </AuthProvider>
         </ThemeProvider>

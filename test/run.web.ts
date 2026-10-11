@@ -18,6 +18,7 @@ import { RawRow } from '../core/bucketLogic';
 import { rowsFromWorkbook } from '../core/xlsxRows';
 import { WebBucketStore } from '../core/db.web';
 import { SyncSnapshot } from '../core/storeApi';
+import { onLocalChange } from '../core/syncScheduler';
 
 // Portable path (path.join handles Windows \ vs Unix / automatically).
 // Place your sample export at: <project root>/user-data/uploads/<filename>
@@ -675,6 +676,31 @@ async function main() {
   const fundPositions = await store.getBucketPositions('FeedFund');
   if (fundPositions.find((p) => p.ticker === '26UF50')?.pendingSettlement) throw new Error('17c failed: a filled-in fund buy should no longer be pending');
   console.log('Scenario 17: all checks passed');
+
+  console.log('\n=== Scenario 18: local alert/tracker edits notify AutoSync; incoming synced records do not ===');
+  let changeCount = 0;
+  const offChange = onLocalChange(() => { changeCount++; });
+  const syncAlert = await store.addStockAlert({
+    ticker: 'SYNC1', type: 'price', title: 'Price alert', eventDate: null, eventTime: null, reminderTiming: null,
+    priceDirection: 'above', priceThreshold: 10, email: 'wilb@example.com', status: 'active',
+    lastTriggeredAt: null, lastTriggeredValue: null, lastCheckedAt: null,
+  });
+  await store.updateStockAlert(syncAlert.id, { title: 'Price alert 2' });
+  const syncTracker = await store.upsertStockTrackerEntry({
+    ticker: 'SYNC1', areaPriceOfInterest: '', weeklyMacdTrend: 'none', weeklyMacdTrendCustom: null,
+    foreignFlowSentiment: 'unknown', eventCatalyst: '', projection: '', notes: null, priceAlertId: syncAlert.id,
+  });
+  await store.deleteStockTrackerEntry(syncTracker.id);
+  await store.deleteStockAlert(syncAlert.id);
+  console.log('18a: local edits notified', changeCount, 'times (expect 5)');
+  if (changeCount !== 5) throw new Error('18a failed: add/update/delete alert + upsert/delete tracker should each notify exactly once');
+  const before = changeCount;
+  await store.applySyncedStockAlert({ ...syncAlert, id: 'remote-alert-1', updatedAt: new Date(Date.now() + 1000).toISOString() });
+  await store.applySyncedStockTrackerEntry({ ...syncTracker, id: 'remote-tracker-1', updatedAt: new Date(Date.now() + 1000).toISOString() });
+  console.log('18b: notifications after applying synced records =', changeCount - before, '(expect 0)');
+  if (changeCount !== before) throw new Error('18b failed: applying records pulled FROM the cloud must not trigger another sync');
+  offChange();
+  console.log('Scenario 18: all checks passed');
 }
 
 main().catch((e) => { console.error('TEST FAILED:', e); process.exit(1); });

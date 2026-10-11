@@ -18,25 +18,25 @@
 //    restore) it can never silently discard a local-only change - a record
 //    only moves if the OTHER side's updatedAt is newer.
 //
-// The AppState foreground auto-trigger for (2) deliberately waits for (1)
-// to have already resolved (checks getHasCompletedInitialRestore() before
-// firing) so the two never race on the same first-launch mount.
+// The automatic triggers for (2) (sign-in, app foreground, and shortly after a
+// local alert/tracker edit) live in core/AutoSync.tsx, mounted once at the app
+// root - they used to live HERE, which meant nothing synced unless this screen
+// happened to be open. AutoSync waits for (1) to have resolved
+// (getHasCompletedInitialRestore()) before firing, so the two never race.
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, Pressable, Image, ScrollView, StyleSheet, ActivityIndicator, AppState } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, Image, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Alert from '../core/alert';
 import { useAuth } from '../core/AuthProvider';
 import { useStore } from '../core/StoreProvider';
 import { pullSnapshotFromFirestore, syncNow, deleteAllRemoteData, SyncResult } from '../core/syncEngine';
 import { SyncSnapshot } from '../core/storeApi';
+import { syncGuard } from '../core/syncScheduler';
 import { useThemeColors } from '../core/ThemeContext';
 import { spacing, radii, fonts, centeredContent, ThemeColors } from '../core/theme';
 import { useScreenViewLog } from '../core/useScreenViewLog';
 
-// sync-plan.md §10d: manual tap always runs; the foreground auto-trigger is
-// throttled so repeated app-foregrounding doesn't hammer Firestore.
-const AUTO_SYNC_THROTTLE_MS = 15 * 60 * 1000;
 
 export default function AccountScreen() {
   useScreenViewLog('Account');
@@ -49,11 +49,9 @@ export default function AccountScreen() {
   const [restoring, setRestoring] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
-  // Guards against the manual button and the AppState auto-trigger firing
-  // at the same time - not a full queue, just "don't start a second sync
-  // while one's in flight."
-  const syncInFlightRef = useRef(false);
-  const lastAutoSyncRef = useRef(0);
+  // Guards against the manual button and the root-level AutoSync (core/AutoSync.tsx)
+  // running at the same time - shared via syncGuard, not a full queue, just
+  // "don't start a second sync while one's in flight."
 
   // Local "last backed up" bookkeeping is independent of auth state (it's
   // set by a completed push, not by signing in), so load it whenever a
@@ -142,44 +140,6 @@ export default function AccountScreen() {
     return () => { cancelled = true; };
   }, [user, store]);
 
-  // Phase 4d (sync-plan.md §10d/§11): bidirectional sync on app foreground,
-  // throttled - NOT a recurring background timer (sync-plan.md §5 settled
-  // "foreground-only, manual"; §10's opening note reconciles the doc's
-  // stale "periodic" language with that). Waits for the Phase 3 effect
-  // above to have already resolved before ever firing, so a first-launch
-  // mount can't trigger both at once.
-  useEffect(() => {
-    if (!user) return;
-
-    const trigger = async () => {
-      if (syncInFlightRef.current) return;
-      const handled = await store.getHasCompletedInitialRestore().catch(() => false);
-      if (!handled) return;
-      const now = Date.now();
-      if (now - lastAutoSyncRef.current < AUTO_SYNC_THROTTLE_MS) return;
-      lastAutoSyncRef.current = now;
-      // Silent - no Alert here, unlike the manual button below. A failure
-      // just means it retries next foreground or manual tap; syncNow's
-      // merge is idempotent by construction (sync-plan.md §10e), so there's
-      // nothing to lose by staying quiet about a transient failure.
-      syncInFlightRef.current = true;
-      try {
-        const result = await syncNow(store, user.uid);
-        await store.setLastSyncedAt(result.syncedAt);
-        setLastSyncedAt(result.syncedAt);
-      } catch (e) {
-        console.warn('[AccountScreen] auto-sync failed (silent, no Alert by design)', e);
-      } finally {
-        syncInFlightRef.current = false;
-      }
-    };
-
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') trigger();
-    });
-    return () => sub.remove();
-  }, [user, store]);
-
   const handleSignIn = async () => {
     setBusy(true);
     try {
@@ -252,11 +212,15 @@ export default function AccountScreen() {
     const sent = `${result.pushed.bucketsWritten} bucket${result.pushed.bucketsWritten === 1 ? '' : 's'} · ` +
       `${result.pushed.transactionsWritten} transaction${result.pushed.transactionsWritten === 1 ? '' : 's'} · ` +
       `${result.pushed.watchlistWritten} watchlist ticker${result.pushed.watchlistWritten === 1 ? '' : 's'} · ` +
-      `${result.pushed.stockNotesWritten} note${result.pushed.stockNotesWritten === 1 ? '' : 's'}`;
+      `${result.pushed.stockNotesWritten} note${result.pushed.stockNotesWritten === 1 ? '' : 's'} · ` +
+      `${result.pushed.stockAlertsWritten} alert${result.pushed.stockAlertsWritten === 1 ? '' : 's'} · ` +
+      `${result.pushed.stockTrackerEntriesWritten} tracker entr${result.pushed.stockTrackerEntriesWritten === 1 ? 'y' : 'ies'}`;
     const received = `${result.pulled.buckets} bucket${result.pulled.buckets === 1 ? '' : 's'} · ` +
       `${result.pulled.transactions} transaction${result.pulled.transactions === 1 ? '' : 's'} · ` +
       `${result.pulled.watchlist} watchlist ticker${result.pulled.watchlist === 1 ? '' : 's'} · ` +
-      `${result.pulled.stockNotes} note${result.pulled.stockNotes === 1 ? '' : 's'}`;
+      `${result.pulled.stockNotes} note${result.pulled.stockNotes === 1 ? '' : 's'} · ` +
+      `${result.pulled.stockAlerts} alert${result.pulled.stockAlerts === 1 ? '' : 's'} · ` +
+      `${result.pulled.stockTrackerEntries} tracker entr${result.pulled.stockTrackerEntries === 1 ? 'y' : 'ies'}`;
     const failureNote = result.pulled.failures > 0
       ? `\n\n${result.pulled.failures} record${result.pulled.failures === 1 ? '' : 's'} couldn't be applied - will retry next sync.`
       : '';
@@ -264,12 +228,11 @@ export default function AccountScreen() {
   };
 
   const handleSyncNow = async () => {
-    if (!user || syncInFlightRef.current) return;
-    syncInFlightRef.current = true;
+    if (!user || syncGuard.inFlight) return;
+    syncGuard.inFlight = true;
     setSyncing(true);
     try {
       const result = await syncNow(store, user.uid);
-      lastAutoSyncRef.current = Date.now(); // the manual tap counts toward the auto-trigger throttle too
       await store.setLastSyncedAt(result.syncedAt);
       setLastSyncedAt(result.syncedAt);
       Alert.alert('Sync complete', summarizeResult(result));
@@ -278,7 +241,7 @@ export default function AccountScreen() {
       Alert.alert('Sync failed', e?.message ?? 'Check your connection and try again.');
     } finally {
       setSyncing(false);
-      syncInFlightRef.current = false;
+      syncGuard.inFlight = false;
     }
   };
 
